@@ -15,25 +15,18 @@ WatchedIt is a personal content manual — a mobile app for logging, searching, 
 
 ## Current Build Status
 
-### Stage 1 — UI Shell (IN PROGRESS)
-React web app (local), built in VSCode. All screens designed and built with dummy data. No backend, no auth, no live APIs yet.
+### Stage 1 — UI Shell + Live APIs ✅ Complete
+React web app, all screens built in `src/screens/WatchedItApp.jsx`. APIs (MAL, TMDB, OMDB) wired into LogIt search. `WatchedItApp.jsx` is now the migration reference — do not add features to it.
 
-### Screens — all in `WatchedIt_App.jsx`
-| Screen | Status | Notes |
-|---|---|---|
-| Watch Tower (Home) | ✅ Complete | Stats block, streak banner, currently watching, recently watched |
-| WatchList | ✅ Complete | Tabs, consolidated filter/sort sheet, search |
-| Log It | ✅ Complete | 2-step flow, search → details, all branching states |
-| Detail Views | ✅ Complete | Watched, Currently Watching, Dropped, Watch Plan states |
-| Search | ✅ Complete | Real-time search across WatchLog |
-| Statistics | ✅ Complete | Summary + Timeline, radar chart, breakdown list |
-| Watcher (Profile) | ✅ Complete | Edit profile, recommendations, Stage 3 placeholders |
+### Stage 2 — Expo Native Migration ✅ Complete (as of Apr 2026)
+All screens and components migrated to React Native + Expo Router. The app runs on device. `WatchedItApp.jsx` is kept read-only as a reference only.
 
 ### What's NOT built yet (do these next in order)
-1. **Onboarding flow** — cold start problem, empty state for new users, first-time experience
-2. **Tone audit** — check all empty states, error messages, action labels are warm + playful
-3. **Expo migration** — port from React web to React Native + Expo (Android first)
-4. **Stage 2 APIs** — wire MAL, TMDB, OMDB
+1. **Onboarding flow** — cold start problem, empty state for new users
+2. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
+3. **Animation pass** — Log It Step 1→2 transition needs slide/expand animation
+4. **Assets** — add `assets/icon.png` (1024×1024), `assets/splash.png`, `assets/adaptive-icon.png`
+5. **Play Store prep** — app signing, store listing, screenshots
 
 ---
 
@@ -41,63 +34,114 @@ React web app (local), built in VSCode. All screens designed and built with dumm
 
 ```
 /
-├── CLAUDE.md                    ← this file
-├── WatchedIt_Spec_v1.3.md       ← full product spec, read this for decisions
+├── app/                           ← Expo Router — all route files are thin re-exports
+│   ├── _layout.jsx                ← Root layout: font loading, GestureHandlerRootView
+│   ├── (tabs)/
+│   │   ├── _layout.jsx            ← Tab navigator (5 slots, + FAB opens logit modal)
+│   │   ├── index.jsx              ← Watch Tower tab
+│   │   ├── watchlist.jsx          ← WatchList tab
+│   │   ├── search.jsx             ← Search tab
+│   │   └── watcher.jsx            ← Watcher/Profile tab
+│   ├── logit/
+│   │   ├── search.jsx             ← Log It Step 1 (modal)
+│   │   └── details.jsx            ← Log It Step 2
+│   ├── detail/
+│   │   └── [id].jsx               ← Detail view (dynamic route)
+│   └── stats.jsx                  ← Statistics screen
 ├── src/
-│   └── WatchedIt_App.jsx        ← entire app, all screens in one file
-└── package.json
+│   ├── CLAUDE.md                  ← this file
+│   ├── constants/
+│   │   └── tokens.js              ← Design tokens (T object) — LOCKED
+│   ├── screens/                   ← Screen components (logic lives here, app/ re-exports)
+│   │   ├── WatchedItApp.jsx       ← MIGRATION REFERENCE — do not add features here
+│   │   ├── WatchTower.jsx         ← stub — migrate from WatchedItApp.jsx
+│   │   ├── WatchList.jsx          ← stub
+│   │   ├── DetailView.jsx         ← stub
+│   │   ├── LogItSearch.jsx        ← stub
+│   │   ├── LogItDetails.jsx       ← stub
+│   │   ├── SearchScreen.jsx       ← stub
+│   │   ├── StatsScreen.jsx        ← stub
+│   │   └── WatcherScreen.jsx      ← stub
+│   ├── components/                ← Shared UI components (extracted from WatchedItApp.jsx)
+│   │   ├── Poster.jsx             ← stub
+│   │   ├── TypePill.jsx           ← stub
+│   │   ├── StarRating.jsx         ← stub
+│   │   ├── FilterSheet.jsx        ← stub (@gorhom/bottom-sheet)
+│   │   ├── LogSeshSheet.jsx       ← stub (@gorhom/bottom-sheet)
+│   │   ├── RatingSheet.jsx        ← stub (@gorhom/bottom-sheet)
+│   │   ├── MiniCalendar.jsx       ← stub
+│   │   └── BlockingPopup.jsx      ← stub
+│   ├── api/
+│   │   ├── index.js               ← unified searchTitles() entry point
+│   │   └── mal.js                 ← MAL API (direct fetch, no proxy needed in RN)
+│   ├── services/
+│   │   ├── tmdb.js                ← TMDB API (Bearer token)
+│   │   ├── omdb.js                ← OMDB API
+│   │   └── search.js              ← legacy orchestrator (keep for reference)
+│   ├── db/
+│   │   └── storage.js             ← AsyncStorage CRUD (all functions are async)
+│   └── utils/
+│       └── titleUtils.js
+├── assets/                        ← TODO: add icon.png, splash.png, adaptive-icon.png
+├── app.json                       ← Expo config (package: com.watchedit.app)
+├── babel.config.js                ← babel-preset-expo + reanimated plugin
+├── metro.config.js
+├── eas.json                       ← EAS Build: preview=APK, production=AAB
+├── .env                           ← All keys use EXPO_PUBLIC_ prefix
+└── package.json                   ← Expo Router entry, React Native stack
+
+# Deprecated CRA artifacts (do not use, do not delete yet — kept for reference):
+# src/App.js, src/index.js, src/setupProxy.js, src/App.css, src/index.css
+# public/, build/
 ```
 
-All screens live in a single `WatchedIt_App.jsx` file. Component order from top to bottom:
-- Design tokens (`T` object)
-- Mock data (`MOCK_ENTRIES`, `MOCK_SEARCH`, `STATS`)
-- Helper functions
-- Shared UI components (Poster, TypePill, Card, Toggle, BlockingPopup, etc.)
-- StarRating
-- LanguageField (with top 10 language chips)
-- GenreEditor (inline tag creation)
-- FilterSheet (consolidated sort + filter bottom sheet)
-- WatchTower
-- WatchList
-- DetailView
-- LogItSearch + LogItDetails
-- SearchScreen
-- StatBreakdownRow + StatsScreen
-- WatcherScreen
-- App (shell with navigation)
+### Migration pattern for extracting components
+
+Each screen stub in `src/screens/` follows this pattern:
+```jsx
+// 1. Find the component in WatchedItApp.jsx
+// 2. Copy it into the stub file
+// 3. Replace: div→View, p/span→Text, img→Image, CSS objects→StyleSheet.create()
+// 4. Replace: navigator.vibrate() → Expo.Haptics.impactAsync()
+// 5. Replace: localStorage → AsyncStorage (all storage calls are now async)
+// 6. Replace: browser navigation → expo-router router.push() / useLocalSearchParams()
+// 7. Import T from '../constants/tokens' instead of defining inline
+```
 
 ---
 
 ## Design System — LOCKED, do not change these
 
-### Colours
+### Colours (in `src/constants/tokens.js`)
 ```js
-const T = {
-  bgPrimary:   "#292826",   // page background
-  surface:     "#333230",   // cards
-  elevated:    "#3E3C39",   // inputs, chips
-  amber:       "#EF9F27",   // CTAs, ratings, active states
-  amberDeep:   "#E8860A",   // card titles, gradient end
-  amberSoft:   "#FAC775",   // badges, muted accents
-  amberWarm:   "#C8854A",   // TV Show pill
-  textPrimary: "#F5F0E8",   // body text
-  textMuted:   "#9E9B96",   // labels, dates
-  // special:
-  // paused badge: #8BA3C4
-  // dropped badge: #C47A7A
-}
+T.bgPrimary   = "#292826"   // page background
+T.surface     = "#333230"   // cards
+T.elevated    = "#3E3C39"   // inputs, chips
+T.amber       = "#EF9F27"   // CTAs, ratings, active states
+T.amberDeep   = "#E8860A"   // card titles, gradient end
+T.amberSoft   = "#FAC775"   // badges, muted accents
+T.amberWarm   = "#C8854A"   // TV Show pill
+T.textPrimary = "#F5F0E8"   // body text
+T.textMuted   = "#9E9B96"   // labels, dates
+// Special:
+T.paused      = "#8BA3C4"
+T.dropped     = "#C47A7A"
 ```
 
-### Typography
-- Display/headings: Nunito 800w
-- Titles: Nunito 600–700w
-- Body: Nunito 400–500w
-- Mono labels/stats: Inconsolata
+### Typography (font families registered in `app/_layout.jsx`)
+```js
+T.fontDisplay     = 'Nunito-ExtraBold'    // 800w — headings, numbers, CTAs
+T.fontTitle       = 'Nunito-Bold'          // 700w — card titles
+T.fontTitleMedium = 'Nunito-SemiBold'     // 600w
+T.fontBody        = 'Nunito-Regular'       // 400w — body
+T.fontBodyMedium  = 'Nunito-Medium'       // 500w
+T.fontMono        = 'Inconsolata-Regular'  // mono — labels, stats, dates
+```
 
 ### Rules
 - Dark mode only
-- Cards: 16px border radius
-- Buttons/pills: 22px border radius
+- Cards: `T.radiusCard` = 16px border radius
+- Buttons/pills: `T.radiusButton` = 22px border radius
 - No harsh borders — elevation separates surfaces
 - Amber sparingly: only ratings, CTAs, active states
 - No glows or halos — matte surfaces only
@@ -112,7 +156,7 @@ const T = {
 | WatchList | The list screen |
 | Watch Tower | The home screen |
 | Watch Sesh / Log a Sesh | A single episode session |
-| Watch Deets | The timeline section in detail views |
+| Watch Deets | The detail/timeline screen for a title |
 | Watch Plan | Plan to Watch status |
 | Watcher | The profile screen |
 
@@ -129,71 +173,136 @@ const T = {
 | Watch Plan | No |
 
 **State transition rules (enforce these strictly):**
-- **Watch Plan** → Watched, Watching (TV/Anime only), Delete. Cannot be Paused or Dropped.
-- **Currently Watching** → Watched, Paused, Dropped (rating mandatory)
+- **Watch Plan** → Watched (movie: via RatingSheet), Watching (TV/Anime: via Log a Sesh or Mark All Watched), Delete. Cannot be Paused or Dropped.
+- **Currently Watching** → Watched (via Mark All Watched / Log a Sesh that completes show), Paused, Dropped (rating mandatory)
 - **Paused** → Watching (resume), Dropped, Watched
 - **Dropped** → Watching (Continue Watching CTA, logs resume date), Watched directly
 - **Watched** → Rewatch (new linked entry), Unwatch (delete)
 - **Movies** → can only be Watched or Watch Plan. Watching blocked with 🍿 popup.
+- **Logging a Sesh** always moves the entry to `status:"watching"` if it was in any other non-complete state.
 
 ---
 
-## API Stack (Stage 2)
-| Data | API | Notes |
-|---|---|---|
-| Anime | MAL official API | Free, needs client ID |
-| Movies + TV | TMDB | Free, needs API key |
-| IMDB ratings | OMDB | Free, 1000 req/day |
+## Navigation (Expo Router)
 
-Search priority: MAL → TMDB → OMDB
-In Stage 3: all API calls move server-side via Supabase Edge Functions.
+```
+app/_layout.jsx              Root Stack
+├── (tabs)                   Bottom tab navigator
+│   ├── index (Watch Tower)
+│   ├── watchlist
+│   ├── [+ FAB]             Opens /logit/search as modal — not a real tab route
+│   ├── search
+│   └── watcher
+├── logit/search             Modal (slide from bottom) — Log It Step 1
+├── logit/details            Stack — Log It Step 2
+├── detail/[id]              Stack — Detail view
+└── stats                    Stack — Statistics
+```
+
+**Navigating to Detail View:**
+```js
+router.push(`/detail/${entry.id}`);
+```
+
+**Navigating to Log It Details from Search:**
+```js
+router.push({ pathname: '/logit/details', params: { resultJson: JSON.stringify(result) } });
+```
+
+**Edit mode in LogItDetails:**
+```js
+router.push({ pathname: '/logit/details', params: { entryId: entry.id, isEdit: 'true' } });
+```
 
 ---
 
-## Platform Decision
-**React Native + Expo, Android first.**
-- Currently: React web shell for design/logic validation
-- Stage 2: Port to React Native + Expo
-- Key native features needed: Share extension (Stage 2), home screen widget (Stage 4), haptics
-- `div` → `View`, `p` → `Text`, CSS objects → `StyleSheet.create()`
-- All logic, state, design tokens carry over identically
+## API Stack (Live)
+
+### Keys — stored in `.env` (EXPO_PUBLIC_ prefix)
+```
+EXPO_PUBLIC_MAL_CLIENT_ID=...
+EXPO_PUBLIC_TMDB_TOKEN=...   (Bearer JWT)
+EXPO_PUBLIC_OMDB_API_KEY=...
+```
+
+### Architecture
+- `src/api/index.js` — `searchTitles(query, entries)` — main entry point. Runs MAL + TMDB movies + TMDB TV + OMDB in parallel via `Promise.allSettled`. Returns `{ combined, bySource }`.
+- `src/api/mal.js` — MAL search via direct fetch (no proxy — CORS doesn't apply in React Native)
+- `src/services/tmdb.js` — TMDB movies + TV (Bearer token). Exports: `searchTMDBMovies`, `searchTMDBTV`, `getTMDBMovieDetails`, `getTMDBTVDetails`
+- `src/services/omdb.js` — OMDB search + detail enrichment. Exports: `searchOMDB`, `getOMDBDetails`
 
 ---
 
-## Build Stages
-| Stage | Scope | Status |
-|---|---|---|
-| 1 | React web UI shell, all screens, dummy data | ✅ ~95% Complete |
-| 2 | Port to React Native + Expo. Wire MAL + TMDB + OMDB. Share extension (Android Intent filters + iOS Share Extension). Shareable stats card. | 🔲 Not started |
-| 3 | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. | 🔲 Not started |
-| 4 | Social/friends. Home screen widget. WatchedIt channel/web detection. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 Not started |
+## Data Layer
+
+### Storage (`src/db/storage.js`)
+All functions are **async** (AsyncStorage). Always `await` them.
+```js
+await getEntries()
+await addEntry(entry)
+await updateEntry(updated)
+await deleteEntry(id)
+await getEntry(id)
+await getTitleLanguagePref()    // 'en' | 'ja' | 'romanised'
+await setTitleLanguagePref(p)
+```
+
+### Entry shape
+```js
+{
+  id              // string (Date.now().toString())
+  title           // string
+  type            // "Movie" | "TV Show" | "Anime"
+  lang            // string
+  rating          // number | null (0.5–10)
+  reaction        // string | undefined
+  recommend       // boolean
+  bookmark        // boolean
+  date            // string (short, e.g. "Apr 10")
+  status          // "watched" | "watching" | "watchplan"
+  ep              // number | null
+  total           // number | null
+  ongoing         // boolean
+  paused          // boolean
+  dropped         // boolean
+  rewatch         // boolean
+  finishedDate    // string | null
+  lastWatchedDate // string | null
+  watchTime       // string | null (e.g. "~7h 12m")
+  estimated       // boolean
+  genre           // string[]
+  poster_url      // string | null
+  malRating       // number | null
+  watch_sessions  // WatchSession[]
+  episode_notes   // { [epNumber]: string } | undefined
+  watch_start_date // ISO string | null
+  watch_end_date  // ISO string | null
+  logged_at       // ISO string
+}
+```
 
 ---
 
 ## Key UX Decisions Made (don't revisit unless flagged)
 
-- **Log It is 2 steps:** Bottom sheet for search, full screen for details. Not step-by-step wizard.
-- **Filter & Sort:** Single consolidated bottom sheet triggered by one button. Not separate chips row.
-- **Language input:** 10 quick-select chips (English, Japanese, Korean, Hindi, Tamil, Spanish, French, German, Italian, Mandarin) + free text fallback.
-- **Genre tags:** Inline "+ Add Tag" chip at end of tag row. Profile is secondary entry point.
+- **Log It is 2 steps:** Modal screen for search, full screen for details.
+- **Filter & Sort:** Single consolidated bottom sheet triggered by one button.
+- **Language input:** 10 quick-select chips + free text fallback.
+- **Genre tags:** Inline "+ Add Tag" chip.
 - **Star rating:** Tap left half = X.5, tap right half = X. Drag for speed. Haptic on each step.
-- **Rewatch:** Single result already in log → callout shown immediately, no tap needed.
-- **Movie + Watching:** Blocked with 🍿 popup. CTAs: "Lol faine, I'll finish it" + "Actually I'm done".
-- **Rating required popup:** ⭐ "C'mon, you know what you felt" — blocks submit without rating on Watched status.
-- **Streak banner:** Shown on Watch Tower when streak ≥ 2 days. Dismissible. Rotates copy by streak length.
+- **Movie + Watching:** Blocked with 🍿 popup.
+- **Rating required popup:** ⭐ blocks submit without rating on Watched status.
 - **Currently Watching on home:** Horizontal scroll cards. Paused entries hidden by default.
 - **Recently Watched on home:** Last 3 only.
-- **Bookmark treatment:** Right-edge gradient border on cards — amber at top fading down.
-- **Detail view header layout:** Title inside hero card alongside poster. Locked.
-- **Watch time in detail view:** Shown in hero card meta row (Type · Language · Watch time).
-- **Episode tracker:** Visual states only in current build (watched/next/unwatched). Interactive in Stage 2.
-- **Dropped entry:** Shows red callout + "Continue Watching" CTA. Logs resumed date in Watch Deets.
-- **Comparison in stats:** Previous period only (same duration). Toggle to show/hide comparison bars.
+- **Bookmark treatment:** Right-edge gradient border on cards.
+- **Episode tracker:** Collapsed by default.
+- **Ongoing shows:** "Mark as Finished" CTA always visible.
+- **Logging a sesh on Watch Plan / Dropped:** Automatically transitions to Currently Watching.
 
 ---
 
 ## Tone & Copy Guidelines
-Warm, slightly playful, never condescending. Examples of the right voice:
+Warm, slightly playful, never condescending:
 - "Woah you've gone niche! 🎭 No results found online... add manually to log?"
 - "Lol faine, I'll finish it"
 - "C'mon, you know what you felt"
@@ -203,31 +312,52 @@ Warm, slightly playful, never condescending. Examples of the right voice:
 - "We're not judging 👀" (at 14 day streak)
 - "Rating later? Your verdict will mean more when you've slept on it."
 - "This is yours forever. Future you will thank present you."
-
-Micro-explanations appear at key moments in Log It — below the rating field and reaction field when empty.
-
----
-
-## Pending Work
-- Onboarding flow — what does a new user see on first launch with empty WatchLog?
-- Tone audit — verify all empty states, error messages, action labels match voice above
-- Animation pass — Step 1 → Step 2 transition in Log It needs slide/expand animation
+- "That's a wrap! Rate it 🎬" (completing an ongoing show)
+- "You finished it! Rate it 😄" (completing a finite show)
 
 ---
 
 ## How to Run
+
 ```bash
-npm start
-# or
-npm run dev
+# Install dependencies (first time or after package.json changes)
+npx expo install --fix    # validates and fixes version mismatches
+npm install
+
+# Development (Expo Go on device — scan QR)
+npm start                 # or: npx expo start
+
+# Android emulator / device
+npm run android
+
+# Build APK (for sideloading / testing)
+npm run build:apk         # requires EAS account + eas-cli
+
+# Build AAB (for Play Store submission)
+npm run build:aab
 ```
+
+**Assets required before first build:**
+- `assets/icon.png` — 1024×1024 PNG, app icon
+- `assets/splash.png` — splash screen image
+- `assets/adaptive-icon.png` — Android adaptive icon foreground (1024×1024, transparent bg)
 
 ---
 
 ## Important Notes for Claude Code
-- **Don't split into multiple files yet** — keeping everything in one JSX file until Expo migration
-- **Don't add a backend** — dummy data only until Stage 3
-- **Don't change design tokens** — colours, fonts, border radii are locked
-- **Always enforce state transition rules** — see the table above
-- **Hooks rule** — never call useState/useEffect inside .map() or conditionals — extract to a named component
-- **Check the spec** (`WatchedIt_Spec_v1.3.md`) for any product decisions before making assumptions
+
+- **`WatchedItApp.jsx` is now read-only** — it's the migration source. Extract from it, don't add to it.
+- **All storage calls are async** — `await getEntries()`, `await addEntry()`, etc.
+- **No localStorage** — use `src/db/storage.js` (AsyncStorage) everywhere.
+- **No browser APIs** — no `window`, `document`, `navigator.vibrate`, `localStorage`, `URL` constructor (use string template for URLs in fetch calls, or verify RN URL support).
+- **Haptics** — use `expo-haptics` (`await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)`) not `navigator.vibrate`.
+- **Bottom sheets** — use `@gorhom/bottom-sheet`. Must be inside `GestureHandlerRootView` (already set up in `app/_layout.jsx`).
+- **Fonts** — always use `T.fontDisplay`, `T.fontTitle`, etc. Never hardcode font family strings.
+- **Design tokens** — import `T` from `src/constants/tokens.js`. Do not change colour/font/radius values.
+- **Always enforce state transition rules** — see the table above.
+- **Hooks rule** — never call useState/useEffect inside .map() or conditionals.
+- **Always pass `url={entry.poster_url}` to `<Poster/>`** — omitting it silently falls back to initials.
+- **`bySource` vs `combined`** — when a source filter chip is active, use `bySource[source]` not `combined`.
+- **Edit mode in LogItDetails** — when `isEdit=true`, submit must call `updateEntry` (not `addEntry`) and must preserve `id`, `watch_sessions`, `episode_notes`.
+- **Check the spec** (`WatchedIt_Spec_v1.3.md`) for product decisions before making assumptions.
+- **Run `npx expo install --fix`** after changing package.json to validate dependency versions.

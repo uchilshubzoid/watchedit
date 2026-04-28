@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v1.3
-*Last updated: April 2026. Stage 1 UI shell complete. APIs partially wired (MAL). Local DB via json-server.*
+# WatchedIt — Full Product Spec v1.4
+*Last updated: April 2026. Stage 2 Expo native migration complete. MAL + TMDB + OMDB search wired. Local persistence via AsyncStorage.*
 
 ---
 
@@ -34,13 +34,24 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 | Secondary platform | iOS | Polish after Android is solid |
 | Distribution | Google Play Store (primary) · Apple App Store (secondary) | |
 | Dev workflow | Expo Go for device preview | Scan QR, see changes instantly on physical device — no emulator needed |
+| Routing | Expo Router | File-based native navigation with route files in `app/` |
+| Local storage | AsyncStorage | Device-local prototype persistence until Supabase in Stage 3 |
 
-**What React Native changes vs our web shell:**
+**Current native architecture:**
+- Expo Router is the app entry point (`"main": "expo-router/entry"`).
+- Route files in `app/` are intentionally thin; screen logic lives in `src/screens/`.
+- `app/_layout.jsx` owns font loading, splash hiding, `GestureHandlerRootView`, status bar, and stack presentation.
+- `app/(tabs)/_layout.jsx` owns the bottom tabs and the central Log It FAB.
+- Log It search currently opens as a native `Modal` from the tab FAB; `/logit/search` also exists as a modal route.
+- `src/screens/WatchedItApp.jsx` is read-only migration reference. Do not add new product work there.
+
+**What changed vs the original web shell:**
 - `div` → `View`, `p` → `Text`, `img` → `Image`
 - CSS objects → `StyleSheet.create()`
-- Browser navigation → React Navigation library
+- Browser navigation → Expo Router (`router.push`, `useLocalSearchParams`)
 - `navigator.vibrate` → Expo Haptics (much better on Android)
 - Bottom sheets → `@gorhom/bottom-sheet` (native feel)
+- `localStorage` / `json-server` → AsyncStorage helper functions in `src/db/storage.js`
 
 **What stays identical:**
 - All product decisions and spec
@@ -48,6 +59,30 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 - Design tokens and visual language
 - Data model
 - API integration approach
+
+---
+
+## 1A. Current Build Status
+
+### Complete
+- Stage 1 React web shell is complete and kept only as reference.
+- Stage 2 Expo native migration is complete.
+- Expo Router route structure is in place.
+- Core screens have native implementations in `src/screens/`.
+- Shared UI components have native implementations in `src/components/`.
+- MAL, TMDB, and OMDB search are wired through the unified search entry point.
+- Local persistence is AsyncStorage-based.
+- App assets are present in `assets/icon.png`, `assets/splash.png`, and `assets/adaptive-icon.png`.
+
+### Next Product Work
+1. Onboarding flow for cold start and empty state.
+2. Tone audit across empty states, errors, and action labels.
+3. Animation pass for Log It Step 1→2 transition.
+4. Release polish and Play Store prep.
+
+### Do Not Use For New Work
+- `src/screens/WatchedItApp.jsx` — migration reference only.
+- Deprecated CRA files (`src/App.js`, `src/index.js`, `public/`, CSS files) — keep for reference until explicitly removed.
 
 ---
 
@@ -112,6 +147,36 @@ Right edge gradient border on WatchList cards. Amber at top-right corner, fades 
 
 **Bottom nav (5 tabs):**
 Watch Tower · WatchList · **+** (amber gradient circle, elevated, −20px lift) · Search · Watcher
+
+**Expo Router route map:**
+```
+app/_layout.jsx              Root Stack
+├── (tabs)                   Bottom tab navigator
+│   ├── index.jsx            Watch Tower
+│   ├── watchlist.jsx        WatchList
+│   ├── plus.jsx             Placeholder route; FAB opens Log It modal
+│   ├── search.jsx           Search
+│   └── watcher.jsx          Watcher
+├── logit/search.jsx         Log It Step 1 modal route
+├── logit/details.jsx        Log It Step 2 stack route
+├── detail/[id].jsx          Detail view
+└── stats.jsx                Statistics
+```
+
+**Navigation calls:**
+```js
+router.push(`/detail/${entry.id}`);
+
+router.push({
+  pathname: '/logit/details',
+  params: { resultJson: JSON.stringify(result) },
+});
+
+router.push({
+  pathname: '/logit/details',
+  params: { entryId: entry.id, isEdit: 'true' },
+});
+```
 
 ---
 
@@ -189,7 +254,7 @@ Each tab has its own personality-led empty state message.
 ## 7. Screen: Log It
 
 ### Architecture
-- **Step 1** — Bottom sheet: title search + quick actions
+- **Step 1** — Native modal/bottom sheet: title search + quick actions
 - **Step 2** — Full screen: collapsed metadata + status + rating + reaction
 - **Success** — Full screen confirmation
 
@@ -197,11 +262,19 @@ Each tab has its own personality-led empty state message.
 
 Single text input, search on submit (not live). Sources: **MAL → TMDB → OMDB** in priority order.
 
+After search:
+- Source filter chips: All · MAL · TMDB · OMDB, each with result count
+- Type filter chips: All · Movie · TV Show · Anime
+- Search failures from any source do not block other sources
+- Small notice appears when the unified search fails entirely
+- Result info button opens a temporary preview modal with poster, metadata, source rating, genres, and an auto-close timer that can be paused by holding
+
 **Result card layout:**
 ```
 ┌─────────────────────────────────────────┐
-│ [FB]  Frieren: Beyond Journey's End     │
-│       Anime · 2023 · MAL          9.0   │
+│ [Poster] Frieren: Beyond Journey's End  │
+│          [MAL] Anime · 2023       ★9.0  │
+│                                   ⓘ     │
 │                                         │
 │  [+ Watch Plan]        [WatchedIt →]    │
 └─────────────────────────────────────────┘
@@ -213,17 +286,17 @@ Single text input, search on submit (not live). Sources: **MAL → TMDB → OMDB
 - Instantly creates entry with `status: watchplan`, all available API metadata, `rating: null`, `logged_at: now`
 - Card transforms inline to confirmation state — no navigation away from search screen:
 ```
-✓ Added to Watch Plan   View here →
+✓ Added to Watch Plan   View →
 ```
-- "View here →" navigates to that entry's detail view
+- "View →" navigates to WatchList filtered to Watch Plan
 - If title already in WatchLog → show current status, disable both CTAs with appropriate message ("Already Watched", "Already in Watch Plan" etc.)
-- Duplicate detection: `entries.some(e => e.malId === result.id)`
+- Duplicate detection currently uses normalized title matching in `searchTitles()` enrichment; source IDs should be used when available as the model matures
 
 **`WatchedIt →` CTA:**
 - Navigates to Step 2
 
 **Rewatch detection:**
-- Title already in log as Watched → card shows "Watched before · Log Rewatch" instead of two CTAs
+- Title already in log → card shows rewatch callout with `Log Rewatch` and `New Entry`
 - Single result already in log → rewatch callout shown immediately, no tap needed
 - Multiple results with one in log → tap to select, rewatch callout expands inline
 
@@ -496,7 +569,7 @@ Radar/spider chart showing genre spread across watched entries.
 ### Breakdown list
 Category breakdown expandable by category → titles → tap goes to detail view.
 
-### Sharing (Stage 2)
+### Sharing (Future)
 *"📤 Share your stats with friends — coming when we build the friends module"*
 
 ---
@@ -519,7 +592,8 @@ Entries where recommend = true. "View all →" CTA.
 TITLE LANGUAGE
 [ English ]  [ Romanised ]  [ Japanese ]
 ```
-- Stored as `watchedit_title_language_pref` in localStorage
+- Stored in AsyncStorage via `getTitleLanguagePref()` / `setTitleLanguagePref()`
+- Storage key: `watchedit_title_language_pref`
 - Default: English
 - Applies to all MAL-sourced title display throughout the app
 - `getPreferredTitle(malResult, pref)` utility:
@@ -574,7 +648,48 @@ Amber gradient background · dark text. User-editable, max 10 chars. Persists pe
 
 ## 17. Data Model
 
-### Entry object
+### Current persisted Entry object
+The current Expo build stores entries in AsyncStorage under `watchedit_entries`. Field names still reflect the migrated Stage 1 shape; do not silently rename them without a migration.
+
+```js
+{
+  id,                  // string, usually Date.now().toString()
+  title,               // string
+  type,                // "Movie" | "TV Show" | "Anime"
+  lang,                // string
+  rating,              // number | null, 0.5–10
+  reaction,            // string | null
+  recommend,           // boolean
+  bookmark,            // boolean
+  date,                // short display date, e.g. "Apr 10"
+  status,              // "watched" | "watching" | "watchplan"
+  ep,                  // current watched episode number | null
+  total,               // total episode count | null
+  ongoing,             // boolean
+  paused,              // boolean
+  dropped,             // boolean
+  rewatch,             // boolean
+  finishedDate,        // display date | null
+  lastWatchedDate,     // display date | null
+  watchTime,           // string | null, e.g. "~7h 12m"
+  estimated,           // boolean
+  genre,               // string[]
+  poster_url,          // string | null
+  malRating,           // number | null
+  watch_sessions,      // WatchSession[]
+  episode_notes,       // { [epNumber]: string } | undefined
+  watch_start_date,    // ISO string | null
+  watch_end_date,      // ISO string | null
+  logged_at,           // ISO string
+  malId,               // number | null, when available
+  tmdbId,              // number | null, when available
+  imdbID,              // string | null, when available
+}
+```
+
+### Target canonical Entry object
+This remains the preferred longer-term shape for a Supabase-backed Stage 3 migration. Until then, map carefully between current names (`type`, `status`, `genre`, `total`, `ongoing`, `watchTime`) and canonical names (`content_type`, `watch_status`, `genre_tags`, `episode_count`, `is_ongoing`, `watch_time_mins`).
+
 | Field | Type | Notes |
 |---|---|---|
 | id | string | `Date.now().toString()` in local DB |
@@ -609,8 +724,8 @@ Amber gradient background · dark text. User-editable, max 10 chars. Persists pe
 ### Derived states (not stored)
 - Flagged = `status === "watched" && rating === null`
 - Total watched = count of Watched + Dropped entries
-- Total watch time = sum of watch_time_mins
-- Category counts = grouped by content_type
+- Total watch time = current build parses/sums `watchTime`; canonical model should use `watch_time_mins`
+- Category counts = grouped by `type` in the current build; canonical model should use `content_type`
 - Watch streak = consecutive days with a Watch Sesh or Watched entry
 - Avg rating = mean of all rated Watched entries (excludes flagged)
 
@@ -651,7 +766,7 @@ Retroactive entries for multi-episode shows cannot be accurately spread across a
 Watch Sesh entries each have their own date — attributed to the session date, not completion date. This provides accurate granular data for active watching.
 
 ### Watch Plan entries
-Not counted in stats at all. `created_at` logged for audit trail only.
+Not counted in stats at all. Current build uses `logged_at`/`date`; canonical model may add `created_at` during the Stage 3 data migration.
 
 ---
 
@@ -679,47 +794,54 @@ Not counted in stats at all. `created_at` logged for audit trail only.
 
 **Search priority in Log It:** MAL → TMDB → OMDB
 
+**Unified search entry point:**
+- `src/api/index.js` exports `searchTitles(query, entries)`.
+- Runs MAL, TMDB movies, TMDB TV, and OMDB in parallel via `Promise.allSettled`.
+- Returns `{ combined, bySource }`.
+- `combined` is deduplicated by case-insensitive title, with source priority MAL → TMDB → OMDB, then relevance-sorted.
+- `bySource` preserves per-source result lists for source filter chips.
+- Result cards should use `bySource[source]` when a source chip is active, not `combined`.
+
 **MAL field mapping:**
 | MAL field | Maps to | Notes |
 |---|---|---|
 | `title` | `title` (romanised fallback) | |
 | `alternative_titles.en` | Preferred English title | Used when pref = "en" |
 | `alternative_titles.ja` | Japanese title | Used when pref = "ja" |
-| `mean` | `globalRating` | Null if insufficient ratings |
-| `num_episodes` | `episode_count` | 0 = unknown/ongoing → store as null |
-| `average_episode_duration` | `episode_runtime_mins` | In seconds → divide by 60 |
-| `status` | `is_ongoing` | `currently_airing` → true |
+| `mean` | `global_rating` / `malRating` | Null if insufficient ratings |
+| `num_episodes` | `episode_count` / `total` | 0 = unknown/ongoing → store as null |
+| `average_episode_duration` | `episode_runtime_mins` / `epRuntime` | In seconds → divide by 60 |
+| `status` | `is_ongoing` / `ongoing` | `currently_airing` → true |
 | `main_picture.medium` | `poster_url` | |
-| `genres[].name` | `genre_tags` | |
+| `genres[].name` | `genre_tags` / `genre` | |
 | `start_season.year` | `year` | |
 
-**API key security:** Stage 1–2 keys client-side for prototyping. Stage 3: all calls routed through Supabase Edge Functions — keys never exposed in production.
+**API key security:** Stage 2 keys are client-side via `EXPO_PUBLIC_` env vars for prototyping. Stage 3 routes all API calls through Supabase Edge Functions so keys are not exposed in production.
 
 ---
 
-## 22. Local Development DB (Stage 1–2)
+## 22. Local Persistence (Stage 2)
 
-**json-server** running on `localhost:3001`.
+The current native prototype uses AsyncStorage, not `json-server`.
 
+**Storage helper:** `src/db/storage.js`
+
+```js
+await getEntries();
+await addEntry(entry);
+await updateEntry(updated);
+await deleteEntry(id);
+await getEntry(id);
+await clearEntries();
+await getTitleLanguagePref();
+await setTitleLanguagePref(pref);
 ```
-db.json → watched by json-server → REST API on port 3001
-```
 
-**Scripts:**
-```json
-"db": "json-server --watch db.json --port 3001"
-```
+**AsyncStorage keys:**
+- `watchedit_entries` — array of persisted entries
+- `watchedit_title_language_pref` — `"en"` | `"ja"` | `"romanised"`; default `"en"`
 
-**Endpoints used:**
-- `GET /entries` — fetch all
-- `POST /entries` — add entry
-- `PUT /entries/:id` — update
-- `DELETE /entries/:id` — delete
-
-**localStorage keys:**
-- `watchedit_title_language_pref` — "en" | "ja" | "romanised" (default: "en")
-
-`db.json` added to `.gitignore` — test data not committed.
+All storage calls are async. Always `await` them.
 
 ---
 
@@ -751,7 +873,7 @@ db.json → watched by json-server → REST API on port 3001
 
 ---
 
-## 24. Share Extension (Stage 2)
+## 24. Share Extension (Backlog)
 
 Native iOS/Android share sheet integration.
 
@@ -783,9 +905,10 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | Stage | Scope | Status |
 |---|---|---|
 | **1** | React web UI shell. All screens. Dummy data. No backend, no APIs. | ✅ Complete |
-| **2** | React Native + Expo (Android first). MAL + TMDB + OMDB APIs wired. json-server local DB. Share extension. Shareable stats card. Revised Log It flow. | 🔄 In progress |
+| **2** | React Native + Expo migration. Android-first app shell. Expo Router. AsyncStorage persistence. MAL + TMDB + OMDB search. Revised Log It flow. Core screens/components migrated from web reference. | ✅ Complete |
+| **2.1** | Onboarding flow, tone audit, Log It Step 1→2 animation pass, release polish, Play Store prep. | 🔄 Next |
 | **3** | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. | 🔲 |
-| **4** | Social/friends. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
+| **4** | Social/friends. Share extension. Shareable stats card. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
 
 ---
 
@@ -797,3 +920,4 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | 1.1 | Added rewatch, dropped, paused, ongoing, watch time, stats screen, naming conventions |
 | 1.2 | Platform → React Native + Expo. API stack locked (MAL + TMDB + OMDB). Share extension Stage 2. Data import strategy. Stage 4 channels. Design system locked. Product vision added. |
 | 1.3 | Revised Log It flow: two CTAs on search cards (+ Watch Plan instant add, WatchedIt →), collapsed metadata card with inline edit, hybrid episode selector, watch date fields (start + end), "continue without rating" secondary path. Flagged entries system (unrated watched). Mini Rating Sheet component. Title language preference in Watcher (EN/JP/Romanised). MAL field mapping table. Stats date attribution model (always watch_end_date, no spreading). json-server local DB documented. State transition rules table. Recently Watched reduced to 3. Watch Tower unrated nudge. "Log a Sesh" rename. |
+| 1.4 | Updated project status to Stage 2 native migration complete. Documented Expo Router route map, AsyncStorage persistence, current `searchTitles()` return shape, current persisted entry shape, and moved share extension/shareable stats out of completed Stage 2 scope. |

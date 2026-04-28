@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { searchTitles } from "../api";
-import { getEntries as loadStoredEntries, addEntry, updateEntry, saveEntries, clearEntries } from "../db/storage";
+import { getEntries as loadStoredEntries, addEntry, updateEntry, deleteEntry, saveEntries, clearEntries } from "../db/storage";
 import { getPreferredTitle } from "../utils/titleUtils";
 
 // ── Design Tokens ─────────────────────────────────────────────────────────────
@@ -103,6 +103,8 @@ const Ico = {
   Trash:   ({c="#C47A7A"})=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>,
   Filter:  ({s=14,c=T.textMuted})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
   Play:    ({c=T.amber})=><svg width="16" height="16" viewBox="0 0 24 24" fill={c} stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>,
+  Cal:     ({s=18,c=T.textMuted})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  Info:    ({s=16,c=T.textMuted})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="8.5" strokeWidth="2.8"/><line x1="12" y1="11" x2="12" y2="16"/></svg>,
 };
 
 // ── Shared UI ─────────────────────────────────────────────────────────────────
@@ -708,9 +710,14 @@ function WatchList({entries,onOpenDetail,onUpdateEntry,initialTab="all",initialU
 // ══════════════════════════════════════════════════════════════════════════════
 // ── DETAIL VIEW ───────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
-function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
+function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry,onDeleteEntry}) {
   const [modal,setModal]=useState(null);
   const [ratingOpen,setRatingOpen]=useState(false);
+  const [epListExpanded,setEpListExpanded]=useState(false);
+  const [seshOpen,setSeshOpen]=useState(false);
+  const [seshMarkAll,setSeshMarkAll]=useState(false);
+  const [editingNoteEp,setEditingNoteEp]=useState(null);
+  const [noteInput,setNoteInput]=useState("");
   const isWatched  = entry.status==="watched";
   const isWatching = entry.status==="watching" && !entry.dropped;
   const isDropped  = entry.dropped;
@@ -722,14 +729,32 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
     {source:"IMDB",rating:8.6},
   ];
 
-  const DEETS_WATCHED  =[{icon:"✅",label:"Finished",date:entry.finishedDate||"Apr 10, 2026"},{icon:"▶️",label:"Started Watching",date:"Mar 15, 2026"},{icon:"📌",label:"Added to Watch Plan",date:"Mar 1, 2026"}];
-  const DEETS_WATCHING =[{icon:"🎬",label:"Log a Sesh · Ep 3–4",date:"Apr 8, 2026"},{icon:"🎬",label:"Log a Sesh · Ep 1–2",date:"Apr 1, 2026"},{icon:"▶️",label:"Started Watching",date:"Apr 1, 2026"}];
-  const DEETS_DROPPED  =[{icon:"✕",label:"Dropped",date:"Jan 20, 2026"},{icon:"🎬",label:"Log a Sesh · Ep 15–20",date:"Jan 15, 2026"},{icon:"▶️",label:"Started Watching",date:"Dec 1, 2025"}];
+  // Build Watch Deets from real session data when available, fall back to mock timeline
+  const sessions = entry.watch_sessions || [];
+  const sessionDeets = [...sessions].reverse().map(s=>({
+    icon:"🎬",
+    label: s.ep_from===s.ep_to ? `Log a Sesh · Ep ${s.ep_from}` : `Log a Sesh · Ep ${s.ep_from}–${s.ep_to}`,
+    date: s.date_display || s.date,
+  }));
+  const hasSessions = sessions.length > 0;
+
+  const DEETS_WATCHED  = hasSessions
+    ? [{icon:"✅",label:"Finished",date:entry.finishedDate||entry.date}, ...sessionDeets, {icon:"▶️",label:"Started Watching",date:entry.date}]
+    : [{icon:"✅",label:"Finished",date:entry.finishedDate||"Apr 10, 2026"},{icon:"▶️",label:"Started Watching",date:"Mar 15, 2026"},{icon:"📌",label:"Added to Watch Plan",date:"Mar 1, 2026"}];
+  const DEETS_WATCHING = hasSessions
+    ? [...sessionDeets, {icon:"▶️",label:"Started Watching",date:entry.date}]
+    : [{icon:"🎬",label:"Log a Sesh · Ep 3–4",date:"Apr 8, 2026"},{icon:"🎬",label:"Log a Sesh · Ep 1–2",date:"Apr 1, 2026"},{icon:"▶️",label:"Started Watching",date:"Apr 1, 2026"}];
+  const DEETS_DROPPED  = hasSessions
+    ? [{icon:"✕",label:"Dropped",date:entry.date}, ...sessionDeets, {icon:"▶️",label:"Started Watching",date:entry.date}]
+    : [{icon:"✕",label:"Dropped",date:"Jan 20, 2026"},{icon:"🎬",label:"Log a Sesh · Ep 15–20",date:"Jan 15, 2026"},{icon:"▶️",label:"Started Watching",date:"Dec 1, 2025"}];
   const DEETS_PLAN     =[{icon:"📌",label:"Added to Watch Plan",date:entry.addedDate||entry.date}];
 
   const deets = isWatched?DEETS_WATCHED:isDropped?DEETS_DROPPED:isWatching?DEETS_WATCHING:DEETS_PLAN;
 
-  const MOCK_EPS=Array.from({length:10},(_,i)=>({n:i+1,state:i<(entry.ep||4)?"watched":i===(entry.ep||4)?"next":"unwatched",notes:i===0?"Great opening!":null}));
+  const epNotes=entry.episode_notes||{};
+  const epTotal=entry.total||10;
+  const epCurrent=entry.ep||0;
+  const MOCK_EPS=Array.from({length:epTotal},(_,i)=>({n:i+1,state:i<epCurrent?"watched":i===epCurrent?"next":"unwatched",notes:epNotes[i+1]||null}));
 
   return <div style={{display:"flex",flexDirection:"column",gap:14,paddingBottom:40}}>
     {/* Top bar */}
@@ -737,7 +762,7 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
       <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",padding:4}}><Ico.Back/></button>
       <div style={{display:"flex",gap:8}}>
         {isWatched&&<ActionBtn icon={<Ico.Rewatch/>} label="Rewatch" onClick={()=>onOpenLogIt({title:entry.title,type:entry.type,lang:entry.lang,genre:entry.genre||[],episodes:entry.ep,runtime:entry.runtime,epRuntime:entry.epRuntime||(entry.type==="TV Show"?45:(entry.type==="Anime"?24:null)),ongoing:entry.ongoing,bookmark:entry.bookmark}, true)}/> }
-        <ActionBtn icon={<Ico.Edit/>} label="Edit"/>
+        <ActionBtn icon={<Ico.Edit/>} label="Edit" onClick={()=>onOpenLogIt(entry,false,true)}/>
         <ActionBtn icon={<Ico.Trash/>} label={isPlan?"Remove":"Unwatch"} danger onClick={()=>setModal("remove")}/>
       </div>
     </div>
@@ -745,7 +770,7 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
     {/* Hero */}
     <Card>
       <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
-        <Poster title={entry.title} size={80}/>
+        <Poster title={entry.title} size={80} url={entry.poster_url}/>
         <div style={{flex:1,minWidth:0}}>
           <p style={{color:T.amberDeep,fontFamily:T.font,fontWeight:800,fontSize:18,lineHeight:1.25}}>{entry.title}</p>
           <div style={{display:"flex",gap:6,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
@@ -763,8 +788,8 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
       {/* CTAs based on state */}
       {isWatching&&(
         <div style={{display:"flex",gap:10,marginTop:16}}>
-          <button style={{flex:1,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",background:T.elevated,color:T.textPrimary,fontFamily:T.font,fontWeight:700,fontSize:13}}>Log a Sesh</button>
-          <button style={{flex:1,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,color:T.bgPrimary,fontFamily:T.font,fontWeight:700,fontSize:13}}>Mark All Watched</button>
+          <button onClick={()=>{setSeshMarkAll(false);setSeshOpen(true);}} style={{flex:1,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",background:T.elevated,color:T.textPrimary,fontFamily:T.font,fontWeight:700,fontSize:13}}>Log a Sesh</button>
+          <button onClick={()=>{setSeshMarkAll(true);setSeshOpen(true);}} style={{flex:1,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,color:T.bgPrimary,fontFamily:T.font,fontWeight:700,fontSize:13}}>{entry.ongoing?"Mark as Finished":"Mark All Watched"}</button>
         </div>
       )}
       {/* Dropped — Continue Watching CTA */}
@@ -780,30 +805,95 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
         </div>
       )}
       {isPlan&&(
-        <button onClick={()=>onOpenLogIt()} style={{width:"100%",marginTop:16,padding:"14px 0",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,color:T.bgPrimary,fontFamily:T.font,fontWeight:800,fontSize:15}}>Mark as Watched</button>
+        <div style={{display:"flex",gap:10,marginTop:16}}>
+          {isMovie?(
+            // Movie — single Mark Watched CTA → opens rating sheet
+            <button onClick={()=>setRatingOpen(true)} style={{flex:1,padding:"14px 0",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,color:T.bgPrimary,fontFamily:T.font,fontWeight:800,fontSize:15}}>Mark Watched ✓</button>
+          ):(
+            // TV / Anime — Log a Sesh or jump straight to Mark All Watched
+            <>
+              <button onClick={()=>{setSeshMarkAll(false);setSeshOpen(true);}} style={{flex:1,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",background:T.elevated,color:T.textPrimary,fontFamily:T.font,fontWeight:700,fontSize:13}}>Log a Sesh</button>
+              <button onClick={()=>{setSeshMarkAll(true);setSeshOpen(true);}} style={{flex:1,padding:"12px 0",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,color:T.bgPrimary,fontFamily:T.font,fontWeight:700,fontSize:13}}>{entry.ongoing?"Mark as Finished":"Mark All Watched"}</button>
+            </>
+          )}
+        </div>
       )}
     </Card>
 
     {/* When */}
-    <Card>
-      <SectionLabel>{isPlan?"Added On":"When I Watched It"}</SectionLabel>
-      {isWatched&&<p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>{entry.finishedDate}</p>}
-      {(isWatching||isDropped)&&<><p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>Apr 1, 2026 → <span style={{color:T.amber}}>{entry.lastWatched||entry.date}</span></p><p style={{color:T.textMuted,fontFamily:T.font,fontSize:12,marginTop:4}}>Last: {entry.lastWatched||entry.date}</p></>}
-      {isPlan&&<><p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>{entry.addedDate||entry.date}</p><p style={{color:T.textMuted,fontFamily:T.font,fontSize:12,marginTop:4}}>Not counted in stats until watched</p></>}
-    </Card>
+    {(()=>{
+      const firstSesh = sessions[0];
+      const lastSesh  = sessions[sessions.length - 1];
+      const startDate = firstSesh?.date_display || null;
+      const endDate   = isWatched
+        ? (entry.finishedDate || lastSesh?.date_display || entry.date)
+        : (lastSesh?.date_display || entry.lastWatched || entry.date);
+      const sameDay   = startDate && startDate === endDate;
+      return (
+        <Card>
+          <SectionLabel>{isPlan?"Added On":"When I Watched It"}</SectionLabel>
+          {isWatched&&(
+            hasSessions ? (
+              sameDay
+                ? <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>{endDate}</p>
+                : <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:16}}>
+                    {startDate} <span style={{color:T.textMuted,fontFamily:T.font,fontWeight:400}}>→</span> <span style={{color:T.amber}}>{endDate}</span>
+                  </p>
+            ) : (
+              <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>{entry.finishedDate}</p>
+            )
+          )}
+          {(isWatching||isDropped)&&(
+            hasSessions ? (
+              <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:16}}>
+                {startDate} <span style={{color:T.textMuted,fontFamily:T.font,fontWeight:400}}>→</span> <span style={{color:T.amber}}>{endDate}</span>
+              </p>
+            ) : (
+              <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>{entry.lastWatched||entry.date}</p>
+            )
+          )}
+          {isPlan&&<><p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:14}}>{entry.addedDate||entry.date}</p><p style={{color:T.textMuted,fontFamily:T.font,fontSize:12,marginTop:4}}>Not counted in stats until watched</p></>}
+        </Card>
+      );
+    })()}
 
     {/* What I thought */}
     {!isPlan&&(
       <Card>
         <SectionLabel>What I Thought</SectionLabel>
-        <div style={{display:"flex",gap:20,alignItems:"flex-end",marginBottom:14}}>
-          <div>
+        <div style={{display:"flex",gap:20,alignItems:"flex-start",marginBottom:14}}>
+          {/* Your rating */}
+          <div style={{flex:"0 0 auto"}}>
             <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>Your Rating</p>
-            {entry.rating?<p style={{color:T.amber,fontFamily:T.font,fontWeight:800,fontSize:48,lineHeight:1}}>{entry.rating}</p>:<><p style={{color:T.elevated,fontFamily:T.font,fontWeight:700,fontSize:18}}>Not rated yet</p>{isWatched&&<button onClick={()=>setRatingOpen(true)} style={{background:"none",border:"none",cursor:"pointer",padding:0,color:T.amber,fontFamily:T.font,fontWeight:600,fontSize:12,marginTop:6,textAlign:"left"}}>You haven't rated this yet — how did it land? ★</button>}</>}
+            {entry.rating?(
+              <div style={{display:"flex",alignItems:"flex-end",gap:10}}>
+                <p style={{color:T.amber,fontFamily:T.font,fontWeight:800,fontSize:48,lineHeight:1}}>{entry.rating}</p>
+                <button onClick={()=>setRatingOpen(true)} style={{background:"none",border:`1px solid rgba(239,159,39,0.3)`,cursor:"pointer",borderRadius:10,padding:"4px 10px",color:T.amber,fontFamily:T.font,fontWeight:700,fontSize:11,marginBottom:6}}>Edit</button>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <p style={{color:T.textMuted,fontFamily:T.font,fontWeight:600,fontSize:15}}>Not rated yet</p>
+                <button onClick={()=>setRatingOpen(true)} style={{alignSelf:"flex-start",background:"none",border:"none",cursor:"pointer",padding:0,color:T.amber,fontFamily:T.font,fontWeight:700,fontSize:12,textDecoration:"underline",textDecorationColor:"rgba(239,159,39,0.4)",textUnderlineOffset:3}}>Rate it ★</button>
+              </div>
+            )}
           </div>
-          <div style={{paddingBottom:4}}>
+
+          {/* Global ratings — stacked vertically */}
+          <div style={{flex:1,minWidth:0}}>
             <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Global</p>
-            <GlobalRatings ratings={globalRatings}/>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {globalRatings.map(({source,rating})=>{
+                const C={MAL:"#6B9BDF",IMDB:"#F5C518",RT:"#FA320A",TMDB:"#01B4E4"};
+                const N={MAL:"MyAnimeList",IMDB:"IMDB",RT:"Rotten Tomatoes",TMDB:"TMDB"};
+                return(
+                  <div key={source} style={{display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:C[source]||T.textMuted,flexShrink:0}}/>
+                    <span style={{color:T.textMuted,fontFamily:T.font,fontSize:11,flex:1}}>{N[source]||source}</span>
+                    <span style={{color:T.textPrimary,fontFamily:T.mono,fontSize:12,fontWeight:600}}>{rating}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
         {entry.rating&&<p style={{color:T.textPrimary,fontFamily:T.font,fontSize:13,lineHeight:1.6,borderTop:"1px solid rgba(255,255,255,0.05)",paddingTop:14}}>"A genuinely moving watch. Every quiet scene earned its space."</p>}
@@ -818,25 +908,82 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
     {(isWatching||isDropped)&&!isMovie&&(
       <Card>
         <SectionLabel>Episode Tracker</SectionLabel>
+
+        {/* Progress summary — always visible */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:700,fontSize:15}}>{entry.ongoing?`${entry.ep} eps watched`:`${entry.ep||4} of ${entry.total||10} episodes`}</p>
+          <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:700,fontSize:15}}>
+            {entry.ongoing?`${entry.ep||0} eps watched`:`${entry.ep||4} of ${entry.total||10} episodes`}
+          </p>
           {!entry.ongoing&&<span style={{color:T.amber,fontFamily:T.mono,fontWeight:800,fontSize:20}}>{Math.round((entry.ep||4)/(entry.total||10)*100)}%</span>}
         </div>
-        {!entry.ongoing&&<div style={{background:T.elevated,borderRadius:6,height:5,overflow:"hidden",marginBottom:12}}><div style={{width:`${Math.round((entry.ep||4)/(entry.total||10)*100)}%`,height:"100%",background:`linear-gradient(90deg,${T.amber},${T.amberSoft})`}}/></div>}
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {MOCK_EPS.slice(0,6).map(ep=><div key={ep.n} style={{display:"flex",alignItems:"center",gap:10,background:ep.state==="next"?"rgba(239,159,39,0.06)":T.elevated,borderRadius:12,padding:"10px 12px",border:ep.state==="next"?`1px solid rgba(239,159,39,0.25)`:"1px solid transparent"}}>
-            <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:ep.state==="watched"?"rgba(239,159,39,0.15)":ep.state==="next"?"rgba(239,159,39,0.1)":"rgba(255,255,255,0.05)",border:ep.state==="next"?`1.5px solid ${T.amber}`:"1.5px solid transparent"}}>
-              {ep.state==="watched"&&<Ico.Check s={11}/>}
-              {ep.state==="next"&&<div style={{width:6,height:6,borderRadius:"50%",background:T.amber}}/>}
-            </div>
-            <div style={{flex:1}}>
-              <p style={{color:ep.state==="watched"?T.textPrimary:ep.state==="next"?T.amberSoft:T.textMuted,fontFamily:T.font,fontWeight:ep.state==="next"?700:500,fontSize:13}}>
-                Episode {ep.n}{ep.state==="next"&&<span style={{color:T.amber,fontFamily:T.mono,fontSize:10,marginLeft:8}}>UP NEXT</span>}
-              </p>
-              {ep.notes&&<p style={{color:T.textMuted,fontFamily:T.font,fontSize:11,marginTop:2}}>{ep.notes}</p>}
-            </div>
-          </div>)}
-        </div>
+
+        {/* Progress bar — always visible */}
+        {!entry.ongoing&&(
+          <div style={{background:T.elevated,borderRadius:6,height:6,overflow:"hidden",marginBottom:14}}>
+            <div style={{width:`${Math.round((entry.ep||4)/(entry.total||10)*100)}%`,height:"100%",background:`linear-gradient(90deg,${T.amber},${T.amberSoft})`}}/>
+          </div>
+        )}
+
+        {/* Expand / collapse CTA */}
+        <button
+          onClick={()=>setEpListExpanded(v=>!v)}
+          style={{width:"100%",padding:"9px",background:T.elevated,border:"none",cursor:"pointer",borderRadius:12,color:T.textMuted,fontFamily:T.font,fontWeight:700,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}
+        >
+          {epListExpanded?"Hide episode list ▲":"Show episode list ▼"}
+        </button>
+
+        {/* Episode list — revealed on expand */}
+        {epListExpanded&&(
+          <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:12}}>
+            {MOCK_EPS.map(ep=>{
+              const isEditingNote=editingNoteEp===ep.n;
+              return(
+                <div key={ep.n} style={{background:ep.state==="next"?"rgba(239,159,39,0.06)":T.elevated,borderRadius:12,padding:"10px 12px",border:ep.state==="next"?`1px solid rgba(239,159,39,0.25)`:"1px solid transparent"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:ep.state==="watched"?"rgba(239,159,39,0.15)":ep.state==="next"?"rgba(239,159,39,0.1)":"rgba(255,255,255,0.05)",border:ep.state==="next"?`1.5px solid ${T.amber}`:"1.5px solid transparent"}}>
+                      {ep.state==="watched"&&<Ico.Check s={11}/>}
+                      {ep.state==="next"&&<div style={{width:6,height:6,borderRadius:"50%",background:T.amber}}/>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{color:ep.state==="watched"?T.textPrimary:ep.state==="next"?T.amberSoft:T.textMuted,fontFamily:T.font,fontWeight:ep.state==="next"?700:500,fontSize:13}}>
+                        Episode {ep.n}{ep.state==="next"&&<span style={{color:T.amber,fontFamily:T.mono,fontSize:10,marginLeft:8}}>UP NEXT</span>}
+                      </p>
+                      {ep.notes&&!isEditingNote&&<p style={{color:T.textMuted,fontFamily:T.font,fontSize:11,marginTop:2,whiteSpace:"pre-wrap"}}>{ep.notes}</p>}
+                    </div>
+                    {!isEditingNote&&(
+                      <button
+                        onClick={()=>{setEditingNoteEp(ep.n);setNoteInput(ep.notes||"");}}
+                        style={{background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontFamily:T.font,fontSize:11,padding:"2px 6px",flexShrink:0,opacity:0.7}}
+                      >{ep.notes?"Edit note":"+ Note"}</button>
+                    )}
+                  </div>
+                  {isEditingNote&&(
+                    <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
+                      <textarea
+                        value={noteInput}
+                        onChange={e=>setNoteInput(e.target.value.slice(0,200))}
+                        placeholder="Your thoughts on this episode..."
+                        autoFocus
+                        rows={2}
+                        style={{width:"100%",background:T.bgPrimary,border:`1px solid rgba(239,159,39,0.3)`,outline:"none",borderRadius:10,padding:"8px 10px",color:T.textPrimary,fontFamily:T.font,fontSize:12,resize:"none",lineHeight:1.5}}
+                      />
+                      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                        <button onClick={()=>setEditingNoteEp(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textMuted,fontFamily:T.font,fontSize:12,padding:"4px 8px"}}>Cancel</button>
+                        <button onClick={()=>{
+                          const updated={...entry,episode_notes:{...epNotes,[ep.n]:noteInput.trim()||undefined}};
+                          // remove key if note cleared
+                          if(!noteInput.trim())delete updated.episode_notes[ep.n];
+                          onUpdateEntry?.(updated);
+                          setEditingNoteEp(null);
+                        }} style={{background:T.amber,border:"none",cursor:"pointer",borderRadius:10,padding:"4px 14px",color:T.bgPrimary,fontFamily:T.font,fontWeight:700,fontSize:12}}>Save</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     )}
 
@@ -844,15 +991,170 @@ function DetailView({entry,onBack,onOpenLogIt,onUpdateEntry}) {
     <Card><SectionLabel>Watch Deets</SectionLabel><WatchDeets items={deets}/></Card>
 
     {/* Modals */}
-    <ConfirmModal show={modal==="remove"} onClose={()=>setModal(null)} title={isPlan?"Remove from WatchList?":"Remove from WatchLog?"} message={isPlan?"This title will be removed from your Watch Plan.":"This will remove all watch history for this title."} confirmLabel="Remove" onConfirm={()=>{setModal(null);onBack();}}/>
+    <ConfirmModal show={modal==="remove"} onClose={()=>setModal(null)} title={isPlan?"Remove from WatchList?":"Remove from WatchLog?"} message={isPlan?"This title will be removed from your Watch Plan.":"This will remove all watch history for this title."} confirmLabel="Remove" onConfirm={()=>{setModal(null);onDeleteEntry?.(entry.id);}}/>
     <ConfirmModal show={modal==="continue"} onClose={()=>setModal(null)} title="Continue watching?" message="We'll move this back to Currently Watching and log the date you resumed." confirmLabel="Let's go" danger={false} onConfirm={()=>{setModal(null);}}/>
-    {ratingOpen&&<RatingSheet entry={entry} show onClose={()=>setRatingOpen(false)} onSave={updated=>{onUpdateEntry?.(updated);}}/>}
+    {ratingOpen&&<RatingSheet entry={entry} show onClose={()=>setRatingOpen(false)} onSave={updated=>{
+      // If opening from Watch Plan, also flip status to watched
+      const finalEntry = isPlan
+        ? {...updated, status:"watched", finishedDate:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
+        : updated;
+      onUpdateEntry?.(finalEntry);
+    }}/>}
+    {seshOpen&&<LogSeshSheet entry={entry} markAll={seshMarkAll} onClose={()=>{setSeshOpen(false);setSeshMarkAll(false);}} onUpdate={updated=>{onUpdateEntry?.(updated);}}/>}
   </div>;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ── LOG IT ────────────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
+
+// SearchPreviewModal — shown when the ⓘ icon is tapped on a search tile.
+// Auto-closes after 3 s. Hold anywhere on the card to pause the countdown.
+const PREVIEW_DURATION = 10000;
+function SearchPreviewModal({ result, onClose }) {
+  // Countdown state — driven by a 50 ms interval so the bar is smooth
+  const remainingRef = useRef(PREVIEW_DURATION);
+  const [remaining,   setRemaining]  = useState(PREVIEW_DURATION);
+  const pausedRef     = useRef(false);
+  const [held,        setHeld]       = useState(false);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (pausedRef.current) return;
+      remainingRef.current = Math.max(0, remainingRef.current - 50);
+      setRemaining(remainingRef.current);
+      if (remainingRef.current <= 0) onClose();
+    }, 50);
+    return () => clearInterval(iv);
+  }, [onClose]);
+
+  function hold()    { pausedRef.current = true;  setHeld(true);  }
+  function release() { pausedRef.current = false; setHeld(false); }
+
+  const pct        = (remaining / PREVIEW_DURATION) * 100;
+  const secsLeft   = Math.ceil(remaining / 1000);
+
+  const [imgExpanded, setImgExpanded] = useState(false);
+
+  const r        = result;
+  const isMovie  = r.content_type === "Movie";
+  const isOngoing= r.is_ongoing;
+
+  const meta = [];
+  if (r.year)                              meta.push({ label:"Year",     value: r.year });
+  if (!isMovie && r.episode_count)         meta.push({ label:"Episodes", value: String(r.episode_count) });
+  if (!isMovie && isOngoing != null)       meta.push({ label:"Status",   value: isOngoing ? "Ongoing" : "Completed" });
+  if (!isMovie && r.episode_runtime_mins)  meta.push({ label:"Runtime",  value: `${r.episode_runtime_mins} min / ep` });
+  if (isMovie  && r.episode_runtime_mins)  meta.push({ label:"Runtime",  value: `${r.episode_runtime_mins} min` });
+  if (r.language)                          meta.push({ label:"Language", value: r.language });
+  if (r.global_rating)                     meta.push({ label:"Rating",   value: `★ ${r.global_rating}` });
+
+  return <>
+    {/* Backdrop — tap to close */}
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:80,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(4px)"}}/>
+
+    {/* Card — hold anywhere to pause */}
+    <div
+      onMouseDown={hold}   onMouseUp={release} onMouseLeave={release}
+      onTouchStart={hold}  onTouchEnd={release} onTouchCancel={release}
+      style={{position:"fixed",top:"50%",left:"50%",transform:`translate(-50%,${imgExpanded?"-40%":"-50%"})`,zIndex:81,width:"calc(100% - 40px)",maxWidth:390,background:T.surface,borderRadius:24,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.6)",userSelect:"none",WebkitUserSelect:"none",maxHeight:"90vh",overflowY:"auto"}}
+    >
+      {/* Poster banner */}
+      {r.poster_url ? (
+        <div style={{
+          width:"100%",
+          background:T.bgPrimary,
+          position:"relative",
+          overflow:"hidden",
+          // Collapsed: fixed 180px cropped banner. Expanded: natural 2:3 poster ratio.
+          height: imgExpanded ? "auto" : 180,
+        }}>
+          <img
+            src={r.poster_url} alt={r.title}
+            style={{
+              width:"100%",
+              display:"block",
+              objectFit: imgExpanded ? "contain" : "cover",
+              objectPosition: "top",
+              height: imgExpanded ? "auto" : "100%",
+              maxHeight: imgExpanded ? 420 : "none",
+            }}
+          />
+          {/* Gradient — only in cropped mode */}
+          {!imgExpanded&&<div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, transparent 40%, rgba(41,40,38,0.9) 100%)"}}/>}
+          {/* Expand / collapse toggle */}
+          <button
+            onMouseDown={e=>e.stopPropagation()}
+            onTouchStart={e=>e.stopPropagation()}
+            onClick={e=>{e.stopPropagation();setImgExpanded(v=>!v);}}
+            style={{
+              position:"absolute", bottom:8, right:8,
+              background:"rgba(0,0,0,0.55)", backdropFilter:"blur(4px)",
+              border:"none", cursor:"pointer", borderRadius:8,
+              padding:"5px 8px", display:"flex", alignItems:"center", gap:5,
+              color:T.textPrimary, fontFamily:T.font, fontWeight:700, fontSize:11,
+            }}
+          >
+            {imgExpanded
+              ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg> Collapse</>
+              : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6"/></svg> Full poster</>
+            }
+          </button>
+        </div>
+      ) : (
+        <div style={{width:"100%",height:140,background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <span style={{color:T.bgPrimary,fontFamily:T.font,fontWeight:800,fontSize:48}}>{(r.title||"?")[0]}</span>
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{padding:"16px 18px 20px",display:"flex",flexDirection:"column",gap:12}}>
+        {/* Title + pills */}
+        <div>
+          <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:800,fontSize:17,lineHeight:1.3,marginBottom:4}}>{r.title}</p>
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+            <TypePill type={r.content_type}/>
+            {r.genre_tags?.slice(0,2).map(g=>(
+              <span key={g} style={{background:T.elevated,color:T.textMuted,fontFamily:T.font,fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20}}>{g}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Meta grid */}
+        {meta.length>0&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 12px"}}>
+            {meta.map(({label,value})=>(
+              <div key={label}>
+                <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:9,letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:2}}>{label}</p>
+                <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:600,fontSize:13}}>{value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Status line + close */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:2}}>
+          <p style={{color:held?T.amberSoft:T.textMuted,fontFamily:T.font,fontSize:11,lineHeight:1.4,transition:"color 0.15s"}}>
+            {held
+              ? "Holding... let go when you're done 👌"
+              : `Auto-closing in ${secsLeft}s · hold to pause`}
+          </p>
+          <button
+            onMouseDown={e=>e.stopPropagation()}
+            onClick={onClose}
+            style={{background:"none",border:`1px solid rgba(255,255,255,0.12)`,cursor:"pointer",borderRadius:10,padding:"5px 14px",color:T.textMuted,fontFamily:T.font,fontWeight:700,fontSize:12,flexShrink:0,marginLeft:10}}
+          >Close</button>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{height:3,background:"rgba(255,255,255,0.08)",borderRadius:4,overflow:"hidden",marginTop:-4}}>
+          <div style={{height:"100%",background:held?T.amberSoft:T.amber,borderRadius:4,width:`${pct}%`,transition:"background 0.2s"}}/>
+        </div>
+      </div>
+    </div>
+  </>;
+}
+
 function SourceBadge({source}) {
   const colors={MAL:"#6B9BDF",RT:"#FA320A",IMDB:"#F5C518",TMDB:"#01B4E4"};
   return <span style={{background:`${colors[source]||T.textMuted}20`,color:colors[source]||T.textMuted,fontFamily:T.mono,fontWeight:600,fontSize:9,padding:"2px 7px",borderRadius:20}}>{source}</span>;
@@ -867,6 +1169,7 @@ function LogItSearch({entries,onSelect,onManual,onClose,onNavigate}) {
   const [addedIds,setAddedIds]=useState(new Set());
   const [searchError,setSearchError]=useState(null);
   const [sourceFilter,setSourceFilter]=useState("All");
+  const [previewItem,setPreviewItem]=useState(null);
   const inputRef=useRef(null);
   useEffect(()=>{inputRef.current?.focus();},[]);
 
@@ -953,6 +1256,11 @@ function LogItSearch({entries,onSelect,onManual,onClose,onNavigate}) {
                 {r.global_rating&&<span style={{color:T.amberSoft,fontFamily:T.mono,fontWeight:600,fontSize:10}}>★ {r.global_rating}</span>}
               </div>
             </div>
+            <button
+              onClick={e=>{e.stopPropagation();setPreviewItem(r);}}
+              style={{background:"none",border:"none",cursor:"pointer",padding:6,flexShrink:0,opacity:0.6}}
+              title="View details"
+            ><Ico.Info s={18} c={T.textMuted}/></button>
           </div>
           {r.inLog?(
             <div style={{background:"rgba(239,159,39,0.08)",borderTop:"1px solid rgba(239,159,39,0.15)",padding:"12px 14px"}}>
@@ -981,25 +1289,26 @@ function LogItSearch({entries,onSelect,onManual,onClose,onNavigate}) {
       </>}
     </div>}
     <div style={{height:32}}/>
+    {previewItem&&<SearchPreviewModal result={previewItem} onClose={()=>setPreviewItem(null)}/>}
   </div>;
 }
 
-function LogItDetails({show,isRewatch,isManual,onBack,onSubmit}) {
+function LogItDetails({show,isRewatch,isManual,isEdit=false,onBack,onSubmit}) {
   const [contentType,setContentType]=useState(show?.content_type||show?.type||"Movie");
   const [language,setLanguage]=useState(show?.language||show?.lang||"");
   const [genre,setGenre]=useState(show?.genre_tags||show?.genre||[]);
-  const [episodeCount,setEpisodeCount]=useState((show?.episode_count??show?.episodes)?.toString()||"");
+  const [episodeCount,setEpisodeCount]=useState((show?.episode_count??show?.episodes??show?.total)?.toString()||"");
   const _resolvedType=show?.content_type||show?.type;
   const [epRuntime,setEpRuntime]=useState(show?.episode_runtime_mins||show?.epRuntime||(_resolvedType==="TV Show"?45:_resolvedType==="Anime"?24:null));
   const [customRuntime,setCustomRuntime]=useState("");
   const [runtimeMode,setRuntimeMode]=useState("preset");
   const [movieRuntime,setMovieRuntime]=useState(show?.runtime?.toString()||"");
   const [ongoing,setOngoing]=useState(show?.is_ongoing||show?.ongoing||false);
-  const [watchStatus,setWatchStatus]=useState("watched");
-  const [epWatched,setEpWatched]=useState(0);
-  const [rating,setRating]=useState(null);
-  const [reaction,setReaction]=useState("");
-  const [recommend,setRecommend]=useState(false);
+  const [watchStatus,setWatchStatus]=useState(isEdit?(show?.status||"watched"):"watched");
+  const [epWatched,setEpWatched]=useState(isEdit?(show?.ep||0):0);
+  const [rating,setRating]=useState(isEdit?(show?.rating??null):null);
+  const [reaction,setReaction]=useState(isEdit?(show?.reaction||""):"");
+  const [recommend,setRecommend]=useState(isEdit?(show?.recommend||false):false);
   const [bookmark,setBookmark]=useState(show?.bookmark||false);
   const [errors,setErrors]=useState({});
   const [moviePopup,setMoviePopup]=useState(false);
@@ -1623,6 +1932,372 @@ function StatsScreen({entries,onTitleTap,onNavigate}) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── MINI CALENDAR ────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+const _CAL_DAYS   = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+const _CAL_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function MiniCalendar({ value, max, onChange }) {
+  const selected = value ? new Date(value + "T12:00:00") : new Date();
+  const maxDate  = max   ? new Date(max   + "T12:00:00") : new Date();
+
+  const [viewYear,  setViewYear]  = useState(selected.getFullYear());
+  const [viewMonth, setViewMonth] = useState(selected.getMonth());
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewYear(y=>y-1); setViewMonth(11); }
+    else setViewMonth(m=>m-1);
+  }
+  function nextMonth() {
+    const ny = viewMonth===11 ? viewYear+1 : viewYear;
+    const nm = viewMonth===11 ? 0 : viewMonth+1;
+    if (ny > maxDate.getFullYear() || (ny===maxDate.getFullYear() && nm>maxDate.getMonth())) return;
+    setViewYear(ny); setViewMonth(nm);
+  }
+
+  const atMaxMonth = viewYear===maxDate.getFullYear() && viewMonth===maxDate.getMonth();
+  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth    = new Date(viewYear, viewMonth+1, 0).getDate();
+  const cells = [];
+  for (let i=0; i<firstDayOfWeek; i++) cells.push(null);
+  for (let d=1; d<=daysInMonth; d++) cells.push(d);
+
+  function selectDay(d) {
+    const iso = `${viewYear}-${String(viewMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const c = new Date(viewYear, viewMonth, d);
+    const mx = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
+    if (c > mx) return;
+    onChange(iso);
+  }
+
+  function isSelected(d) {
+    return selected.getFullYear()===viewYear && selected.getMonth()===viewMonth && selected.getDate()===d;
+  }
+  function isToday(d) {
+    const t=new Date(); return t.getFullYear()===viewYear && t.getMonth()===viewMonth && t.getDate()===d;
+  }
+  function isFuture(d) {
+    const c=new Date(viewYear,viewMonth,d), mx=new Date(maxDate.getFullYear(),maxDate.getMonth(),maxDate.getDate());
+    return c>mx;
+  }
+
+  return (
+    <div style={{background:T.bgPrimary,borderRadius:16,padding:"16px 12px",border:`1px solid rgba(255,255,255,0.07)`}}>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <button onClick={prevMonth} style={{background:"none",border:"none",cursor:"pointer",padding:"6px 10px",color:T.textMuted,fontSize:20,lineHeight:1,borderRadius:8}}>‹</button>
+        <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:700,fontSize:14,letterSpacing:"0.01em"}}>
+          {_CAL_MONTHS[viewMonth]} {viewYear}
+        </p>
+        <button
+          onClick={nextMonth}
+          style={{background:"none",border:"none",cursor:atMaxMonth?"default":"pointer",padding:"6px 10px",color:atMaxMonth?"rgba(255,255,255,0.1)":T.textMuted,fontSize:20,lineHeight:1,borderRadius:8}}
+        >›</button>
+      </div>
+
+      {/* Day-of-week row */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:6}}>
+        {_CAL_DAYS.map(d=>(
+          <p key={d} style={{textAlign:"center",color:T.textMuted,fontFamily:T.mono,fontSize:9,letterSpacing:"0.08em",padding:"2px 0"}}>{d}</p>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:"3px 2px"}}>
+        {cells.map((d,i)=> d===null ? <div key={`e${i}`}/> : (
+          <button
+            key={d}
+            onClick={()=>selectDay(d)}
+            style={{
+              aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",
+              borderRadius:"50%",border:"none",
+              cursor:isFuture(d)?"default":"pointer",
+              background: isSelected(d)?T.amber : isToday(d)?"rgba(239,159,39,0.15)" : "none",
+              color: isSelected(d)?T.bgPrimary : isFuture(d)?"rgba(255,255,255,0.18)" : isToday(d)?T.amber : T.textPrimary,
+              fontFamily:T.font,
+              fontWeight: isSelected(d)||isToday(d) ? 800 : 400,
+              fontSize:13,
+            }}
+          >{d}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── LOG SESH SHEET ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+function LogSeshSheet({entry, onClose, onUpdate, markAll=false}) {
+  const todayISO = new Date().toISOString().split("T")[0];
+  const currentEp = entry?.ep || 0;
+  const total     = entry?.total || null;
+  const ongoing   = entry?.ongoing || false;
+
+  const [epFrom,    setEpFrom]    = useState(String(currentEp + 1));
+  const [epTo,      setEpTo]      = useState(markAll && total ? String(total) : "");
+  const [date,      setDate]      = useState(todayISO);
+  const [errors,    setErrors]    = useState({});
+  const [rating,    setRating]    = useState(null);
+  const [reaction,  setReaction]  = useState("");
+  const [calOpen,   setCalOpen]   = useState(false);
+
+  // Format ISO → "Apr 25, 2026" for the text field
+  function isoToDisplay(iso) {
+    if (!iso) return "";
+    const d = new Date(iso + "T12:00:00");
+    return d.toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+  }
+  // Parse a user-typed date string → ISO "YYYY-MM-DD", or null if unparseable / in future
+  function parseToISO(text) {
+    const parsed = new Date(text);
+    if (isNaN(parsed.getTime())) return null;
+    const max = new Date(todayISO + "T23:59:59");
+    if (parsed > max) return null;
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  const [dateText, setDateText] = useState(isoToDisplay(todayISO));
+
+  const epFromNum = parseInt(epFrom) || 0;
+  // If ep_to is blank, treat as single-episode sesh (ep_to = ep_from)
+  const epToNum   = epTo.trim() === "" ? epFromNum : (parseInt(epTo) || 0);
+  // markAllOngoing = user is declaring an ongoing show as finished (no known total)
+  const markAllOngoing = markAll && ongoing;
+  const isComplete = markAllOngoing
+    ? (epToNum > 0)                          // ongoing finish — valid as long as ep entered
+    : (!ongoing && total && epToNum === total); // finite finish — ep_to hit the total
+
+  // Format ISO date for display: "2026-04-25" → "Apr 25"
+  function fmtDate(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("en-US", {month:"short", day:"numeric"});
+  }
+
+  function validate() {
+    const errs = {};
+    if (markAllOngoing) {
+      // Ongoing finish — just need a valid ep number and a rating
+      if (!epTo.trim() || epToNum <= 0)  errs.epTo   = "Enter the last episode you watched";
+      else if (epToNum <= currentEp)     errs.epTo   = "You're already past that episode";
+      if (!rating)                       errs.rating = "Rate it before marking it done";
+    } else {
+      // Normal sesh or finite mark-all
+      if (epToNum <= currentEp)                      errs.epTo   = "You're already past that episode";
+      else if (!ongoing && total && epToNum > total)  errs.epTo  = `Only ${total} episodes in this show`;
+      if (epFromNum > epToNum)                        errs.epFrom = "Can't start after the ending episode";
+      if (isComplete && !rating)                      errs.rating = "Rate it before marking it complete";
+    }
+    return errs;
+  }
+
+  function handleSubmit() {
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    const from = epFromNum;
+    const to   = epToNum;
+    const newSession = { ep_from: from, ep_to: to, date, date_display: fmtDate(date) };
+
+    const updated = {
+      ...entry,
+      ep: to,
+      watch_sessions: [...(entry.watch_sessions || []), newSession],
+    };
+
+    if (isComplete) {
+      updated.status         = "watched";
+      updated.rating         = rating;
+      updated.reaction       = reaction.trim() || undefined;
+      updated.finishedDate   = fmtDate(date);
+      updated.watch_end_date = date;
+      updated.paused         = false;
+      updated.dropped        = false;
+      if (markAllOngoing) {
+        // Lock in the final episode count and mark as no longer ongoing
+        updated.total   = to;
+        updated.ongoing = false;
+      }
+    } else {
+      // Partial sesh — move to Currently Watching regardless of previous status
+      updated.status          = "watching";
+      updated.paused          = false;
+      updated.dropped         = false;
+      updated.lastWatchedDate = fmtDate(date);
+      // Recalculate watch time estimate from episodes watched × runtime
+      const rt  = entry.epRuntime || (entry.type === "Anime" ? 24 : 45);
+      const eps = to;
+      if (eps > 0) {
+        const mins = rt * eps;
+        updated.watchTime  = `~${Math.floor(mins / 60)}h ${mins % 60}m`;
+        updated.estimated  = true;
+      }
+    }
+
+    onUpdate(updated);
+    onClose();
+  }
+
+  const infoLine = ongoing
+    ? `${currentEp} eps watched · Ongoing`
+    : total
+      ? `Currently on Ep ${currentEp} of ${total}`
+      : `Currently on Ep ${currentEp}`;
+
+  return <>
+    {/* Backdrop */}
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:60,background:"rgba(0,0,0,0.5)"}}/>
+
+    {/* Sheet */}
+    <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,zIndex:61,background:T.surface,borderRadius:"24px 24px 0 0",paddingTop:16,boxShadow:"0 -8px 40px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
+
+      {/* Drag handle */}
+      <div onClick={onClose} style={{cursor:"pointer",paddingBottom:16,display:"flex",justifyContent:"center"}}>
+        <div style={{width:36,height:4,background:T.elevated,borderRadius:4}}/>
+      </div>
+
+      <div style={{padding:"0 20px 40px",display:"flex",flexDirection:"column",gap:20}}>
+
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <p style={{color:T.textPrimary,fontFamily:T.font,fontWeight:800,fontSize:18,marginBottom:4}}>{markAllOngoing?"Mark as Finished":markAll?"Mark All Watched":"Log a Sesh"}</p>
+            <p style={{color:T.textMuted,fontFamily:T.font,fontSize:13}}>{infoLine}</p>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",padding:4,color:T.textMuted}}><Ico.Close/></button>
+        </div>
+
+        {/* Ongoing finish — single "final episode" input */}
+        {markAllOngoing&&(
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase"}}>Final Episode Watched</p>
+            <input
+              type="number" min={currentEp+1} value={epTo} autoFocus
+              onChange={e=>{setEpTo(e.target.value);setErrors(p=>({...p,epTo:null,rating:null}));}}
+              placeholder={currentEp>0?String(currentEp+1):"e.g. 47"}
+              style={{width:"100%",background:T.elevated,border:errors.epTo?`1.5px solid #C47A7A`:epToNum>currentEp?`1.5px solid ${T.amber}`:"1.5px solid transparent",outline:"none",borderRadius:12,padding:"12px 14px",color:epToNum>currentEp?T.amber:T.textPrimary,fontFamily:T.mono,fontWeight:700,fontSize:22,textAlign:"center"}}
+            />
+            {errors.epTo&&<p style={{color:"#C47A7A",fontFamily:T.font,fontSize:11}}>{errors.epTo}</p>}
+            {!errors.epTo&&<p style={{color:T.textMuted,fontFamily:T.font,fontSize:11}}>How many episodes total did you watch?</p>}
+          </div>
+        )}
+
+        {/* Episode range — hidden in mark-all mode, locked values handle themselves */}
+        {!markAll&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:0}}>Episodes Watched</p>
+          <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            {/* ep_from */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+              <p style={{color:T.textMuted,fontFamily:T.font,fontSize:11}}>From</p>
+              <input
+                type="number" min={1} max={total||undefined} value={epFrom}
+                onChange={e=>{setEpFrom(e.target.value);setErrors(p=>({...p,epFrom:null}));}}
+                style={{width:"100%",background:T.elevated,border:errors.epFrom?`1.5px solid #C47A7A`:"1.5px solid transparent",outline:"none",borderRadius:12,padding:"12px 14px",color:T.textPrimary,fontFamily:T.mono,fontWeight:700,fontSize:18,textAlign:"center"}}
+              />
+              {errors.epFrom&&<p style={{color:"#C47A7A",fontFamily:T.font,fontSize:11}}>{errors.epFrom}</p>}
+            </div>
+
+            <p style={{color:T.textMuted,fontFamily:T.font,fontSize:18,paddingTop:28}}>→</p>
+
+            {/* ep_to */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+              <p style={{color:T.textMuted,fontFamily:T.font,fontSize:11}}>To</p>
+              <input
+                type="number" min={currentEp+1} max={total||undefined} value={epTo}
+                onChange={e=>{setEpTo(e.target.value);setErrors(p=>({...p,epTo:null,rating:null}));}}
+                placeholder="—"
+                autoFocus
+                style={{width:"100%",background:T.elevated,border:errors.epTo?`1.5px solid #C47A7A`:`1.5px solid ${epToNum>currentEp?T.amber:"transparent"}`,outline:"none",borderRadius:12,padding:"12px 14px",color:epToNum>currentEp?T.amber:T.textPrimary,fontFamily:T.mono,fontWeight:700,fontSize:18,textAlign:"center"}}
+              />
+              {errors.epTo&&<p style={{color:"#C47A7A",fontFamily:T.font,fontSize:11}}>{errors.epTo}</p>}
+              {!errors.epTo&&<p style={{color:T.textMuted,fontFamily:T.font,fontSize:11}}>Leave blank for one ep</p>}
+            </div>
+          </div>
+        </div>}
+
+        {/* Date */}
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:10,letterSpacing:"0.12em",textTransform:"uppercase"}}>Date Watched</p>
+
+          {/* Text field + calendar icon toggle */}
+          <div style={{display:"flex",alignItems:"center",background:T.elevated,borderRadius:12,overflow:"hidden"}}>
+            <input
+              value={dateText}
+              onChange={e=>setDateText(e.target.value)}
+              onBlur={()=>{
+                const iso=parseToISO(dateText);
+                if(iso){setDate(iso);setDateText(isoToDisplay(iso));}
+                else setDateText(isoToDisplay(date));
+              }}
+              placeholder="Apr 25, 2026"
+              style={{flex:1,background:"transparent",border:"none",outline:"none",padding:"12px 14px",color:T.textPrimary,fontFamily:T.font,fontSize:14}}
+            />
+            <button
+              onClick={()=>setCalOpen(o=>!o)}
+              style={{background:"none",border:"none",cursor:"pointer",padding:"10px 14px",display:"flex",alignItems:"center",borderLeft:`1px solid rgba(255,255,255,0.06)`}}
+            >
+              <Ico.Cal s={18} c={calOpen?T.amber:T.textMuted}/>
+            </button>
+          </div>
+
+          {/* Calendar dropdown */}
+          {calOpen&&(
+            <MiniCalendar
+              value={date}
+              max={todayISO}
+              onChange={iso=>{
+                setDate(iso);
+                setDateText(isoToDisplay(iso));
+                setCalOpen(false);
+              }}
+            />
+          )}
+        </div>
+
+        {/* Auto-complete inline section */}
+        {isComplete&&(
+          <div style={{background:"rgba(239,159,39,0.08)",border:`1px solid rgba(239,159,39,0.2)`,borderRadius:16,padding:"16px",display:"flex",flexDirection:"column",gap:14}}>
+            <div>
+              <p style={{color:T.amber,fontFamily:T.font,fontWeight:800,fontSize:15,marginBottom:4}}>{markAllOngoing?"That's a wrap! Rate it 🎬":"You finished it! Rate it 😄"}</p>
+              <p style={{color:T.textMuted,fontFamily:T.font,fontSize:12}}>{markAllOngoing?"This will mark the show as Watched and lock in your final episode count.":"This will mark the show as Watched."}</p>
+            </div>
+            <div style={{background:T.surface,borderRadius:12,padding:"14px 12px"}}>
+              <StarRating value={rating} onChange={v=>{setRating(v);setErrors(p=>({...p,rating:null}));}}/>
+            </div>
+            {errors.rating&&<p style={{color:"#C47A7A",fontFamily:T.font,fontSize:12,marginTop:-6}}>{errors.rating}</p>}
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase"}}>Your reaction (optional)</p>
+                <p style={{color:T.textMuted,fontFamily:T.mono,fontSize:10}}>{reaction.length}/500</p>
+              </div>
+              <textarea
+                value={reaction}
+                onChange={e=>setReaction(e.target.value.slice(0,500))}
+                placeholder="Your thoughts, feelings, hot takes... 🔥"
+                rows={3}
+                style={{width:"100%",background:T.surface,border:"none",outline:"none",borderRadius:12,padding:"10px 14px",color:T.textPrimary,fontFamily:T.font,fontSize:14,resize:"none",lineHeight:1.5,boxSizing:"border-box"}}
+              />
+              {!reaction&&<p style={{color:T.textMuted,fontFamily:T.font,fontSize:11,fontStyle:"italic"}}>This is yours forever. Future you will thank present you.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          onClick={handleSubmit}
+          style={{width:"100%",padding:"15px",background:`linear-gradient(135deg,${T.amber},${T.amberDeep})`,border:"none",cursor:"pointer",borderRadius:18,color:T.bgPrimary,fontFamily:T.font,fontWeight:800,fontSize:16,boxShadow:"0 3px 8px rgba(0,0,0,0.35)"}}
+        >
+          Log Sesh ✓
+        </button>
+
+      </div>
+    </div>
+  </>;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ── RATING SHEET ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 function RatingSheet({entry, show, onClose, onSave}) {
@@ -1771,6 +2446,8 @@ export default function WatchedItApp() {
   const [logShow,setLogShow]=useState(null);
   const [logRewatch,setLogRewatch]=useState(false);
   const [logManual,setLogManual]=useState(false);
+  const [logIsEdit,setLogIsEdit]=useState(false);
+  const [logEditId,setLogEditId]=useState(null);
   const [detail,setDetail]=useState(null);
   const [entries,setEntries]=useState([]);
 
@@ -1780,17 +2457,17 @@ export default function WatchedItApp() {
     setEntries(stored);
   },[]);
 
-  function openLogIt(show=null,isRewatch=false){
+  function openLogIt(show=null,isRewatch=false,isEdit=false){
     // Handle case where show is an event object (from onClick handler)
     if(show && typeof show === 'object' && show.target && show.preventDefault){
-      // This is an event object, so treat as no show data provided
       show = null;
     }
-    
     if(show && typeof show === 'object' && Object.keys(show).length > 0){
       setLogShow(show);
       setLogRewatch(isRewatch);
       setLogManual(false);
+      setLogIsEdit(isEdit);
+      setLogEditId(isEdit ? (show.id ?? null) : null);
       setLogStep("details");
       return;
     }
@@ -1798,9 +2475,11 @@ export default function WatchedItApp() {
     setLogShow(null);
     setLogRewatch(false);
     setLogManual(false);
+    setLogIsEdit(false);
+    setLogEditId(null);
     setLogStep("search");
   }
-  function closeLogIt(){setLogStep(null);setLogShow(null);setLogRewatch(false);setLogManual(false);}
+  function closeLogIt(){setLogStep(null);setLogShow(null);setLogRewatch(false);setLogManual(false);setLogIsEdit(false);setLogEditId(null);}
   function handleSelect({isRewatch,...data}){setLogShow(data);setLogRewatch(isRewatch);setLogManual(false);setLogStep("details");}
   function handleManual(title){setLogShow({title,type:"Movie",lang:"",genre:[],episodes:null,runtime:null,epRuntime:null,ongoing:false});setLogRewatch(false);setLogManual(true);setLogStep("details");}
   function handleLogSubmit(formData){
@@ -1846,6 +2525,32 @@ export default function WatchedItApp() {
       watch_end_date:watchStatus==="watched"?(watch_end_date||null):null,
       logged_at:new Date().toISOString(),
     };
+    if(logIsEdit && logEditId!=null){
+      // Edit mode — preserve immutable fields and merge changes onto existing entry
+      const existing=entries.find(e=>e.id===logEditId)||{};
+      const updatedEntry={
+        ...existing,
+        title:currentTitle||logShow?.title,
+        type:contentType,
+        lang:language,
+        rating,
+        status:watchStatus,
+        ep:watchStatus==="watching"?epWatched:(existing.ep??null),
+        total:contentType!=="Movie"?(parseInt(episodeCount)||existing.total||null):null,
+        ongoing:contentType!=="Movie"?ongoing:false,
+        bookmark,
+        genre,
+        reaction,
+        recommend,
+        watchTime,
+        estimated,
+        finishedDate:watchStatus==="watched"?(existing.finishedDate||todayFull):existing.finishedDate||null,
+        watch_end_date:watchStatus==="watched"?(existing.watch_end_date||watch_end_date||null):null,
+      };
+      handleUpdateEntry(updatedEntry);
+      closeLogIt();
+      return;
+    }
     addEntry(entry);
     setEntries(loadStoredEntries());
     // Update logShow with the final title for success screen
@@ -1855,6 +2560,7 @@ export default function WatchedItApp() {
   function handleClearData(){clearEntries();setEntries([]);}
   function handleLogDone(){closeLogIt();}
   function handleUpdateEntry(updated){updateEntry(updated);setEntries(loadStoredEntries());if(detail&&detail.id===updated.id)setDetail(updated);}
+  function handleDeleteEntry(id){deleteEntry(id);setEntries(loadStoredEntries());setDetail(null);}
   const [watchListUnrated,setWatchListUnrated]=useState(false);
   function navigateTab(id, options={}){setDetail(null);setTab(id);if(id==="watchlist"){setWatchListTab(options.subTab||"all");setWatchListUnrated(!!options.unrated);} }
 
@@ -1888,7 +2594,7 @@ export default function WatchedItApp() {
         {!detail&&tab==="search"    &&<SearchScreen entries={entries} onOpenDetail={setDetail}/>}
         {!detail&&tab==="stats"     &&<StatsScreen entries={entries} onTitleTap={e=>{const m=entries.find(en=>en.title===e.title);if(m)setDetail(m);}} onNavigate={navigateTab}/>}
         {!detail&&tab==="profile"   &&<WatcherScreen entries={entries} onClearData={handleClearData}/>}
-        {detail&&<DetailView entry={detail} onBack={()=>setDetail(null)} onOpenLogIt={openLogIt} onUpdateEntry={handleUpdateEntry}/>}
+        {detail&&<DetailView entry={detail} onBack={()=>setDetail(null)} onOpenLogIt={openLogIt} onUpdateEntry={handleUpdateEntry} onDeleteEntry={handleDeleteEntry}/>}
       </div>
 
       {/* Bottom nav */}
@@ -1914,7 +2620,7 @@ export default function WatchedItApp() {
 
       {/* Log It — details full screen */}
       {logStep==="details"&&<div className="hs" style={{position:"fixed",inset:0,zIndex:50,maxWidth:430,margin:"0 auto",background:T.surface,overflowY:"auto"}}>
-        <LogItDetails show={logShow} isRewatch={logRewatch} isManual={logManual} onBack={()=>setLogStep("search")} onSubmit={handleLogSubmit}/>
+        <LogItDetails show={logShow} isRewatch={logRewatch} isManual={logManual} isEdit={logIsEdit} onBack={logIsEdit?closeLogIt:()=>setLogStep("search")} onSubmit={handleLogSubmit}/>
       </div>}
 
       {/* Log It — success */}

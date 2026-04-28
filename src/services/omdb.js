@@ -19,7 +19,7 @@
  * result format so LogItSearch can render them without knowing the source.
  */
 
-const OMDB_API_KEY = process.env.REACT_APP_OMDB_API_KEY;
+const OMDB_API_KEY = process.env.EXPO_PUBLIC_OMDB_API_KEY || process.env.REACT_APP_OMDB_API_KEY;
 const OMDB_BASE = "https://www.omdbapi.com";
 
 // ── Type mapping ──────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ function extractYear(raw) {
 
 // ── Shared fetch helper ───────────────────────────────────────────────────────
 async function omdbFetch(params = {}) {
-  if (!OMDB_API_KEY) throw new Error("REACT_APP_OMDB_API_KEY not set");
+  if (!OMDB_API_KEY) throw new Error("EXPO_PUBLIC_OMDB_API_KEY not set");
 
   const url = new URL(OMDB_BASE);
   url.searchParams.set("apikey", OMDB_API_KEY);

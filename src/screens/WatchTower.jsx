@@ -1,0 +1,268 @@
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, DeviceEventEmitter } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+import Poster from '../components/Poster';
+import TypePill from '../components/TypePill';
+import { getEntries } from '../db/storage';
+import { T } from '../constants/tokens';
+
+const STREAK_COPY = {
+  2: ['On a roll 🎬', '2 days in a row'],
+  3: ['Building momentum ⚡', '3 days straight!'],
+  4: ['4 days running 🔥', 'Remember to stretch'],
+  7: ['A whole week! 🏆', 'Incredible dedication'],
+  14: ["Two weeks straight 👀", "We're not judging"],
+};
+function getStreakCopy(n) {
+  const keys = Object.keys(STREAK_COPY).map(Number).sort((a, b) => b - a);
+  const k = keys.find(k => n >= k);
+  return k ? STREAK_COPY[k] : null;
+}
+function formatDateWithYear(dateStr) {
+  if (!dateStr) return '';
+  if (/\d{4}/.test(dateStr)) return dateStr;
+  return `${dateStr}, ${new Date().getFullYear()}`;
+}
+
+export default function WatchTower() {
+  const [entries, setEntries] = useState([]);
+  const [streakDismissed, setStreakDismissed] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getEntries().then(data => { if (active) setEntries(data); });
+    return () => { active = false; };
+  }, []));
+
+  const now = Date.now();
+  const thirtyAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+  const watched = entries.filter(e => e.status === 'watched');
+  const watchedRecent = watched.filter(e => {
+    const t = e.logged_at ? new Date(e.logged_at).getTime() : 0;
+    return t > thirtyAgo;
+  });
+  const watching  = entries.filter(e => e.status === 'watching' && !e.paused && !e.dropped);
+  const recent    = watched.slice(0, 3);
+  const flaggedCount = watched.filter(e => !e.rating).length;
+
+  // Compute watch time from watchTime strings
+  let totalMins = 0;
+  const countedEntries = watchedRecent.length > 0 ? watchedRecent : watched;
+  countedEntries.forEach(e => {
+    if (e.watchTime) {
+      const h = e.watchTime.match(/(\d+)h/);
+      const m = e.watchTime.match(/(\d+)m/);
+      totalMins += (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
+    }
+  });
+  const totalHours  = Math.round(totalMins / 60);
+  const estimated   = countedEntries.some(e => e.estimated);
+  const totalCount  = watchedRecent.length > 0 ? watchedRecent.length : watched.length;
+  const isRecent    = watchedRecent.length > 0;
+
+  const cats = ['Anime', 'Movie', 'TV Show'].map(t => ({
+    label: t,
+    count: (isRecent ? watchedRecent : watched).filter(e => e.type === t).length,
+  })).filter(c => c.count > 0);
+
+  const STREAK   = 0;
+  const streakCopy = getStreakCopy(STREAK);
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Logo header — tapping opens LogIt */}
+      <View style={styles.topBar}>
+        <Pressable onPress={() => DeviceEventEmitter.emit('openLogIt')} style={styles.logoBtn}>
+          <Text style={styles.logoText}>WatchedIt</Text>
+          <View style={styles.logoDot} />
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Stats card */}
+        <View style={styles.card}>
+          <View style={styles.period}>
+            <View style={styles.dot} />
+            <Text style={styles.periodText}>{isRecent ? 'Last 30 days' : 'All time'}</Text>
+          </View>
+          <Text style={styles.statsLabel}>Titles Watched</Text>
+          <Text style={styles.statsNum}>{totalCount}</Text>
+          {totalHours > 0 && (
+            <Text style={styles.statsTime}>{estimated ? '~' : ''}{totalHours}h watched</Text>
+          )}
+          {cats.length > 0 && (
+            <View style={styles.catPills}>
+              {cats.map(c => (
+                <View key={c.label} style={styles.catPill}>
+                  <Text style={styles.catLabel}>{c.label}</Text>
+                  <Text style={styles.catCount}>{c.count}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          <Pressable onPress={() => router.push('/stats')} style={{ marginTop: 14 }}>
+            <Text style={styles.statsLink}>See your stats →</Text>
+          </Pressable>
+        </View>
+
+        {/* Unrated nudge */}
+        {flaggedCount > 0 && (
+          <View style={styles.nudge}>
+            <Text style={{ fontSize: 18 }}>⭐</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nudgeTitle}>{flaggedCount} watches without a rating</Text>
+              <Pressable onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { tab: 'watched', unrated: 'true' } })}>
+                <Text style={styles.nudgeLink}>How did they land? Rate them →</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Streak banner */}
+        {STREAK >= 2 && !streakDismissed && streakCopy && (
+          <View style={styles.streak}>
+            <Text style={{ fontSize: 24 }}>🔥</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.streakHead}>{streakCopy[0]}</Text>
+              <Text style={styles.streakSub}>{streakCopy[1]} · <Text style={styles.streakNum}>{STREAK} day streak</Text></Text>
+            </View>
+            <Pressable onPress={() => setStreakDismissed(true)} style={{ padding: 4 }}>
+              <Text style={{ color: T.textMuted, fontSize: 14 }}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Currently Watching */}
+        {watching.length > 0 && (
+          <View>
+            <Text style={styles.sectionTitle}>Currently Watching</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 12, paddingRight: 16 }}>
+              {watching.slice(0, 8).map(e => (
+                <Pressable key={e.id} onPress={() => router.push(`/detail/${e.id}`)} style={styles.watchCard}>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Poster title={e.title} size={44} url={e.poster_url} />
+                    <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                      <TypePill type={e.type} />
+                      <Text style={styles.watchTitle} numberOfLines={2}>{e.title}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.watchEp}>
+                    {e.ongoing ? `${e.ep} eps · Ongoing` : e.total ? `Ep ${e.ep} of ${e.total}` : `${e.ep} eps watched`}
+                  </Text>
+                  <Text style={styles.watchDate}>Last: <Text style={{ color: T.textPrimary, fontFamily: T.fontBodyMedium }}>{e.lastWatchedDate}</Text></Text>
+                </Pressable>
+              ))}
+              {watching.length > 8 && (
+                <Pressable onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { tab: 'watching' } })} style={styles.watchMoreCard}>
+                  <Text style={styles.watchMoreCount}>+{watching.length - 8}</Text>
+                  <Text style={styles.watchMoreLabel}>more</Text>
+                  <Text style={styles.watchMoreLink}>View all →</Text>
+                </Pressable>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Recently Watched */}
+        {recent.length > 0 && (
+          <View>
+            <View style={styles.recentHeader}>
+              <Text style={styles.sectionTitle}>Recently Watched</Text>
+              <Pressable onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { tab: 'watched' } })}>
+                <Text style={styles.viewAll}>View all →</Text>
+              </Pressable>
+            </View>
+            <View style={styles.recentCard}>
+              {recent.map((e, i) => (
+                <View key={e.id}>
+                  {i > 0 && <View style={styles.div} />}
+                  <Pressable onPress={() => router.push(`/detail/${e.id}`)} style={styles.recentRow}>
+                    <Poster title={e.title} size={36} url={e.poster_url} />
+                    <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.recentTitle} numberOfLines={1}>{e.title}</Text>
+                        {e.rewatch && <Text style={{ color: T.amberSoft, fontSize: 12 }}>↺</Text>}
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TypePill type={e.type} />
+                        <Text style={styles.recentDate}>{formatDateWithYear(e.finishedDate || e.date)}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.ratingNum}>{e.rating ? String(e.rating) : '—'}</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Empty state */}
+        {entries.length === 0 && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Nothing watched here. Go fix that.</Text>
+            <Pressable style={styles.emptyBtn} onPress={() => router.push('/logit/search')}>
+              <Text style={styles.emptyBtnText}>Log your first watch</Text>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: T.bgPrimary },
+  topBar: { alignItems: 'center', paddingVertical: 14 },
+  logoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: T.amber, borderRadius: 22,
+    paddingHorizontal: 18, paddingVertical: 8,
+  },
+  logoText: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 22, letterSpacing: -0.5 },
+  logoDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: T.amberDeep, marginTop: 2 },
+  scroll: { padding: 16, gap: 20, paddingBottom: 32 },
+  card: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 20, alignItems: 'center' },
+  period: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.elevated, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 14 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: T.amber },
+  periodText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10, letterSpacing: 0.8 },
+  statsLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 },
+  statsNum: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 80, lineHeight: 88 },
+  statsTime: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, marginTop: 8 },
+  catPills: { flexDirection: 'row', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' },
+  catPill: { backgroundColor: T.elevated, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  catLabel: { color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 11 },
+  catCount: { color: T.amber, fontFamily: T.fontMono, fontWeight: '600', fontSize: 11 },
+  statsLink: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 12, textDecorationLine: 'underline' },
+  nudge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(239,159,39,0.08)', borderWidth: 1, borderColor: 'rgba(239,159,39,0.15)', borderRadius: 16, padding: 14 },
+  nudgeTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
+  nudgeLink: { color: T.amber, fontFamily: T.fontTitle, fontSize: 12 },
+  streak: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(239,159,39,0.1)', borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)', borderRadius: 16, padding: 12 },
+  streakHead: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 14 },
+  streakSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
+  streakNum: { color: T.amberSoft, fontFamily: T.fontMono, fontWeight: '600' },
+  sectionTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 17, letterSpacing: -0.1, marginBottom: 12 },
+  watchCard: { width: 190, backgroundColor: T.surface, borderRadius: 18, padding: 14, gap: 10 },
+  watchTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14, lineHeight: 18, height: 36 },
+  watchEp: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
+  watchDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  watchMoreCard: { width: 110, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 18, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
+  watchMoreCount: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 26 },
+  watchMoreLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  watchMoreLink: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 11, marginTop: 4 },
+  recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  viewAll: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 12 },
+  recentCard: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 16 },
+  div: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 14 },
+  recentRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  recentTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14, flex: 1 },
+  recentDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 16 },
+  empty: { alignItems: 'center', paddingVertical: 60, gap: 16 },
+  emptyText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14, textAlign: 'center' },
+  emptyBtn: { backgroundColor: T.amber, borderRadius: T.radiusButton, paddingHorizontal: 24, paddingVertical: 12 },
+  emptyBtnText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 14 },
+});

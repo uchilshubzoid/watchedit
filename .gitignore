@@ -18,7 +18,20 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.claude/
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Expo
+.expo/
+dist/
+
+# Android keystore (never commit)
+*.jks
+*.keystore
+
+# EAS local builds
+android/
+ios/

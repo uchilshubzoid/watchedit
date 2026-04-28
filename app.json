@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "WatchedIt",
+    "slug": "watchedit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#292826"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.watchedit.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#292826"
+      },
+      "package": "com.watchedit.app",
+      "versionCode": 1,
+      "permissions": ["android.permission.VIBRATE"],
+      "edgeToEdgeLayoutEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#292826",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "scheme": "watchedit"
+  }
+}
