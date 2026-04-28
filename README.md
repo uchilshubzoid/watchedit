@@ -1,70 +1,136 @@
-# Getting Started with Create React App
+# WatchedIt
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Every title you've watched, rated, and remembered, searchable, analysable, and finally yours.
 
-## Available Scripts
+WatchedIt is a personal content manual for movies, TV shows, and anime. It is built for people who watch a lot, have opinions, and want to own their taste data instead of leaving it scattered across streaming apps.
 
-In the project directory, you can run:
+## Current Status
 
-### `npm start`
+WatchedIt is currently an Android-first Expo React Native app.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- Stage 1 React web shell is complete and kept as migration reference.
+- Stage 2 Expo native migration is complete.
+- MAL, TMDB, and OMDB search are wired into Log It.
+- Local persistence uses AsyncStorage.
+- Expo Router owns native navigation.
+- Play Store polish, onboarding, copy audit, and animation pass are the next focus.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Product Shape
 
-### `npm test`
+Core flows:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Log titles as watched, watching, or watch plan.
+- Search live sources through a unified Log It flow.
+- Rate and react to entries.
+- Track episode progress and watch sessions for shows.
+- Browse WatchList, Watch Tower, Search, Stats, and Watcher/Profile screens.
+- Keep taste data local and structured for future import/export and analytics work.
 
-### `npm run build`
+Tone-wise, the app should feel warm, a little playful, and intentional. Logging is a deliberate act: if you chose to capture it, your reaction matters.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Tech Stack
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Expo `~55`
+- React Native `0.83`
+- React `19`
+- Expo Router
+- AsyncStorage
+- `@gorhom/bottom-sheet`
+- Expo Haptics
+- Expo Linear Gradient
+- Nunito + Inconsolata fonts
+- MAL, TMDB, and OMDB APIs
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Project Structure
 
-### `npm run eject`
+```text
+app/                    Expo Router routes; mostly thin re-exports
+  _layout.jsx           Root stack, fonts, splash, gesture root
+  (tabs)/               Bottom tab navigator and Log It FAB
+  logit/                Log It modal/details routes
+  detail/[id].jsx       Entry detail route
+  stats.jsx             Stats route
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+src/
+  screens/              Main screen implementations
+  components/           Shared native UI components
+  api/                  Unified title search entry point and MAL adapter
+  services/             TMDB, OMDB, and legacy search helpers
+  db/storage.js         AsyncStorage CRUD helpers
+  constants/tokens.js   Locked design tokens
+  WatchedIt_Spec_v1.3.md Product spec, currently updated to v1.4 content
+  CLAUDE.md             Project memory and implementation guidance
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+assets/                 App icon, adaptive icon, splash image
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+`src/screens/WatchedItApp.jsx` is read-only migration reference. New work should happen in the native screen/component files.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Setup
 
-## Learn More
+Install dependencies:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+npm install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Create a local `.env` file with API credentials:
 
-### Code Splitting
+```bash
+EXPO_PUBLIC_MAL_CLIENT_ID=your_mal_client_id
+EXPO_PUBLIC_TMDB_TOKEN=your_tmdb_bearer_token
+EXPO_PUBLIC_OMDB_API_KEY=your_omdb_api_key
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+The `.env` file is intentionally ignored by Git.
 
-### Analyzing the Bundle Size
+## Run Locally
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Start Expo:
 
-### Making a Progressive Web App
+```bash
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Run on Android:
 
-### Advanced Configuration
+```bash
+npm run android
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Run on iOS:
 
-### Deployment
+```bash
+npm run ios
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Builds
 
-### `npm run build` fails to minify
+Preview APK:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```bash
+npm run build:apk
+```
+
+Production AAB:
+
+```bash
+npm run build:aab
+```
+
+These use EAS Build and require an Expo/EAS account.
+
+## Important Development Notes
+
+- Use `src/constants/tokens.js` for colors, fonts, and radii.
+- Use `src/db/storage.js` for all persistence; all storage functions are async.
+- Do not use browser APIs in native screens.
+- Use Expo Router for navigation.
+- Use Expo Haptics instead of `navigator.vibrate`.
+- Preserve the watch status transition rules from the spec.
+- Keep `WatchedItApp.jsx` as reference only.
+
+## Docs
+
+- Product spec: [src/WatchedIt_Spec_v1.3.md](src/WatchedIt_Spec_v1.3.md)
+- Project memory: [src/CLAUDE.md](src/CLAUDE.md)
