@@ -14,6 +14,7 @@ WatchedIt is currently an Android-first Expo React Native app.
 - Local persistence uses AsyncStorage.
 - Expo Router owns native navigation.
 - Play Store polish, onboarding, copy audit, and animation pass are the next focus.
+- The old Create React App shell lives in `archive/web-shell/` for historical reference only.
 
 ## Product Shape
 
@@ -62,6 +63,7 @@ src/
   CLAUDE.md             Project memory and implementation guidance
 
 assets/                 App icon, adaptive icon, splash image
+archive/web-shell/      Deprecated Stage 1 CRA shell; reference only
 ```
 
 `src/screens/WatchedItApp.jsx` is read-only migration reference. New work should happen in the native screen/component files.

@@ -90,9 +90,8 @@ All screens and components migrated to React Native + Expo Router. The app runs 
 ├── .env                           ← All keys use EXPO_PUBLIC_ prefix
 └── package.json                   ← Expo Router entry, React Native stack
 
-# Deprecated CRA artifacts (do not use, do not delete yet — kept for reference):
-# src/App.js, src/index.js, src/setupProxy.js, src/App.css, src/index.css
-# public/, build/
+# Deprecated CRA artifacts are archived in `archive/web-shell/`.
+# Do not use them for active work; keep them only as Stage 1 reference.
 ```
 
 ### Migration pattern for extracting components

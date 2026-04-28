@@ -73,6 +73,7 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 - MAL, TMDB, and OMDB search are wired through the unified search entry point.
 - Local persistence is AsyncStorage-based.
 - App assets are present in `assets/icon.png`, `assets/splash.png`, and `assets/adaptive-icon.png`.
+- Deprecated Create React App files are archived in `archive/web-shell/`.
 
 ### Next Product Work
 1. Onboarding flow for cold start and empty state.
@@ -82,7 +83,7 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 
 ### Do Not Use For New Work
 - `src/screens/WatchedItApp.jsx` — migration reference only.
-- Deprecated CRA files (`src/App.js`, `src/index.js`, `public/`, CSS files) — keep for reference until explicitly removed.
+- `archive/web-shell/` — deprecated Stage 1 CRA shell, historical reference only.
 
 ---
 
