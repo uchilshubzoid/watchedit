@@ -11,6 +11,7 @@ import StarRating from '../components/StarRating';
 import BlockingPopup from '../components/BlockingPopup';
 import { addEntry, getEntry, updateEntry } from '../db/storage';
 import { T } from '../constants/tokens';
+import { highResPosterUrl } from '../utils/posterUtils';
 
 const LANG_CHIPS = ['Japanese', 'English', 'Korean', 'Hindi', 'Tamil', 'Spanish', 'French', 'Mandarin', 'Arabic', 'Italian'];
 
@@ -340,7 +341,7 @@ export default function LogItDetails() {
           ? (isTV ? (estimatedTotalMins ? `~${Math.floor(estimatedTotalMins / 60)}h ${estimatedTotalMins % 60}m` : null) : movieWatchTimeStr)
           : epWatchedRuntime,
         estimated:        isTV,
-        poster_url:       show?.poster_url || null,
+        poster_url:       highResPosterUrl(show?.poster_url),
         malRating:        show?.global_rating || null,
         watch_sessions:   [],
         episode_notes:    {},

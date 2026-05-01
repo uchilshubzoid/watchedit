@@ -6,6 +6,7 @@ import TypePill from '../components/TypePill';
 import { searchTitles } from '../api';
 import { getEntries, addEntry, getTitleLanguagePref } from '../db/storage';
 import { getPreferredTitle } from '../utils/titleUtils';
+import { highResPosterUrl } from '../utils/posterUtils';
 import { T } from '../constants/tokens';
 
 const PREVIEW_DURATION = 10000;
@@ -167,6 +168,7 @@ export default function LogItSearch({ onClose }) {
 
   async function handleAddToWatchPlan(r) {
     const id = String(Date.now());
+    const posterUrl = highResPosterUrl(r.poster_url);
     await addEntry({
       id,
       title:            dt(r),
@@ -187,7 +189,7 @@ export default function LogItSearch({ onClose }) {
       recommend:        false,
       watchTime:        null,
       estimated:        false,
-      poster_url:       r.poster_url || null,
+      poster_url:       posterUrl,
       malRating:        r.global_rating || null,
       watch_start_date: null,
       watch_end_date:   null,
@@ -200,7 +202,7 @@ export default function LogItSearch({ onClose }) {
     dismiss();
     router.push({
       pathname: '/logit/details',
-      params: { resultJson: JSON.stringify({ ...r, isRewatch }) },
+      params: { resultJson: JSON.stringify({ ...r, poster_url: highResPosterUrl(r.poster_url), isRewatch }) },
     });
   }
 

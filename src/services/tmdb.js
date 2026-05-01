@@ -20,7 +20,7 @@ const TMDB_TOKEN =
   process.env.EXPO_PUBLIC_TMDB_TOKEN || process.env.REACT_APP_TMDB_TOKEN;
 
 const TMDB_BASE   = "https://api.themoviedb.org/3";
-const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
+const POSTER_BASE = "https://image.tmdb.org/t/p/w780";
 
 // ── Auth header ───────────────────────────────────────────────────────────────
 // Reused on every request. If the token is missing we throw early so the

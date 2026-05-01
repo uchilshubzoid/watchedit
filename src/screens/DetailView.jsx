@@ -12,6 +12,7 @@ import MiniCalendar from '../components/MiniCalendar';
 import StarRating from '../components/StarRating';
 import { getEntry, updateEntry, deleteEntry, getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
+import { highResPosterUrl } from '../utils/posterUtils';
 
 function localISODate() {
   const d = new Date();
@@ -76,7 +77,9 @@ export default function DetailView() {
 
   // Inline log session widget
   const [logOpen,     setLogOpen]     = useState(false);
+  const [logMode,     setLogMode]     = useState('count');
   const [logCount,    setLogCount]    = useState(1);
+  const [logEpisodeNumber, setLogEpisodeNumber] = useState('');
   const [logDate,     setLogDate]     = useState(localISODate);
   const [logCalOpen,  setLogCalOpen]  = useState(false);
   const [logRating,   setLogRating]   = useState(null);
@@ -176,8 +179,10 @@ export default function DetailView() {
   }));
 
   // Inline log widget derived values
-  const logEpTo        = epCurrent + logCount;
+  const logEpisodeValue = parseInt(logEpisodeNumber, 10) || epCurrent + 1;
+  const logEpTo        = logMode === 'count' ? epCurrent + logCount : logEpisodeValue;
   const logWillComplete = !entry.ongoing && epTotal > 0 && logEpTo >= epTotal;
+  const posterModalUrl = highResPosterUrl(entry.poster_url);
 
   const startDate = firstSesh?.date_display || null;
   const endDate   = isWatched
@@ -203,11 +208,14 @@ export default function DetailView() {
   }
 
   async function handleLogSesh() {
-    const epTo        = epCurrent + logCount;
+    const epTo        = logMode === 'count' ? epCurrent + logCount : logEpisodeValue;
     const willComplete = !entry.ongoing && epTotal > 0 && epTo >= epTotal;
+    if (logMode === 'number' && epTo <= epCurrent) return;
+    if (!entry.ongoing && epTotal > 0 && epTo > epTotal) return;
     if (willComplete && !logRating) return;
 
     const epFrom     = epCurrent + 1;
+    const episodesLogged = epTo - epCurrent;
     const newSession = { ep_from: epFrom, ep_to: epTo, date: logDate, date_display: fmtDateShort(logDate) };
     const rt         = entry.epRuntime || (entry.type === 'Anime' ? 24 : 45);
     const mins       = rt * epTo;
@@ -243,12 +251,14 @@ export default function DetailView() {
       const epLabel  = epTotal ? `Ep ${epTo} of ${epTotal}` : `Ep ${epTo}`;
       showToast(
         'Session logged! 🎉',
-        `You've watched ${logCount} episode${logCount > 1 ? 's' : ''}. You're now at ${epLabel}${pct}.`,
+        `You've watched ${episodesLogged} episode${episodesLogged > 1 ? 's' : ''}. You're now at ${epLabel}${pct}.`,
       );
     }
 
     setLogOpen(false);
+    setLogMode('count');
     setLogCount(1);
+    setLogEpisodeNumber('');
     setLogRating(null);
     setLogReaction('');
     setLogDate(localISODate());
@@ -413,7 +423,15 @@ export default function DetailView() {
 
           {/* What I Thought */}
           <View style={styles.card}>
-            <SectionLabel>What I Thought</SectionLabel>
+            <View style={styles.sectionHeaderRow}>
+              <SectionLabel>What I Thought</SectionLabel>
+              {!isPlan && (
+                <Pressable onPress={() => setRatingOpen(true)} style={styles.editThoughtsBtn}>
+                  <Ionicons name="create-outline" size={12} color={T.amber} />
+                  <Text style={styles.editThoughtsText}>Edit</Text>
+                </Pressable>
+              )}
+            </View>
             {!isPlan && (
               <View style={styles.thoughtsRow}>
                 <View style={styles.thoughtsYourRating}>
@@ -421,9 +439,6 @@ export default function DetailView() {
                   {entry.rating ? (
                     <View style={styles.ratingRow}>
                       <Text style={styles.ratingBig}>{entry.rating}</Text>
-                      <Pressable onPress={() => setRatingOpen(true)} style={styles.editRatingBtn}>
-                        <Text style={styles.editRatingText}>Edit</Text>
-                      </Pressable>
                     </View>
                   ) : (
                     <View style={{ gap: 6 }}>
@@ -464,27 +479,21 @@ export default function DetailView() {
               <Text style={styles.reaction}>"{entry.reaction}"</Text>
             ) : null}
             <View style={styles.statusTags}>
-              {isWatched && (
-                <View style={styles.statusTag}>
-                  <Ionicons name="checkmark-circle" size={11} color={T.amber} />
-                  <Text style={styles.statusTagText}>Watched</Text>
-                </View>
-              )}
               <Pressable
                 onPress={() => handleUpdate({ ...entry, recommend: !entry.recommend })}
-                style={[styles.statusTag, styles.statusTagSoft]}
+                style={[styles.statusTag, entry.recommend ? styles.statusTagSoftSelected : styles.statusTagSoft]}
               >
-                <Ionicons name={entry.recommend ? 'thumbs-up' : 'thumbs-up-outline'} size={11} color={T.amberSoft} />
-                <Text style={[styles.statusTagText, styles.statusTagTextSoft]}>
+                <Ionicons name={entry.recommend ? 'thumbs-up' : 'thumbs-up-outline'} size={11} color={entry.recommend ? T.bgPrimary : T.amberSoft} />
+                <Text style={[styles.statusTagText, entry.recommend ? styles.statusTagTextSelected : styles.statusTagTextSoft]}>
                   {entry.recommend ? 'Recommended' : 'Recommend'}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => handleUpdate({ ...entry, bookmark: !entry.bookmark })}
-                style={[styles.statusTag, styles.statusTagWarm]}
+                style={[styles.statusTag, entry.bookmark ? styles.statusTagWarmSelected : styles.statusTagWarm]}
               >
-                <Ionicons name={entry.bookmark ? 'bookmark' : 'bookmark-outline'} size={11} color={T.amberWarm} />
-                <Text style={[styles.statusTagText, styles.statusTagTextWarm]}>
+                <Ionicons name={entry.bookmark ? 'bookmark' : 'bookmark-outline'} size={11} color={entry.bookmark ? T.bgPrimary : T.amberWarm} />
+                <Text style={[styles.statusTagText, entry.bookmark ? styles.statusTagTextSelected : styles.statusTagTextWarm]}>
                   {entry.bookmark ? 'Bookmarked' : 'Bookmark'}
                 </Text>
               </Pressable>
@@ -514,7 +523,14 @@ export default function DetailView() {
                 <View style={styles.logWidget}>
                   <Pressable
                     onPress={() => {
-                      if (!logOpen) { setLogCount(1); setLogRating(null); setLogReaction(''); setLogCalOpen(false); }
+                      if (!logOpen) {
+                        setLogMode('count');
+                        setLogCount(1);
+                        setLogEpisodeNumber(String(epCurrent + 1));
+                        setLogRating(null);
+                        setLogReaction('');
+                        setLogCalOpen(false);
+                      }
                       setLogOpen(v => !v);
                     }}
                     style={styles.logWidgetHeader}
@@ -532,27 +548,92 @@ export default function DetailView() {
                         }
                       </Text>
 
-                      {/* Stepper + Date */}
-                      <View style={styles.logInputRow}>
+                      {/* Episode input */}
+                      <View style={styles.logInputBlock}>
+                        <View style={styles.logInputHeader}>
+                          <Text style={styles.logInputLabel}>
+                            {logMode === 'count' ? 'Episodes watched' : 'Episode number'}
+                          </Text>
+                          <View style={styles.logModeToggle}>
+                            <Pressable
+                              onPress={() => setLogMode('count')}
+                              style={[styles.logModeBtn, logMode === 'count' && styles.logModeBtnActive]}
+                            >
+                              <Text style={[styles.logModeText, logMode === 'count' && styles.logModeTextActive]}>Count</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => {
+                                setLogMode('number');
+                                setLogEpisodeNumber(String(logEpTo > epCurrent ? logEpTo : epCurrent + 1));
+                              }}
+                              style={[styles.logModeBtn, logMode === 'number' && styles.logModeBtnActive]}
+                            >
+                              <Text style={[styles.logModeText, logMode === 'number' && styles.logModeTextActive]}>Ep #</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+
                         <View style={styles.stepper}>
                           <Pressable
-                            onPress={() => setLogCount(c => Math.max(1, c - 1))}
+                            onPress={() => {
+                              if (logMode === 'count') {
+                                setLogCount(c => Math.max(1, c - 1));
+                              } else {
+                                setLogEpisodeNumber(v => String(Math.max(epCurrent + 1, (parseInt(v, 10) || epCurrent + 1) - 1)));
+                              }
+                            }}
                             style={styles.stepperBtn}
                           >
                             <Ionicons name="remove" size={20} color={T.textPrimary} />
                           </Pressable>
-                          <Text style={styles.stepperCount}>{logCount}</Text>
+                          <TextInput
+                            value={logMode === 'count' ? String(logCount) : logEpisodeNumber}
+                            onChangeText={t => {
+                              const clean = t.replace(/\D/g, '');
+                              if (logMode === 'count') {
+                                const n = parseInt(clean, 10);
+                                const max = entry.ongoing ? 999 : Math.max(1, remaining);
+                                setLogCount(clean ? Math.min(max, Math.max(1, n)) : 1);
+                              } else {
+                                setLogEpisodeNumber(clean);
+                              }
+                            }}
+                            keyboardType="number-pad"
+                            style={styles.stepperInput}
+                            selectTextOnFocus
+                          />
                           <Pressable
-                            onPress={() => setLogCount(c => {
-                              const max = entry.ongoing ? 999 : Math.max(1, remaining);
-                              return c < max ? c + 1 : c;
-                            })}
+                            onPress={() => {
+                              const max = entry.ongoing ? 999 : Math.max(1, epTotal || 999);
+                              if (logMode === 'count') {
+                                setLogCount(c => {
+                                  const countMax = entry.ongoing ? 999 : Math.max(1, remaining);
+                                  return c < countMax ? c + 1 : c;
+                                });
+                              } else {
+                                setLogEpisodeNumber(v => String(Math.min(max, (parseInt(v, 10) || epCurrent) + 1)));
+                              }
+                            }}
                             style={styles.stepperBtn}
                           >
                             <Ionicons name="add" size={20} color={T.textPrimary} />
                           </Pressable>
                         </View>
-                        <Text style={styles.stepperLabel}>episodes</Text>
+                        <Text style={[
+                          styles.stepperLabel,
+                          logMode === 'number' && logEpTo <= epCurrent && styles.logInputError,
+                        ]}>
+                          {logMode === 'count'
+                            ? `${logCount} episode${logCount > 1 ? 's' : ''} · now Ep ${logEpTo}${epTotal ? ` of ${epTotal}` : ''}`
+                            : logEpTo <= epCurrent
+                              ? `Pick an episode after ${epCurrent}`
+                              : `Logging Ep ${epCurrent + 1}${logEpTo > epCurrent + 1 ? `-${logEpTo}` : ''}${epTotal ? ` of ${epTotal}` : ''}`}
+                        </Text>
+                      </View>
+
+                      {/* Date */}
+                      <View style={styles.logDateBlock}>
+                        <Text style={styles.logInputLabel}>Date watched</Text>
                         <Pressable onPress={() => setLogCalOpen(v => !v)} style={styles.logDateBtn}>
                           <Ionicons name="calendar-outline" size={13} color={T.textMuted} />
                           <Text style={styles.logDateText}>{isoToDisplay(logDate)}</Text>
@@ -593,7 +674,12 @@ export default function DetailView() {
                       {/* Submit */}
                       <Pressable
                         onPress={handleLogSesh}
-                        style={[styles.logSessionBtn, logWillComplete && !logRating && styles.logSessionBtnDim]}
+                        style={[
+                          styles.logSessionBtn,
+                          ((logMode === 'number' && logEpTo <= epCurrent) ||
+                            (!entry.ongoing && epTotal > 0 && logEpTo > epTotal) ||
+                            (logWillComplete && !logRating)) && styles.logSessionBtnDim,
+                        ]}
                       >
                         <Text style={styles.logSessionBtnText}>
                           {logWillComplete ? 'Finish & Rate ✓' : 'Log Session ✓'}
@@ -736,7 +822,7 @@ export default function DetailView() {
       {entry.poster_url && (
         <Modal visible={posterExpanded} transparent animationType="fade" onRequestClose={() => setPosterExpanded(false)} statusBarTranslucent>
           <Pressable style={styles.posterModal} onPress={() => setPosterExpanded(false)}>
-            <Image source={{ uri: entry.poster_url }} style={styles.posterModalImg} resizeMode="contain" />
+            <Image source={{ uri: posterModalUrl }} style={styles.posterModalImg} resizeMode="contain" />
             <Text style={styles.posterModalHint}>Tap anywhere to close</Text>
           </Pressable>
         </Modal>
@@ -843,28 +929,32 @@ const styles = StyleSheet.create({
   dateArrow: { color: T.textMuted, fontFamily: T.fontBody },
   dateEnd: { color: T.amber },
   planNote: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
-  thoughtsRow: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  editThoughtsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
+  editThoughtsText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11 },
+  thoughtsRow: { flexDirection: 'row', gap: 20, alignItems: 'flex-start', justifyContent: 'space-between' },
   thoughtsYourRating: { flexShrink: 0 },
-  thoughtsGlobal: { flex: 1, minWidth: 0, gap: 4 },
+  thoughtsGlobal: { flexShrink: 0, minWidth: 0, gap: 4, alignItems: 'flex-end' },
   thoughtsRatingLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   ratingBig: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 48, lineHeight: 52 },
-  editRatingBtn: { borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
-  editRatingText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11 },
   noRating: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
   rateLink: { color: T.amber, fontFamily: T.fontTitle, fontSize: 12, textDecorationLine: 'underline' },
-  globalRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  globalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   globalDot: { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
-  globalSource: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
-  globalRating: { color: T.textPrimary, fontFamily: T.fontMono, fontSize: 12, fontWeight: '600' },
+  globalSource: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, textAlign: 'right' },
+  globalRating: { color: T.textPrimary, fontFamily: T.fontMono, fontSize: 14, fontWeight: '600' },
   reaction: { color: T.textPrimary, fontFamily: T.fontBody, fontSize: 13, lineHeight: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 14, fontStyle: 'italic' },
   statusTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  statusTag: { backgroundColor: 'rgba(239,159,39,0.12)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusTag: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1 },
   statusTagText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11 },
-  statusTagSoft: { backgroundColor: 'rgba(250,199,117,0.12)' },
+  statusTagSoft: { backgroundColor: 'rgba(250,199,117,0.08)', borderColor: 'rgba(250,199,117,0.18)' },
+  statusTagSoftSelected: { backgroundColor: T.amberSoft, borderColor: T.amberSoft },
   statusTagTextSoft: { color: T.amberSoft },
-  statusTagWarm: { backgroundColor: 'rgba(200,133,74,0.12)' },
+  statusTagWarm: { backgroundColor: 'rgba(200,133,74,0.08)', borderColor: 'rgba(200,133,74,0.18)' },
+  statusTagWarmSelected: { backgroundColor: T.amberWarm, borderColor: T.amberWarm },
   statusTagTextWarm: { color: T.amberWarm },
+  statusTagTextSelected: { color: T.bgPrimary },
   epProgressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   epProgressText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 15 },
   epPercent: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 20 },
@@ -881,19 +971,29 @@ const styles = StyleSheet.create({
   logWidgetBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 12 },
   logWidgetSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
   logWidgetNext: { color: T.amberSoft, fontFamily: T.fontTitleMedium, fontSize: 13 },
-  logInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logInputBlock: { gap: 8 },
+  logInputHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  logInputLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
+  logModeToggle: { flexDirection: 'row', backgroundColor: T.bgPrimary, borderRadius: 10, padding: 3, gap: 3 },
+  logModeBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  logModeBtnActive: { backgroundColor: T.elevated },
+  logModeText: { color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 11 },
+  logModeTextActive: { color: T.amberSoft, fontFamily: T.fontTitle },
   stepper: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: T.bgPrimary, borderRadius: 10, overflow: 'hidden',
+    alignSelf: 'flex-start',
   },
   stepperBtn: { paddingHorizontal: 10, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
-  stepperCount: {
+  stepperInput: {
     color: T.amber, fontFamily: T.fontDisplay, fontSize: 22,
-    minWidth: 36, textAlign: 'center',
+    minWidth: 54, textAlign: 'center', paddingVertical: 0,
   },
   stepperLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
+  logInputError: { color: T.dropped },
+  logDateBlock: { gap: 8 },
   logDateBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: T.bgPrimary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9,
   },
   logDateText: { flex: 1, color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
@@ -960,7 +1060,7 @@ const styles = StyleSheet.create({
 
   // Toast
   toast: {
-    position: 'absolute', bottom: 16, left: 16, right: 16,
+    position: 'absolute', bottom: 96, left: 16, right: 16,
     backgroundColor: T.surface, borderRadius: 16, padding: 16,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)',

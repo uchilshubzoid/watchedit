@@ -33,7 +33,10 @@ function mapContentType(omdbType) {
 // ── Poster URL ────────────────────────────────────────────────────────────────
 // OMDB returns full URLs, but uses the string "N/A" when there's no poster.
 function posterUrl(raw) {
-  return raw && raw !== "N/A" ? raw : null;
+  if (!raw || raw === "N/A") return null;
+  return raw
+    .replace(/_V1_SX\d+/, "_V1_SX1000")
+    .replace(/_V1_SY\d+/, "_V1_SY1500");
 }
 
 // ── Year extraction ───────────────────────────────────────────────────────────

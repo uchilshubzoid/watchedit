@@ -29,7 +29,7 @@ export async function searchMAL(query) {
     genre: (node.genres || []).map(g => g.name),
     ongoing: node.status === 'currently_airing',
     inLog: false,
-    poster_url: node.main_picture?.medium ?? null,
+    poster_url: node.main_picture?.large ?? node.main_picture?.medium ?? null,
     malRating: node.mean ?? null,
     runtime: null,
     alternative_titles: {
