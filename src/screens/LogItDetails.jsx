@@ -560,7 +560,7 @@ export default function LogItDetails() {
         {/* ── Sticky header ── */}
         <View style={styles.stickyHeader}>
           <Pressable onPress={() => router.back()} style={styles.headerSide}>
-            <Text style={styles.backArrow}>←</Text>
+            <Ionicons name="chevron-back" size={30} color={T.textPrimary} />
           </Pressable>
 
           <View style={styles.titleWrap}>
@@ -877,7 +877,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   headerSide: { width: 48, alignItems: 'center', justifyContent: 'center' },
-  backArrow: { color: T.textPrimary, fontSize: 20 },
+  backArrow: { color: T.textPrimary, fontSize: 20 }, // unused — kept for safety
   titleWrap: { flex: 1, alignItems: 'center', minWidth: 0, gap: 3 },
   titleInner: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   // No numberOfLines — full title always visible, wraps across lines

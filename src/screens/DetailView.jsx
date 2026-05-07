@@ -297,7 +297,7 @@ export default function DetailView() {
           {/* Top bar — status pill moved into hero card */}
           <View style={styles.topBar}>
             <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={22} color={T.textPrimary} />
+              <Ionicons name="chevron-back" size={30} color={T.textPrimary} />
             </Pressable>
             <View style={styles.actionBtns}>
               {isWatched && (
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   loadingText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14 },
   scroll: { padding: 16, gap: 14, paddingBottom: 80 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  backBtn: { padding: 4 },
+  backBtn: { padding: 8 },
   actionBtns: { flexDirection: 'row', gap: 8 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: T.elevated, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 },
   actionBtnDanger: { backgroundColor: 'rgba(196,122,122,0.12)' },

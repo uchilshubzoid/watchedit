@@ -37,7 +37,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#292826' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#292826' }, animation: 'slide_from_right' }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="detail/[id]"

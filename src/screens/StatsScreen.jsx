@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Rect, Line, Text as SvgText, Path } from 'react-native-svg';
 import { getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
@@ -172,7 +173,7 @@ export default function StatsScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backArrow}>←</Text>
+          <Ionicons name="chevron-back" size={30} color={T.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Your Stats</Text>
       </View>
@@ -430,8 +431,7 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bgPrimary },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { padding: 4 },
-  backArrow: { color: T.textPrimary, fontSize: 20 },
+  backBtn: { padding: 8 },
   headerTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 20 },
   scroll: { padding: 16, gap: 16, paddingBottom: 60 },
   filterRow: { gap: 8, paddingBottom: 4 },
