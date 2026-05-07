@@ -501,7 +501,7 @@ export default function DetailView() {
           </View>
 
           {/* Episode Tracker — currently watching or dropped */}
-          {(isWatching || isDropped) && !isMovie && epTotal > 0 && (
+          {(isWatching || isDropped) && !isMovie && (epTotal > 0 || entry.ongoing) && (
             <View style={styles.card}>
               <SectionLabel>Episode Tracker</SectionLabel>
               <View style={styles.epProgressRow}>
@@ -704,7 +704,9 @@ export default function DetailView() {
                 </View>
               )}
 
-              {/* Episode list toggle */}
+              {/* Episode list toggle — only for shows with a defined episode total */}
+              {epTotal > 0 && (
+                <>
               <Pressable onPress={() => setEpListExpanded(v => !v)} style={styles.expandBtn}>
                 <Text style={styles.expandBtnText}>
                   {epListExpanded ? 'Hide episode list ▲' : 'Show episode list ▼'}
@@ -765,6 +767,8 @@ export default function DetailView() {
                     );
                   })}
                 </View>
+              )}
+                </>
               )}
             </View>
           )}

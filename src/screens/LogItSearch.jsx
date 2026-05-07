@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet, ScrollView, Modal, Image } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet, ScrollView, Modal, Image, Animated, Keyboard } from 'react-native';
 import { router } from 'expo-router';
 import Poster from '../components/Poster';
 import TypePill from '../components/TypePill';
@@ -10,7 +10,7 @@ import { highResPosterUrl } from '../utils/posterUtils';
 import { T } from '../constants/tokens';
 
 const PREVIEW_DURATION = 10000;
-const SOURCE_FILTERS = ['All', 'MAL', 'TMDB', 'OMDB'];
+const SOURCES        = ['MAL', 'TMDB', 'OMDB'];
 const TYPE_FILTERS   = ['All', 'Movie', 'TV Show', 'Anime'];
 
 function SearchPreviewModal({ result: r, onClose }) {
@@ -119,20 +119,28 @@ function SourceBadge({ source }) {
 
 export default function LogItSearch({ onClose }) {
   function dismiss() { if (onClose) onClose(); else router.back(); }
-  const [query,        setQuery]        = useState('');
-  const [results,      setResults]      = useState(null);
-  const [loading,      setLoading]      = useState(false);
-  const [searchError,  setSearchError]  = useState(null);
-  const [sourceFilter, setSourceFilter] = useState('All');
-  const [addedIds,     setAddedIds]     = useState(new Set());
-  const [titleLang,    setTitleLang]    = useState('en');
-  const [previewItem,  setPreviewItem]  = useState(null);
-  const [typeFilter,   setTypeFilter]   = useState('All');
-  const inputRef = useRef(null);
+  const [query,         setQuery]         = useState('');
+  const [results,       setResults]       = useState(null);
+  const [loading,       setLoading]       = useState(false);
+  const [searchError,   setSearchError]   = useState(null);
+  const [activeSources, setActiveSources] = useState(new Set(SOURCES));
+  const [addedIds,      setAddedIds]      = useState(new Set());
+  const [titleLang,     setTitleLang]     = useState('en');
+  const [previewItem,   setPreviewItem]   = useState(null);
+  const [typeFilter,    setTypeFilter]    = useState('All');
+  const inputRef  = useRef(null);
+  const kbOffset  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     getTitleLanguagePref().then(setTitleLang);
     setTimeout(() => inputRef.current?.focus(), 100);
+    const show = Keyboard.addListener('keyboardDidShow', e =>
+      Animated.timing(kbOffset, { toValue: e.endCoordinates.height, duration: 220, useNativeDriver: false }).start()
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () =>
+      Animated.timing(kbOffset, { toValue: 0, duration: 180, useNativeDriver: false }).start()
+    );
+    return () => { show.remove(); hide.remove(); };
   }, []);
 
   const dt = r => getPreferredTitle(r, titleLang);
@@ -141,7 +149,7 @@ export default function LogItSearch({ onClose }) {
     if (!query.trim()) return;
     setLoading(true);
     setSearchError(null);
-    setSourceFilter('All');
+    setActiveSources(new Set(SOURCES));
     setTypeFilter('All');
     try {
       const entries = await getEntries();
@@ -157,13 +165,21 @@ export default function LogItSearch({ onClose }) {
   }
 
   const combined  = results?.combined ?? null;
-  const bySource  = results?.bySource ?? { MAL: [], TMDB: [], OMDB: [] };
   const bySourceFiltered = combined === null
     ? null
-    : sourceFilter === 'All' ? combined : (bySource[sourceFilter] ?? []);
+    : combined.filter(r => activeSources.has(r.source));
   const filteredResults  = bySourceFiltered === null
     ? null
     : typeFilter === 'All' ? bySourceFiltered : bySourceFiltered.filter(r => r.content_type === typeFilter);
+
+  function toggleSource(src) {
+    setActiveSources(prev => {
+      if (prev.has(src) && prev.size === 1) return prev;
+      const next = new Set(prev);
+      next.has(src) ? next.delete(src) : next.add(src);
+      return next;
+    });
+  }
   const singleRewatch = filteredResults?.length === 1 && filteredResults[0].inLog;
 
   async function handleAddToWatchPlan(r) {
@@ -217,7 +233,7 @@ export default function LogItSearch({ onClose }) {
   return (
     <View style={styles.root}>
       <Pressable style={{ flex: 1 }} onPress={dismiss} />
-      <View style={styles.sheet}>
+      <Animated.View style={[styles.sheet, { marginBottom: kbOffset }]}>
       <View style={styles.handle} />
 
       <View style={styles.header}>
@@ -261,7 +277,22 @@ export default function LogItSearch({ onClose }) {
             <Text style={styles.errorSub}>{searchError}</Text>
           </View>
         )}
-        <Text style={styles.sourcesLabel}>Searches MyAnimeList · TMDB · OMDB</Text>
+        <View style={styles.sourcesRow}>
+          <Text style={styles.sourcesText}>Searches </Text>
+          {SOURCES.map((src, i) => {
+            const active = activeSources.has(src);
+            return (
+              <View key={src} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Pressable onPress={() => combined !== null && toggleSource(src)} hitSlop={8}>
+                  <Text style={[styles.sourceToken, active ? styles.sourceTokenActive : styles.sourceTokenOff]}>
+                    {src}
+                  </Text>
+                </Pressable>
+                {i < SOURCES.length - 1 && <Text style={styles.sourcesSep}> · </Text>}
+              </View>
+            );
+          })}
+        </View>
       </View>
 
       {loading && (
@@ -272,21 +303,6 @@ export default function LogItSearch({ onClose }) {
 
       {combined !== null && !loading && (
         <View style={styles.filterBlock}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            {SOURCE_FILTERS.map(s => {
-              const count = s === 'All' ? combined.length : (bySource[s]?.length ?? 0);
-              const active = sourceFilter === s;
-              return (
-                <Pressable key={s} onPress={() => setSourceFilter(s)}
-                  style={[styles.sourceBtn, active && styles.sourceBtnActive]}>
-                  <Text style={[styles.sourceBtnText, active && styles.sourceBtnTextActive]}>{s}</Text>
-                  <View style={[styles.sourceCount, active && styles.sourceCountActive]}>
-                    <Text style={[styles.sourceCountText, active && styles.sourceCountTextActive]}>{count}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
             {TYPE_FILTERS.map(t => {
               const active = typeFilter === t;
@@ -412,7 +428,7 @@ export default function LogItSearch({ onClose }) {
           }}
         />
       )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -440,18 +456,15 @@ const styles = StyleSheet.create({
   errorBox: { backgroundColor: 'rgba(196,122,122,0.12)', borderWidth: 1, borderColor: 'rgba(196,122,122,0.25)', borderRadius: 16, padding: 12 },
   errorTitle: { color: T.amberSoft, fontFamily: T.fontTitle, fontSize: 12, marginBottom: 4 },
   errorSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, lineHeight: 18 },
-  sourcesLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, textAlign: 'center' },
+  sourcesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' },
+  sourcesText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
+  sourceToken: { fontFamily: T.fontTitleMedium, fontSize: 13 },
+  sourceTokenActive: { color: T.amberDeep },
+  sourceTokenOff: { color: T.textMuted, textDecorationLine: 'line-through' },
+  sourcesSep: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
   loadingWrap: { paddingVertical: 32, alignItems: 'center' },
-  filterBlock: { gap: 6, marginBottom: 4 },
+  filterBlock: { marginBottom: 4 },
   filterRow: { paddingHorizontal: 20, gap: 8, paddingVertical: 4 },
-  sourceBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: T.elevated },
-  sourceBtnActive: { borderColor: T.amber, backgroundColor: 'rgba(239,159,39,0.12)' },
-  sourceBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 13 },
-  sourceBtnTextActive: { color: T.amber },
-  sourceCount: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
-  sourceCountActive: { backgroundColor: 'rgba(239,159,39,0.2)' },
-  sourceCountText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
-  sourceCountTextActive: { color: T.amber },
   typeBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: T.elevated },
   typeBtnActive: { borderColor: T.amberWarm, backgroundColor: 'rgba(200,133,74,0.15)' },
   typeBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 13 },

@@ -12,13 +12,14 @@ const TYPE_COLOR   = { Anime: T.amber, Movie: T.amberSoft, 'TV Show': T.amberWar
 const GENRE_LIST   = ['Fantasy', 'Action', 'Drama', 'Thriller', 'Romance', 'Comedy', 'Sci-Fi'];
 
 function parseActivityDate(entry) {
-  let dateStr = '';
-  if (entry.status === 'watched')      dateStr = entry.finishedDate || entry.date || '';
-  else if (entry.status === 'watching') dateStr = entry.lastWatchedDate || entry.date || '';
-  else                                  dateStr = entry.date || '';
+  // Spec: always use watch_end_date for stats attribution
+  if (entry.watch_end_date) return new Date(entry.watch_end_date + 'T12:00:00').getTime();
+  // Fallback for legacy entries without watch_end_date
+  const dateStr = (entry.status === 'watched' ? entry.finishedDate : entry.lastWatchedDate) || entry.date || '';
   if (!dateStr) return 0;
   try {
-    return new Date(!dateStr.includes(',') ? dateStr + ', ' + new Date().getFullYear() : dateStr).getTime();
+    const parsed = new Date(!dateStr.includes(',') ? dateStr + ', ' + new Date().getFullYear() : dateStr);
+    return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
   } catch { return 0; }
 }
 
@@ -79,7 +80,8 @@ export default function StatsScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    getEntries().then(data => { if (active) setEntries(data.filter(e => e.status === 'watched')); });
+    // Watched + Dropped both count in stats per spec
+    getEntries().then(data => { if (active) setEntries(data.filter(e => e.status === 'watched' || e.dropped)); });
     return () => { active = false; };
   }, []));
 
@@ -91,7 +93,7 @@ export default function StatsScreen() {
   const avgRating = rated.length
     ? Math.round(rated.reduce((s, e) => s + e.rating, 0) / rated.length * 10) / 10
     : null;
-  const flaggedCount = entries.filter(e => !e.rating).length;
+  const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
 
   const catStats = ['Anime', 'Movie', 'TV Show'].map(type => {
     const es    = filterByPeriod(entries, timeFilter).filter(e => e.type === type);
