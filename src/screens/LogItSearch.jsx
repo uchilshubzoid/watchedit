@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet, ScrollView, Modal, Image, Animated, Keyboard } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, ActivityIndicator, StyleSheet, ScrollView, Modal, Image, Animated, Keyboard, Dimensions, DeviceEventEmitter } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Poster from '../components/Poster';
 import TypePill from '../components/TypePill';
@@ -117,8 +118,25 @@ function SourceBadge({ source }) {
   );
 }
 
+const SHEET_START = Dimensions.get('window').height;
+
 export default function LogItSearch({ onClose }) {
-  function dismiss() { if (onClose) onClose(); else router.back(); }
+  const insets = useSafeAreaInsets();
+
+  // Entrance/exit animation values — sheet slides up, backdrop fades in simultaneously
+  const sheetAnim   = useRef(new Animated.Value(SHEET_START)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+
+  function dismiss() {
+    // Animate out before dismissing the route
+    Animated.parallel([
+      Animated.timing(sheetAnim,    { toValue: SHEET_START, duration: 240, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 0,           duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      if (onClose) onClose(); else router.back();
+    });
+  }
+
   const [query,         setQuery]         = useState('');
   const [results,       setResults]       = useState(null);
   const [loading,       setLoading]       = useState(false);
@@ -129,18 +147,27 @@ export default function LogItSearch({ onClose }) {
   const [previewItem,   setPreviewItem]   = useState(null);
   const [typeFilter,    setTypeFilter]    = useState('All');
   const inputRef  = useRef(null);
-  const kbOffset  = useRef(new Animated.Value(0)).current;
+  const [kbHeight, setKbHeight] = useState(0);
 
   useEffect(() => {
     getTitleLanguagePref().then(setTitleLang);
-    setTimeout(() => inputRef.current?.focus(), 100);
-    const show = Keyboard.addListener('keyboardDidShow', e =>
-      Animated.timing(kbOffset, { toValue: e.endCoordinates.height, duration: 220, useNativeDriver: false }).start()
-    );
-    const hide = Keyboard.addListener('keyboardDidHide', () =>
-      Animated.timing(kbOffset, { toValue: 0, duration: 180, useNativeDriver: false }).start()
-    );
-    return () => { show.remove(); hide.remove(); };
+    // Entrance: sheet springs up + backdrop fades in together
+    Animated.parallel([
+      Animated.spring(sheetAnim, {
+        toValue: 0, friction: 9, tension: 70, useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1, duration: 260, useNativeDriver: true,
+      }),
+    ]).start();
+    // Focus immediately so keyboard rises in sync with the sheet animation
+    setTimeout(() => inputRef.current?.focus(), 0);
+
+    // When LogItDetails submits successfully, it emits this to close the search sheet too
+    const dismissSub = DeviceEventEmitter.addListener('dismissLogItSearch', dismiss);
+    const show = Keyboard.addListener('keyboardDidShow', e => setKbHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { dismissSub.remove(); show.remove(); hide.remove(); };
   }, []);
 
   const dt = r => getPreferredTitle(r, titleLang);
@@ -215,15 +242,15 @@ export default function LogItSearch({ onClose }) {
   }
 
   function goToDetails(r, isRewatch) {
-    dismiss();
+    // Do not dismiss the search modal first — let details slide up on top.
+    // LogItDetails navigates directly to /(tabs) on submit, clearing the whole stack.
     router.push({
       pathname: '/logit/details',
-      params: { resultJson: JSON.stringify({ ...r, poster_url: highResPosterUrl(r.poster_url), isRewatch }) },
+      params: { resultJson: JSON.stringify({ ...r, displayTitle: dt(r), poster_url: highResPosterUrl(r.poster_url), isRewatch }) },
     });
   }
 
   function goManual() {
-    dismiss();
     router.push({
       pathname: '/logit/details',
       params: { resultJson: JSON.stringify({ title: query.trim() || 'Untitled', isManual: true }) },
@@ -232,8 +259,10 @@ export default function LogItSearch({ onClose }) {
 
   return (
     <View style={styles.root}>
+      {/* Animated backdrop — fades in with the sheet so there's no staggered black flash */}
+      <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
       <Pressable style={{ flex: 1 }} onPress={dismiss} />
-      <Animated.View style={[styles.sheet, { marginBottom: kbOffset }]}>
+      <Animated.View style={[styles.sheet, { marginBottom: kbHeight, transform: [{ translateY: sheetAnim }] }]}>
       <View style={styles.handle} />
 
       <View style={styles.header}>
@@ -327,7 +356,7 @@ export default function LogItSearch({ onClose }) {
         <FlatList
           data={singleRewatch ? [] : filteredResults}
           keyExtractor={r => String(r.id)}
-          contentContainerStyle={styles.resultList}
+          contentContainerStyle={[styles.resultList, { paddingBottom: Math.max(insets.bottom + 20, 60) }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
@@ -434,14 +463,16 @@ export default function LogItSearch({ onClose }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  root: { flex: 1 },
+  // Separate layer so backdrop and sheet animate in unison, not staggered
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.62)' },
   sheet: { backgroundColor: T.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '88%', marginHorizontal: 2 },
   handle: { width: 36, height: 4, backgroundColor: T.elevated, borderRadius: 4, alignSelf: 'center', marginTop: 14, marginBottom: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
   headerTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 22 },
   closeBtn: { padding: 4 },
   closeX: { color: T.textMuted, fontSize: 18 },
-  searchWrap: { paddingHorizontal: 20, gap: 10, marginBottom: 8 },
+  searchWrap: { paddingHorizontal: 20, gap: 10, marginBottom: 8, paddingBottom: 8 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: T.elevated, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11,

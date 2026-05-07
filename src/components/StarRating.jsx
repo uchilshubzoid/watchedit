@@ -9,8 +9,6 @@ const POINTS = '12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02
 function Star({ star, value }) {
   const full = value >= star;
   const half = !full && value >= star - 0.5;
-  // Each SVG gets its own ClipPath — only needed for half stars.
-  // Full stars skip ClipPath entirely (avoids the '100%' width bug in RN SVG).
   const clipId = `hclip${star}`;
   return (
     <Svg width={28} height={28} viewBox="0 0 24 24">
@@ -32,6 +30,7 @@ export default function StarRating({ value, onChange }) {
   const layout      = useRef({ x: 0, width: 0 });
   const lastRating  = useRef(null);
   const onChangeRef = useRef(onChange);
+  const viewRef     = useRef(null);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
   function applyRating(pageX) {
@@ -43,16 +42,27 @@ export default function StarRating({ value, onChange }) {
     const r     = Math.min(10, relX - idx * starW < starW / 2 ? idx + 0.5 : idx + 1);
     if (r !== lastRating.current) {
       lastRating.current = r;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      // selectionAsync gives a lighter, more appropriate haptic for each rating step
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onChangeRef.current(r);
     }
   }
 
+  function remeasure() {
+    viewRef.current?.measureInWindow((x, _y, width) => {
+      layout.current = { x, width };
+    });
+  }
+
   const pan = useRef(
     PanResponder.create({
+      // Capture phase ensures the pan responder claims the gesture before
+      // the parent ScrollView can intercept it during a horizontal drag.
       onStartShouldSetPanResponder:         () => true,
+      onStartShouldSetPanResponderCapture:  () => true,
       onMoveShouldSetPanResponder:          () => true,
-      onPanResponderGrant:   (e) => applyRating(e.nativeEvent.pageX),
+      onMoveShouldSetPanResponderCapture:   () => true,
+      onPanResponderGrant:   (e) => { remeasure(); applyRating(e.nativeEvent.pageX); },
       onPanResponderMove:    (e) => applyRating(e.nativeEvent.pageX),
       onPanResponderRelease: ()  => { lastRating.current = null; },
     })
@@ -61,12 +71,9 @@ export default function StarRating({ value, onChange }) {
   return (
     <View style={styles.wrap}>
       <View
+        ref={viewRef}
         {...pan.panHandlers}
-        onLayout={(e) => {
-          e.target.measure((_x, _y, w, _h, pageX) => {
-            layout.current = { x: pageX, width: w };
-          });
-        }}
+        onLayout={remeasure}
         style={styles.row}
       >
         {[1,2,3,4,5,6,7,8,9,10].map((s) => (

@@ -1,11 +1,12 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, DeviceEventEmitter } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, DeviceEventEmitter, Animated } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import Poster from '../components/Poster';
 import TypePill from '../components/TypePill';
 import { getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
+import { consumePendingToast } from '../utils/toastBridge';
 
 const STREAK_COPY = {
   2: ['On a roll 🎬', '2 days in a row'],
@@ -26,12 +27,35 @@ function formatDateWithYear(dateStr) {
 }
 
 export default function WatchTower() {
-  const [entries, setEntries] = useState([]);
-  const [streakDismissed, setStreakDismissed] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const [entries,        setEntries]        = useState([]);
+  const [streakDismissed,setStreakDismissed] = useState(false);
+  const [toastContent,   setToastContent]   = useState(null);
+  const toastAnim    = useRef(new Animated.Value(0)).current;
+  const toastAnimRef = useRef(null);
+
+  function dismissToast() {
+    if (toastAnimRef.current) toastAnimRef.current.stop();
+    Animated.timing(toastAnim, { toValue: 0, duration: 180, useNativeDriver: true })
+      .start(() => setToastContent(null));
+  }
 
   useFocusEffect(useCallback(() => {
     let active = true;
     getEntries().then(data => { if (active) setEntries(data); });
+    const pending = consumePendingToast();
+    if (pending) {
+      setToastContent(pending);
+      toastAnim.setValue(0);
+      const seq = Animated.sequence([
+        Animated.timing(toastAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.delay(10000),
+        Animated.timing(toastAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]);
+      toastAnimRef.current = seq;
+      seq.start(() => { toastAnimRef.current = null; setToastContent(null); });
+    }
     return () => { active = false; };
   }, []));
 
@@ -210,6 +234,22 @@ export default function WatchTower() {
           </View>
         )}
       </ScrollView>
+
+      {toastContent && (
+        <Animated.View style={[styles.toast, {
+          bottom: 8,
+          opacity: toastAnim,
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+        }]}>
+          <Pressable onPress={dismissToast} style={styles.toastDismiss} hitSlop={8}>
+            <Text style={styles.toastDismissText}>✕</Text>
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toastTitle}>{toastContent.title}</Text>
+            <Text style={styles.toastBody}>{toastContent.body}</Text>
+          </View>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -265,4 +305,15 @@ const styles = StyleSheet.create({
   emptyText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14, textAlign: 'center' },
   emptyBtn: { backgroundColor: T.amber, borderRadius: T.radiusButton, paddingHorizontal: 24, paddingVertical: 12 },
   emptyBtnText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 14 },
+  toast: {
+    position: 'absolute', left: 16, right: 16,
+    backgroundColor: T.surface, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 10,
+  },
+  toastTitle:       { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
+  toastBody:        { color: T.textMuted,  fontFamily: T.fontBody,  fontSize: 12, marginTop: 1 },
+  toastDismiss:     { position: 'absolute', top: 10, right: 12, padding: 4 },
+  toastDismissText: { color: T.textMuted, fontSize: 14 },
 });

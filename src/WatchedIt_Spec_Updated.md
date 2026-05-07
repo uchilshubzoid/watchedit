@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v1.4
-*Last updated: April 2026. Stage 2 Expo native migration complete. MAL + TMDB + OMDB search wired. Local persistence via AsyncStorage.*
+# WatchedIt — Full Product Spec v1.5
+*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish pass complete — keyboard sync, poster zoom, toast system, title language handling.*
 
 ---
 
@@ -41,8 +41,9 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 - Expo Router is the app entry point (`"main": "expo-router/entry"`).
 - Route files in `app/` are intentionally thin; screen logic lives in `src/screens/`.
 - `app/_layout.jsx` owns font loading, splash hiding, `GestureHandlerRootView`, status bar, and stack presentation.
-- `app/(tabs)/_layout.jsx` owns the bottom tabs and the central Log It FAB.
-- Log It search currently opens as a native `Modal` from the tab FAB; `/logit/search` also exists as a modal route.
+- `app/(tabs)/_layout.jsx` owns the bottom tabs and the central Log It FAB. The Log It search sheet is rendered as a React Native `Modal` from this layout (not a stack route) — `logitOpen` state controls it.
+- `DeviceEventEmitter` is used for cross-component communication: `openLogIt` opens the search modal from anywhere; `dismissLogItSearch` causes the search modal to animate out (used by LogItDetails on submit).
+- `src/utils/toastBridge.js` is a module-level singleton (`setPendingToast` / `consumePendingToast`) for passing toast data across navigation boundaries (LogItDetails → WatchTower).
 - `src/screens/WatchedItApp.jsx` is read-only migration reference. Do not add new product work there.
 
 **What changed vs the original web shell:**
@@ -78,8 +79,7 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 ### Next Product Work
 1. Onboarding flow for cold start and empty state.
 2. Tone audit across empty states, errors, and action labels.
-3. Animation pass for Log It Step 1→2 transition.
-4. Release polish and Play Store prep.
+3. Release polish and Play Store prep.
 
 ### Do Not Use For New Work
 - `src/screens/WatchedItApp.jsx` — migration reference only.
@@ -217,6 +217,13 @@ Shown between stats block and streak banner when flagged entry count > 0:
 - Card: poster · title · type pill · date · rating · rewatch ↺ icon
 - *"View all →"* → WatchList
 
+### Success Toast
+Shown after a successful Log It submission. Slides up from the bottom of the screen (8px above the tab bar) when WatchTower regains focus.
+- Amber-bordered card, dark surface background, 10s auto-dismiss
+- ✕ dismiss button pinned to top-right of the toast card
+- Two lines: bold title (e.g. "🎬 Logged!" or "📋 Added to Watch Plan") + muted body (title + status)
+- Implemented via `toastBridge.js` singleton — LogItDetails writes the pending toast before navigating back, WatchTower reads and clears it on `useFocusEffect`
+
 ---
 
 ## 6. Screen: WatchList
@@ -281,7 +288,7 @@ After search:
 └─────────────────────────────────────────┘
 ```
 
-**Title display:** English title preferred (`alternative_titles.en` from MAL). Falls back to romanised title. Respects user's title language preference from Watcher settings.
+**Title display:** English title preferred (`alternative_titles.en` from MAL). Falls back to romanised title. Respects user's title language preference from Watcher settings. The preferred display title is passed to Log It Step 2 as `displayTitle` — the original API title (e.g. Japanese) is preserved as `title` and always appears in the alternatives dropdown unchanged.
 
 **`+ Watch Plan` CTA:**
 - Instantly creates entry with `status: watchplan`, all available API metadata, `rating: null`, `logged_at: now`
@@ -383,6 +390,20 @@ YOUR RATING                        Required
 - Bookmark toggle
 
 **Sticky bottom:** Log It ✓ amber gradient button
+
+### Poster zoom modal
+Tapping the poster thumbnail in the sticky header opens a full-screen modal. Supports:
+- Pinch to zoom (1× to 6×, springs back to 1× if released below 1.05×)
+- Drag to pan when zoomed in
+- Close button top-right
+- Implemented with `Gesture.Simultaneous(pinchGesture, panGesture)` inside a `GestureHandlerRootView` within the RN Modal
+
+### Submission flow
+On successful submit (non-edit):
+1. `setPendingToast(...)` writes toast data to `toastBridge`
+2. `DeviceEventEmitter.emit('dismissLogItSearch')` — search sheet animates out simultaneously
+3. `router.back()` — details screen slides down (animation: `slide_from_bottom` reverse)
+4. WatchTower gains focus, reads and displays the pending toast
 
 ### Blocking popups
 - Movie + Watching → 🍿 *"Finish the movie first!"* · *"Lol faine, I'll finish it"* · *"Actually I'm done"* (flips to Watched)
@@ -922,3 +943,4 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | 1.2 | Platform → React Native + Expo. API stack locked (MAL + TMDB + OMDB). Share extension Stage 2. Data import strategy. Stage 4 channels. Design system locked. Product vision added. |
 | 1.3 | Revised Log It flow: two CTAs on search cards (+ Watch Plan instant add, WatchedIt →), collapsed metadata card with inline edit, hybrid episode selector, watch date fields (start + end), "continue without rating" secondary path. Flagged entries system (unrated watched). Mini Rating Sheet component. Title language preference in Watcher (EN/JP/Romanised). MAL field mapping table. Stats date attribution model (always watch_end_date, no spreading). json-server local DB documented. State transition rules table. Recently Watched reduced to 3. Watch Tower unrated nudge. "Log a Sesh" rename. |
 | 1.4 | Updated project status to Stage 2 native migration complete. Documented Expo Router route map, AsyncStorage persistence, current `searchTitles()` return shape, current persisted entry shape, and moved share extension/shareable stats out of completed Stage 2 scope. |
+| 1.5 | Log It UX polish pass. LogItSearch renders as RN Modal (not stack route) from tab layout; `logitOpen` state + `DeviceEventEmitter` control open/close. Keyboard lifts the sheet via plain `useState` `kbHeight` (no Animated driver conflict); keyboard and sheet now rise simultaneously. Poster zoom modal: pinch + pan gestures via `react-native-gesture-handler` inside `GestureHandlerRootView`. Bookmark flag uses Ionicons mono/dual-tone icon. Star rating haptics use `impactAsync(Light)` for Android reliability; PanResponder captures gesture before parent ScrollView. Title language: `displayTitle` passed separately so original title (e.g. Japanese) is preserved in the alternatives dropdown. Submit flow: `toastBridge` singleton passes toast data to WatchTower across navigation; `dismissLogItSearch` event closes search modal concurrently with `router.back()`; `presentation: 'modal'` removed from `logit/details` so back gesture slides the screen down correctly. Watch Tower success toast: 10s auto-dismiss, ✕ dismiss button at top-right, positioned 8px above tab bar. |

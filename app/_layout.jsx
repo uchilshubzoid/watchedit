@@ -45,11 +45,11 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="logit/search"
-          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          options={{ presentation: 'modal', animation: 'none' }}
         />
         <Stack.Screen
           name="logit/details"
-          options={{ animation: 'slide_from_right' }}
+          options={{ animation: 'slide_from_bottom' }}
         />
         <Stack.Screen
           name="stats"
