@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v1.5
-*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish pass complete — keyboard sync, poster zoom, toast system, title language handling.*
+# WatchedIt — Full Product Spec v1.6
+*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete.*
 
 ---
 
@@ -78,8 +78,9 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 
 ### Next Product Work
 1. Onboarding flow for cold start and empty state.
-2. Tone audit across empty states, errors, and action labels.
-3. Release polish and Play Store prep.
+2. Screen transition polish and UX pass.
+3. Tone audit across empty states, errors, and action labels.
+4. Release polish and Play Store prep.
 
 ### Do Not Use For New Work
 - `src/screens/WatchedItApp.jsx` — migration reference only.
@@ -797,12 +798,14 @@ Not counted in stats at all. Current build uses `logged_at`/`date`; canonical mo
 | Event | Counted in stats? | Date logged? |
 |---|---|---|
 | Added to Watch Plan (quick) | No | Yes — `logged_at` |
-| Moved to Watching | No | Yes — `watch_start_date` |
-| Log a Sesh | No | Yes — session date |
+| Moved to Watching | **Yes — if a session was logged in the filter period** | Yes — `watch_start_date` |
+| Log a Sesh | Yes (attributed to `lastWatchedDate`) | Yes — session date updates `lastWatchedDate` |
 | Marked Watched | Yes | Yes — `watch_end_date` (user-entered, defaults to today) |
 | Dropped | Yes | Yes — `watch_end_date` |
 | Rewatch logged | Yes (+1) | Yes — new entry with own `watch_end_date` |
 | Resumed from Dropped | No | Yes — resume date logged in Watch Deets |
+
+**Currently Watching stat inclusion rule:** A `status === 'watching'` entry is counted in the stats for a given time period if its `lastWatchedDate` falls within that period. `lastWatchedDate` is updated each time a Watch Sesh is logged, so this effectively gates on whether the user actively watched during the period. The title appears once per period (not once per session), attributed to the most recent session date in that period.
 
 ---
 
@@ -944,3 +947,4 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | 1.3 | Revised Log It flow: two CTAs on search cards (+ Watch Plan instant add, WatchedIt →), collapsed metadata card with inline edit, hybrid episode selector, watch date fields (start + end), "continue without rating" secondary path. Flagged entries system (unrated watched). Mini Rating Sheet component. Title language preference in Watcher (EN/JP/Romanised). MAL field mapping table. Stats date attribution model (always watch_end_date, no spreading). json-server local DB documented. State transition rules table. Recently Watched reduced to 3. Watch Tower unrated nudge. "Log a Sesh" rename. |
 | 1.4 | Updated project status to Stage 2 native migration complete. Documented Expo Router route map, AsyncStorage persistence, current `searchTitles()` return shape, current persisted entry shape, and moved share extension/shareable stats out of completed Stage 2 scope. |
 | 1.5 | Log It UX polish pass. LogItSearch renders as RN Modal (not stack route) from tab layout; `logitOpen` state + `DeviceEventEmitter` control open/close. Keyboard lifts the sheet via plain `useState` `kbHeight` (no Animated driver conflict); keyboard and sheet now rise simultaneously. Poster zoom modal: pinch + pan gestures via `react-native-gesture-handler` inside `GestureHandlerRootView`. Bookmark flag uses Ionicons mono/dual-tone icon. Star rating haptics use `impactAsync(Light)` for Android reliability; PanResponder captures gesture before parent ScrollView. Title language: `displayTitle` passed separately so original title (e.g. Japanese) is preserved in the alternatives dropdown. Submit flow: `toastBridge` singleton passes toast data to WatchTower across navigation; `dismissLogItSearch` event closes search modal concurrently with `router.back()`; `presentation: 'modal'` removed from `logit/details` so back gesture slides the screen down correctly. Watch Tower success toast: 10s auto-dismiss, ✕ dismiss button at top-right, positioned 8px above tab bar. |
+| 1.6 | Stats Screen full redesign. **Time filters:** 7 Days / 30 Days / Custom (date range picker with calendar modal, chip shows "May 4 – Jul 18") / All Time. 90 Days removed. Category filter chips removed. **Hero cards (Option B):** 2×2 grid, number centered in amber, label centered below in muted text. **Breakdown by Category:** renamed section; each type gets a card with 3 mini stat boxes (Titles + eps sub-callout, Watch Time, Avg Rating) and an expandable title list (collapsed by default). Old duplicate bottom breakdown removed. **Section order in Summary:** hero cards → nudge → Breakdown by Category → Genre Distribution → Insights widget. **Timeline tab:** now shows all sections (line chart + Breakdown by Category + Genre Distribution + Insights widget). **Line chart:** replaces bar chart; area fill + line + tap-callout dots (r=18 transparent hit area behind each dot). **"By Type" toggle:** pill button right of the metric toggle; switches chart between single combined line and 3 colored lines (Anime=amber, Movie=amberSoft, TV Show=amberWarm); chart header number changes to per-type breakdown when active. **X-axis labels:** max 8 via `ceil((n-1)/7)` interval; first label left-anchored, last label right-anchored (never clips). **DateRangePicker:** week-row calendar grid, continuous range fill bar with correct left/right half logic for endpoints, amber circle for start, amber circle + outer ring for end. **Data fix:** `localDateStr()` uses local time methods to avoid UTC timezone shift in chart bucketing. **Stats inclusion:** `status === 'watching'` entries now count in stats if `lastWatchedDate` falls within the filter period (i.e. a Watch Sesh was logged in that period). **`buildTimePoints` extracted** as a reusable function for both combined and per-type chart data. **Insights widget** named for the hardest-genre callout; TODO comment marks it for future variant rotation. |

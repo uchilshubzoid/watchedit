@@ -24,10 +24,26 @@ All screens and components migrated to React Native + Expo Router. The app runs 
 ### Stage 2.1 — Log It UX Polish ✅ Complete (as of May 2026)
 Keyboard sync, poster zoom, success toast system, title language fix, submission animation, bookmark icon, star rating haptics, PanResponder gesture capture. See spec v1.5 changelog for full detail.
 
+### Stage 2.2 — Stats Screen Redesign ✅ Complete (as of May 2026)
+Full StatsScreen rewrite. See spec v1.6 changelog for full detail. Key decisions:
+- Time filters: 7 Days / 30 Days / Custom (date range picker) / All Time. 90 Days and category chips removed.
+- Hero cards: Option B — centered column layout (number on top, label below).
+- Breakdown by Category: 3 mini stat boxes per type + collapsible title list. Deduped from a single section (no more duplicate at bottom).
+- Timeline tab now shows all sections (chart + breakdown + genre + insights widget).
+- "By Type" toggle on chart: switches between combined amber line and 3 colored type lines; chart header counts switch to per-type breakdown.
+- Line chart with dots; tap callout; r=18 transparent hit areas on dots.
+- X-axis: max 8 labels via `ceil((n-1)/7)` interval formula.
+- `buildTimePoints` extracted as reusable function used for both combined and per-type data.
+- `localDateStr()` fixes UTC timezone shift in per-day chart bucketing.
+- Currently Watching entries now count in stats if `lastWatchedDate` falls within the filter period.
+- DateRangePicker: week-row calendar, continuous range fill, start=amber circle, end=amber circle + outer ring.
+- Insights widget: named callout for hardest-rated genre, TODO'd for future variant rotation.
+
 ### What's NOT built yet (do these next in order)
 1. **Onboarding flow** — cold start problem, empty state for new users
-2. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
-3. **Play Store prep** — app signing, store listing, screenshots
+2. **Screen transition polish** — UX pass on nav animations (flagged, tracked for future)
+3. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
+4. **Play Store prep** — app signing, store listing, screenshots
 
 ---
 
@@ -395,3 +411,8 @@ npm run build:aab
 - **Check the spec** (`src/WatchedIt_Spec_Updated.md`) for product decisions before making assumptions.
 - **Run `npx expo install --fix`** after changing package.json to validate dependency versions.
 - **No EAS build needed for testing** — app is tested via Expo Go. `npm start` and scan QR.
+- **Stats date bucketing** — always use `localDateStr(timestamp)` (local time methods: getFullYear/getMonth/getDate) for per-day chart comparisons. Never use `.toISOString().split('T')[0]` — it shifts dates in non-UTC timezones. When parsing legacy `finishedDate` strings like "Apr 10", append `12:00:00` (noon) to keep the date on the correct local day.
+- **Stats data inclusion** — `getEntries()` for stats must include `status === 'watched'`, `e.dropped`, AND `status === 'watching'`. Currently Watching counts if `lastWatchedDate` falls within the filter period (i.e. a session was logged). Do NOT include Watch Plan or Paused entries.
+- **`buildTimePoints(entries, filter, customStart, customEnd)`** — reusable function in StatsScreen. Pass a pre-filtered (by type) entry list to get per-type time series. All time-bucket arrays share the same X-axis positions regardless of input entries.
+- **StatsScreen `byType` toggle** — when ON, the chart Y-axis uses `typeMaxVal` (max across types), not `maxVal` (combined total). The `effectiveMax` variable switches between them. `py()` depends on `effectiveMax`, so define it after `effectiveMax`.
+- **Calendar widget (DateRangePicker)** — uses explicit week rows (not `flexWrap`) to guarantee 7 cells per row. Range fill uses `left`/`right` absolute positioning: full width for mid-range cells, left-half for end cell, right-half for start cell. `DR_CELL = (SCREEN_W - 72) / 7` (20×2 overlay padding + 16×2 sheet padding = 72).
