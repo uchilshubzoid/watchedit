@@ -21,12 +21,13 @@ React web app, all screens built in `src/screens/WatchedItApp.jsx`. APIs (MAL, T
 ### Stage 2 — Expo Native Migration ✅ Complete (as of Apr 2026)
 All screens and components migrated to React Native + Expo Router. The app runs on device. `WatchedItApp.jsx` is kept read-only as a reference only.
 
+### Stage 2.1 — Log It UX Polish ✅ Complete (as of May 2026)
+Keyboard sync, poster zoom, success toast system, title language fix, submission animation, bookmark icon, star rating haptics, PanResponder gesture capture. See spec v1.5 changelog for full detail.
+
 ### What's NOT built yet (do these next in order)
 1. **Onboarding flow** — cold start problem, empty state for new users
 2. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
-3. **Animation pass** — Log It Step 1→2 transition needs slide/expand animation
-4. **Assets** — add `assets/icon.png` (1024×1024), `assets/splash.png`, `assets/adaptive-icon.png`
-5. **Play Store prep** — app signing, store listing, screenshots
+3. **Play Store prep** — app signing, store listing, screenshots
 
 ---
 
@@ -54,23 +55,23 @@ All screens and components migrated to React Native + Expo Router. The app runs 
 │   │   └── tokens.js              ← Design tokens (T object) — LOCKED
 │   ├── screens/                   ← Screen components (logic lives here, app/ re-exports)
 │   │   ├── WatchedItApp.jsx       ← MIGRATION REFERENCE — do not add features here
-│   │   ├── WatchTower.jsx         ← stub — migrate from WatchedItApp.jsx
-│   │   ├── WatchList.jsx          ← stub
-│   │   ├── DetailView.jsx         ← stub
-│   │   ├── LogItSearch.jsx        ← stub
-│   │   ├── LogItDetails.jsx       ← stub
-│   │   ├── SearchScreen.jsx       ← stub
-│   │   ├── StatsScreen.jsx        ← stub
-│   │   └── WatcherScreen.jsx      ← stub
-│   ├── components/                ← Shared UI components (extracted from WatchedItApp.jsx)
-│   │   ├── Poster.jsx             ← stub
-│   │   ├── TypePill.jsx           ← stub
-│   │   ├── StarRating.jsx         ← stub
-│   │   ├── FilterSheet.jsx        ← stub (@gorhom/bottom-sheet)
-│   │   ├── LogSeshSheet.jsx       ← stub (@gorhom/bottom-sheet)
-│   │   ├── RatingSheet.jsx        ← stub (@gorhom/bottom-sheet)
-│   │   ├── MiniCalendar.jsx       ← stub
-│   │   └── BlockingPopup.jsx      ← stub
+│   │   ├── WatchTower.jsx         ← Home screen — stats, currently watching, recently watched, success toast
+│   │   ├── WatchList.jsx          ← List screen
+│   │   ├── DetailView.jsx         ← Watch Deets / detail view
+│   │   ├── LogItSearch.jsx        ← Log It Step 1 (RN Modal, not a route — controlled by tab layout)
+│   │   ├── LogItDetails.jsx       ← Log It Step 2 (stack route)
+│   │   ├── SearchScreen.jsx       ← Search tab
+│   │   ├── StatsScreen.jsx        ← Statistics screen
+│   │   └── WatcherScreen.jsx      ← Watcher / profile screen
+│   ├── components/                ← Shared UI components
+│   │   ├── Poster.jsx             ← Poster thumbnail with initials fallback
+│   │   ├── TypePill.jsx           ← Movie / TV Show / Anime pill
+│   │   ├── StarRating.jsx         ← Tap + drag star rating (0.5 steps, haptics)
+│   │   ├── FilterSheet.jsx        ← Filter & Sort bottom sheet (@gorhom/bottom-sheet)
+│   │   ├── LogSeshSheet.jsx       ← Log a Sesh bottom sheet
+│   │   ├── RatingSheet.jsx        ← Mini rating sheet
+│   │   ├── MiniCalendar.jsx       ← Date picker calendar
+│   │   └── BlockingPopup.jsx      ← Modal popup (movie-watching block, rating required)
 │   ├── api/
 │   │   ├── index.js               ← unified searchTitles() entry point
 │   │   └── mal.js                 ← MAL API (direct fetch, no proxy needed in RN)
@@ -81,7 +82,8 @@ All screens and components migrated to React Native + Expo Router. The app runs 
 │   ├── db/
 │   │   └── storage.js             ← AsyncStorage CRUD (all functions are async)
 │   └── utils/
-│       └── titleUtils.js
+│       ├── titleUtils.js          ← getPreferredTitle(result, pref) — EN/JA/romanised
+│       └── toastBridge.js         ← Module-level singleton: setPendingToast / consumePendingToast
 ├── assets/                        ← TODO: add icon.png, splash.png, adaptive-icon.png
 ├── app.json                       ← Expo config (package: com.watchedit.app)
 ├── babel.config.js                ← babel-preset-expo + reanimated plugin
@@ -186,16 +188,26 @@ T.fontMono        = 'Inconsolata-Regular'  // mono — labels, stats, dates
 
 ```
 app/_layout.jsx              Root Stack
-├── (tabs)                   Bottom tab navigator
+├── (tabs)                   Bottom tab navigator (app/(tabs)/_layout.jsx)
 │   ├── index (Watch Tower)
 │   ├── watchlist
-│   ├── [+ FAB]             Opens /logit/search as modal — not a real tab route
+│   ├── [+ FAB]             DeviceEventEmitter.emit('openLogIt') — not a route
 │   ├── search
 │   └── watcher
-├── logit/search             Modal (slide from bottom) — Log It Step 1
-├── logit/details            Stack — Log It Step 2
+├── logit/search             Route file exists but LogItSearch is rendered as an RN Modal
+│                            from app/(tabs)/_layout.jsx, NOT as a stack route
+├── logit/details            Stack — Log It Step 2 (animation: slide_from_bottom)
 ├── detail/[id]              Stack — Detail view
 └── stats                    Stack — Statistics
+```
+
+**Log It search modal** is a React Native `<Modal>` rendered inside `app/(tabs)/_layout.jsx`. `logitOpen` state controls it. Open it via:
+```js
+DeviceEventEmitter.emit('openLogIt');
+```
+Close it from anywhere (e.g. after submit in LogItDetails) via:
+```js
+DeviceEventEmitter.emit('dismissLogItSearch');
 ```
 
 **Navigating to Detail View:**
@@ -205,12 +217,25 @@ router.push(`/detail/${entry.id}`);
 
 **Navigating to Log It Details from Search:**
 ```js
-router.push({ pathname: '/logit/details', params: { resultJson: JSON.stringify(result) } });
+// Pass displayTitle separately — keeps r.title (original/Japanese) intact for the alternatives dropdown
+router.push({
+  pathname: '/logit/details',
+  params: { resultJson: JSON.stringify({ ...result, displayTitle: getPreferredTitle(result, titleLang) }) },
+});
 ```
 
 **Edit mode in LogItDetails:**
 ```js
 router.push({ pathname: '/logit/details', params: { entryId: entry.id, isEdit: 'true' } });
+```
+
+**Success toast after Log It submit:**
+```js
+// In LogItDetails — before router.back()
+setPendingToast({ title: '🎬 Logged!', body: `${title} logged as Watched` });
+DeviceEventEmitter.emit('dismissLogItSearch'); // closes search modal simultaneously
+router.back();
+// WatchTower reads consumePendingToast() in useFocusEffect and displays it
 ```
 
 ---
@@ -284,19 +309,23 @@ await setTitleLanguagePref(p)
 
 ## Key UX Decisions Made (don't revisit unless flagged)
 
-- **Log It is 2 steps:** Modal screen for search, full screen for details.
+- **Log It is 2 steps:** RN Modal for search (controlled by tab layout), full screen stack for details.
 - **Filter & Sort:** Single consolidated bottom sheet triggered by one button.
 - **Language input:** 10 quick-select chips + free text fallback.
 - **Genre tags:** Inline "+ Add Tag" chip.
-- **Star rating:** Tap left half = X.5, tap right half = X. Drag for speed. Haptic on each step.
+- **Star rating:** Tap left half = X.5, tap right half = X. Drag for speed. Haptic (`impactAsync(Light)`) on each 0.5-step change.
 - **Movie + Watching:** Blocked with 🍿 popup.
 - **Rating required popup:** ⭐ blocks submit without rating on Watched status.
 - **Currently Watching on home:** Horizontal scroll cards. Paused entries hidden by default.
 - **Recently Watched on home:** Last 3 only.
-- **Bookmark treatment:** Right-edge gradient border on cards.
+- **Bookmark treatment:** Right-edge gradient border on cards. Icon uses Ionicons `bookmark` / `bookmark-outline`.
 - **Episode tracker:** Collapsed by default.
 - **Ongoing shows:** "Mark as Finished" CTA always visible.
 - **Logging a sesh on Watch Plan / Dropped:** Automatically transitions to Currently Watching.
+- **Title language in Log It:** `displayTitle` (preferred language) is passed to LogItDetails as a separate field. `title` (original, e.g. Japanese) is preserved and always appears in the alternatives dropdown unchanged.
+- **Poster in Log It Step 2:** Tapping the poster thumbnail opens a full-screen zoom modal. Supports pinch-to-zoom (up to 6×) and drag-to-pan when zoomed. Uses `Gesture.Simultaneous(pinchGesture, panGesture)` inside a `GestureHandlerRootView` within the RN Modal.
+- **Keyboard + search sheet:** Both rise simultaneously — input is focused at the start of the sheet's entrance animation, not after it completes.
+- **Success toast:** Shown on Watch Tower after Log It submit. 10s auto-dismiss, top-right ✕ button, positioned 8px above tab bar. Passed via `toastBridge` singleton (not navigation params).
 
 ---
 
@@ -349,8 +378,13 @@ npm run build:aab
 - **All storage calls are async** — `await getEntries()`, `await addEntry()`, etc.
 - **No localStorage** — use `src/db/storage.js` (AsyncStorage) everywhere.
 - **No browser APIs** — no `window`, `document`, `navigator.vibrate`, `localStorage`, `URL` constructor (use string template for URLs in fetch calls, or verify RN URL support).
-- **Haptics** — use `expo-haptics` (`await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)`) not `navigator.vibrate`.
+- **Haptics** — use `expo-haptics` (`Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)`). `selectionAsync` has poor Android support — use `impactAsync(Light)` for fine-grained feedback.
 - **Bottom sheets** — use `@gorhom/bottom-sheet`. Must be inside `GestureHandlerRootView` (already set up in `app/_layout.jsx`).
+- **Gesture handler inside RN Modal** — `GestureHandlerRootView` must be placed *inside* the RN `<Modal>` component, not just at the root, for gestures to work inside modals.
+- **Animated driver conflicts** — never put both a `useNativeDriver: true` animated value and a `useNativeDriver: false` animated value on the same `Animated.View`. Use plain `useState` for layout props like `marginBottom` (no driver at all) alongside native-driver transforms.
+- **LogItSearch is a RN Modal, not a stack route** — do not call `router.push('/logit/search')`. Open via `DeviceEventEmitter.emit('openLogIt')`. Close via `DeviceEventEmitter.emit('dismissLogItSearch')`.
+- **toastBridge** — use `setPendingToast` / `consumePendingToast` from `src/utils/toastBridge.js` to pass toast data across navigation. WatchTower reads it in `useFocusEffect`. Never pass toast content as a navigation param.
+- **displayTitle vs title** — when passing a search result to LogItDetails, always pass `displayTitle: getPreferredTitle(result, lang)` as a separate field. Never overwrite `result.title` — it holds the original (e.g. Japanese) title needed for the alternatives dropdown.
 - **Fonts** — always use `T.fontDisplay`, `T.fontTitle`, etc. Never hardcode font family strings.
 - **Design tokens** — import `T` from `src/constants/tokens.js`. Do not change colour/font/radius values.
 - **Always enforce state transition rules** — see the table above.
@@ -358,5 +392,6 @@ npm run build:aab
 - **Always pass `url={entry.poster_url}` to `<Poster/>`** — omitting it silently falls back to initials.
 - **`bySource` vs `combined`** — when a source filter chip is active, use `bySource[source]` not `combined`.
 - **Edit mode in LogItDetails** — when `isEdit=true`, submit must call `updateEntry` (not `addEntry`) and must preserve `id`, `watch_sessions`, `episode_notes`.
-- **Check the spec** (`WatchedIt_Spec_v1.3.md`) for product decisions before making assumptions.
+- **Check the spec** (`src/WatchedIt_Spec_Updated.md`) for product decisions before making assumptions.
 - **Run `npx expo install --fix`** after changing package.json to validate dependency versions.
+- **No EAS build needed for testing** — app is tested via Expo Go. `npm start` and scan QR.
