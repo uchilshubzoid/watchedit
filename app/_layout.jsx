@@ -37,12 +37,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#292826' }, animation: 'slide_from_right' }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#292826' }, animation: 'ios' }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="detail/[id]"
-          options={{ animation: 'slide_from_right' }}
-        />
+        <Stack.Screen name="detail/[id]" />
         <Stack.Screen
           name="logit/search"
           options={{ presentation: 'modal', animation: 'none' }}
@@ -51,10 +48,7 @@ export default function RootLayout() {
           name="logit/details"
           options={{ animation: 'slide_from_bottom' }}
         />
-        <Stack.Screen
-          name="stats"
-          options={{ animation: 'slide_from_right' }}
-        />
+        <Stack.Screen name="stats" />
       </Stack>
     </GestureHandlerRootView>
   );
