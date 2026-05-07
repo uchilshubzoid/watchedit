@@ -1,5 +1,6 @@
-import { Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { Stack, router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useFonts,
   Nunito_400Regular,
@@ -28,11 +29,24 @@ export default function RootLayout() {
     'Inconsolata-Regular': Inconsolata_400Regular,
   });
 
+  const [ready, setReady] = useState(false);
+
+  // Phase 1: once fonts are loaded, check onboarding state
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
+    if (!fontsLoaded) return;
+    AsyncStorage.getItem('watchedit_onboarding_done').then(done => {
+      setReady(done ? 'tabs' : 'onboarding');
+    });
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) return null;
+  // Phase 2: navigate to the right place, then drop the splash
+  useEffect(() => {
+    if (!ready) return;
+    if (ready === 'onboarding') router.replace('/onboarding');
+    SplashScreen.hideAsync();
+  }, [ready]);
+
+  if (!fontsLoaded || !ready) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -48,6 +62,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+        <Stack.Screen name="onboarding" options={{ animation: 'none' }} />
         <Stack.Screen name="detail/[id]" />
         <Stack.Screen
           name="logit/search"
