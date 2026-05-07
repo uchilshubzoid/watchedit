@@ -186,9 +186,10 @@ router.push({
 
 ### Stats Block
 - "Last 30 days" badge — amber dot · muted mono label
-- "Titles Watched" — large amber 80px number
-- Watch time — `~Xh` with est. flag if estimated
-- Category pills: Anime · Movie · TV Show with counts
+- "Titles Watched" — large amber 80px number. Includes all `watched` entries, `dropped` entries, and `watching` entries whose `lastWatchedDate` falls within the period (i.e. a Watch Sesh was logged in that window). Falls back to "All time" label and counts when no entries qualify for the last 30 days.
+- Attribution priority for date filtering: `watch_end_date` → `finishedDate` / `lastWatchedDate` → `date`. `logged_at` is never used for stats attribution.
+- Watch time — `~Xh` with est. flag if estimated. Sums `watchTime` across the same title pool.
+- Category pills: Anime · Movie · TV Show with counts derived from the same pool
 - *"See your stats →"* → Statistics screen
 
 ### Unrated entries nudge
@@ -585,6 +586,8 @@ Summary · Timeline
 - Entry only appears in a time window if `watch_end_date` falls within it
 - Muted note below chart: *"Shows appear on the date you finished them"*
 - Horizontal scroll for wide date ranges
+- **All Time** granularity: monthly, spans all years the user has entries (not restricted to current year). Prior-year months labelled `Jan'25` etc.
+- The header count and chart bar sum are always consistent: the 7-day/30-day period filter uses start-of-day on the earliest day (not an exact millisecond cutoff) so every entry in the count lands in exactly one chart bar
 
 ### Genre distribution
 Radar/spider chart showing genre spread across watched entries.
@@ -781,6 +784,8 @@ User can override per entry via presets or custom input.
 - Entry only appears in a time window if `watch_end_date` falls within that window
 - `watch_start_date` is display-only — shown as date range in detail view, never used in stats calculations
 - Watch time is attributed entirely to `watch_end_date` — no spreading across date range
+- **`logged_at` is never used for stats attribution** — it is an audit field only (when the user opened the app to log). Using it would misplace retroactively-logged entries.
+- Date resolution priority in code: `watch_end_date` → `finishedDate` / `lastWatchedDate` (for watching entries) → `date`
 
 ### Rationale
 Retroactive entries for multi-episode shows cannot be accurately spread across a date range from memory. Attributing to completion date is the most honest single data point available. The MAL OAuth import in Stage 3 will provide more granular historical data where available.
@@ -947,4 +952,5 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | 1.3 | Revised Log It flow: two CTAs on search cards (+ Watch Plan instant add, WatchedIt →), collapsed metadata card with inline edit, hybrid episode selector, watch date fields (start + end), "continue without rating" secondary path. Flagged entries system (unrated watched). Mini Rating Sheet component. Title language preference in Watcher (EN/JP/Romanised). MAL field mapping table. Stats date attribution model (always watch_end_date, no spreading). json-server local DB documented. State transition rules table. Recently Watched reduced to 3. Watch Tower unrated nudge. "Log a Sesh" rename. |
 | 1.4 | Updated project status to Stage 2 native migration complete. Documented Expo Router route map, AsyncStorage persistence, current `searchTitles()` return shape, current persisted entry shape, and moved share extension/shareable stats out of completed Stage 2 scope. |
 | 1.5 | Log It UX polish pass. LogItSearch renders as RN Modal (not stack route) from tab layout; `logitOpen` state + `DeviceEventEmitter` control open/close. Keyboard lifts the sheet via plain `useState` `kbHeight` (no Animated driver conflict); keyboard and sheet now rise simultaneously. Poster zoom modal: pinch + pan gestures via `react-native-gesture-handler` inside `GestureHandlerRootView`. Bookmark flag uses Ionicons mono/dual-tone icon. Star rating haptics use `impactAsync(Light)` for Android reliability; PanResponder captures gesture before parent ScrollView. Title language: `displayTitle` passed separately so original title (e.g. Japanese) is preserved in the alternatives dropdown. Submit flow: `toastBridge` singleton passes toast data to WatchTower across navigation; `dismissLogItSearch` event closes search modal concurrently with `router.back()`; `presentation: 'modal'` removed from `logit/details` so back gesture slides the screen down correctly. Watch Tower success toast: 10s auto-dismiss, ✕ dismiss button at top-right, positioned 8px above tab bar. |
+| 1.7 | Data attribution fixes. **Watch Tower stats block:** title count now includes watched + dropped + watching-with-session entries (was watched-only); date attribution uses `watch_end_date` → `finishedDate`/`lastWatchedDate` → `date` chain (was `logged_at`); category pills and watch time derived from same corrected pool; Recently Watched list sorted by activity date. **StatsScreen:** `filterByPeriod` 7/30-day cutoff now uses start-of-day so header count and chart bar sum are always equal; `buildTimePoints` All Time now spans all years (was current-year-only); `totalEps` in category breakdown now uses `e.ep` (episodes actually watched) for watching entries, not `e.total` (full series count). Spec sections 5, 13, 19 updated to reflect these rules. |
 | 1.6 | Stats Screen full redesign. **Time filters:** 7 Days / 30 Days / Custom (date range picker with calendar modal, chip shows "May 4 – Jul 18") / All Time. 90 Days removed. Category filter chips removed. **Hero cards (Option B):** 2×2 grid, number centered in amber, label centered below in muted text. **Breakdown by Category:** renamed section; each type gets a card with 3 mini stat boxes (Titles + eps sub-callout, Watch Time, Avg Rating) and an expandable title list (collapsed by default). Old duplicate bottom breakdown removed. **Section order in Summary:** hero cards → nudge → Breakdown by Category → Genre Distribution → Insights widget. **Timeline tab:** now shows all sections (line chart + Breakdown by Category + Genre Distribution + Insights widget). **Line chart:** replaces bar chart; area fill + line + tap-callout dots (r=18 transparent hit area behind each dot). **"By Type" toggle:** pill button right of the metric toggle; switches chart between single combined line and 3 colored lines (Anime=amber, Movie=amberSoft, TV Show=amberWarm); chart header number changes to per-type breakdown when active. **X-axis labels:** max 8 via `ceil((n-1)/7)` interval; first label left-anchored, last label right-anchored (never clips). **DateRangePicker:** week-row calendar grid, continuous range fill bar with correct left/right half logic for endpoints, amber circle for start, amber circle + outer ring for end. **Data fix:** `localDateStr()` uses local time methods to avoid UTC timezone shift in chart bucketing. **Stats inclusion:** `status === 'watching'` entries now count in stats if `lastWatchedDate` falls within the filter period (i.e. a Watch Sesh was logged in that period). **`buildTimePoints` extracted** as a reusable function for both combined and per-type chart data. **Insights widget** named for the hardest-genre callout; TODO comment marks it for future variant rotation. |

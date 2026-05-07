@@ -49,22 +49,36 @@ function filterByPeriod(entries, filter, customStart, customEnd) {
     return entries.filter(e => { const t = parseActivityDate(e); return t >= start && t <= end; });
   }
   const days = filter === '7 Days' ? 7 : 30;
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  return entries.filter(e => parseActivityDate(e) >= cutoff);
+  // Start-of-day on (today - days + 1) aligns exactly with the day buckets buildTimePoints generates
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - (days - 1));
+  cutoffDate.setHours(0, 0, 0, 0);
+  return entries.filter(e => parseActivityDate(e) >= cutoffDate.getTime());
 }
 
 function buildTimePoints(entries, timeFilter, customStart, customEnd) {
   if (timeFilter === 'All Time') {
-    const year = new Date().getFullYear();
-    return MONTHS_SHORT.map((label, month) => {
+    const timestamps = entries.map(e => parseActivityDate(e)).filter(t => t > 0);
+    if (timestamps.length === 0) return [];
+    const curYear  = new Date().getFullYear();
+    const curMonth = new Date().getMonth();
+    const minDate  = new Date(Math.min(...timestamps));
+    const months   = [];
+    const cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+    const end = new Date(curYear, curMonth + 1, 1);
+    while (cur < end) {
+      const m = cur.getMonth(), y = cur.getFullYear();
       const es = entries.filter(e => {
         const t = parseActivityDate(e);
         if (!t) return false;
         const d = new Date(t);
-        return d.getMonth() === month && d.getFullYear() === year;
+        return d.getMonth() === m && d.getFullYear() === y;
       });
-      return { label, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) };
-    }).filter((_, i) => i <= new Date().getMonth());
+      const label = y === curYear ? MONTHS_SHORT[m] : `${MONTHS_SHORT[m]}'${String(y).slice(2)}`;
+      months.push({ label, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return months;
   }
   if (timeFilter === 'Custom' && customStart && customEnd) {
     const startD   = new Date(customStart + 'T00:00:00');
@@ -429,7 +443,12 @@ export default function StatsScreen() {
     const avg     = ratedEs.length
       ? Math.round(ratedEs.reduce((s, e) => s + e.rating, 0) / ratedEs.length * 10) / 10
       : null;
-    const totalEps = type !== 'Movie' ? es.reduce((sum, e) => sum + (e.total || e.ep || 0), 0) : 0;
+    // For watched entries: ep is episodes watched (fall back to total if ep missing).
+    // For watching entries: only ep (episodes watched so far) — never use total.
+    const totalEps = type !== 'Movie' ? es.reduce((sum, e) => {
+      const eps = e.status === 'watched' ? (e.ep || e.total || 0) : (e.ep || 0);
+      return sum + eps;
+    }, 0) : 0;
     return { type, count: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10, avg, totalEps };
   }).filter(c => c.count > 0);
 

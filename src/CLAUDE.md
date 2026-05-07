@@ -39,6 +39,13 @@ Full StatsScreen rewrite. See spec v1.6 changelog for full detail. Key decisions
 - DateRangePicker: week-row calendar, continuous range fill, start=amber circle, end=amber circle + outer ring.
 - Insights widget: named callout for hardest-rated genre, TODO'd for future variant rotation.
 
+### Stage 2.2 — Data Attribution Fixes ✅ Complete (as of May 2026)
+See spec v1.7 changelog for full detail. Fixes applied to WatchTower and StatsScreen:
+- **WatchTower hero card**: stats pool now includes `watched + dropped + watching` (was watched-only). Date filtering uses `getActivityDate(e)` — `watch_end_date` → `finishedDate`/`lastWatchedDate` → `date` — never `logged_at`. Category pills and watch time come from the same pool. Recently Watched list sorted by activity date.
+- **StatsScreen `filterByPeriod`**: 7/30-day cutoff is now start-of-day (not exact millisecond), so chart bar sum always equals the header count.
+- **StatsScreen `buildTimePoints` All Time**: now spans all entry years, not current year only. Prior-year months labelled `Jan'25` etc.
+- **StatsScreen `totalEps`**: watching entries now contribute `e.ep` (episodes watched) not `e.total` (full series count) to the category breakdown eps callout.
+
 ### What's NOT built yet (do these next in order)
 1. **Onboarding flow** — cold start problem, empty state for new users
 2. **Screen transition polish** — UX pass on nav animations (flagged, tracked for future)
@@ -412,7 +419,9 @@ npm run build:aab
 - **Run `npx expo install --fix`** after changing package.json to validate dependency versions.
 - **No EAS build needed for testing** — app is tested via Expo Go. `npm start` and scan QR.
 - **Stats date bucketing** — always use `localDateStr(timestamp)` (local time methods: getFullYear/getMonth/getDate) for per-day chart comparisons. Never use `.toISOString().split('T')[0]` — it shifts dates in non-UTC timezones. When parsing legacy `finishedDate` strings like "Apr 10", append `12:00:00` (noon) to keep the date on the correct local day.
-- **Stats data inclusion** — `getEntries()` for stats must include `status === 'watched'`, `e.dropped`, AND `status === 'watching'`. Currently Watching counts if `lastWatchedDate` falls within the filter period (i.e. a session was logged). Do NOT include Watch Plan or Paused entries.
-- **`buildTimePoints(entries, filter, customStart, customEnd)`** — reusable function in StatsScreen. Pass a pre-filtered (by type) entry list to get per-type time series. All time-bucket arrays share the same X-axis positions regardless of input entries.
+- **Stats data inclusion** — stats pool must include `status === 'watched'`, `e.dropped`, AND `status === 'watching'` (including paused — the date filter naturally excludes paused entries with no recent session). Do NOT include Watch Plan entries. `logged_at` is NEVER used for stats attribution — it is an audit field only.
+- **Stats date attribution priority** — `watch_end_date` (ISO string, parsed with `T12:00:00`) → `finishedDate` / `lastWatchedDate` (display string, parsed with `${str}, YYYY 12:00:00`) → `date`. This applies to both WatchTower and StatsScreen. The helper in WatchTower is `getActivityDate(e)`; in StatsScreen it is `parseActivityDate(e)` — keep them in sync.
+- **WatchTower stats pool** — use `entries.filter(e => e.status === 'watched' || e.dropped || e.status === 'watching')` then filter that pool by `getActivityDate(e) > thirtyAgo`. The UI-only subsets (`watched` for Recently Watched, `watching` for Currently Watching section) are separate from the stats pool.
+- **`buildTimePoints(entries, filter, customStart, customEnd)`** — reusable function in StatsScreen. Pass a pre-filtered (by type) entry list to get per-type time series. All time-bucket arrays share the same X-axis positions regardless of input entries. All Time mode now spans all entry years.
 - **StatsScreen `byType` toggle** — when ON, the chart Y-axis uses `typeMaxVal` (max across types), not `maxVal` (combined total). The `effectiveMax` variable switches between them. `py()` depends on `effectiveMax`, so define it after `effectiveMax`.
 - **Calendar widget (DateRangePicker)** — uses explicit week rows (not `flexWrap`) to guarantee 7 cells per row. Range fill uses `left`/`right` absolute positioning: full width for mid-range cells, left-half for end cell, right-half for start cell. `DR_CELL = (SCREEN_W - 72) / 7` (20×2 overlay padding + 16×2 sheet padding = 72).

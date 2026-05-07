@@ -26,6 +26,19 @@ function formatDateWithYear(dateStr) {
   return `${dateStr}, ${new Date().getFullYear()}`;
 }
 
+function getActivityDate(e) {
+  if (e.watch_end_date) return new Date(e.watch_end_date + 'T12:00:00').getTime();
+  const dateStr = (e.status === 'watched' ? e.finishedDate : e.lastWatchedDate) || e.date || '';
+  if (!dateStr) return 0;
+  try {
+    const withYear = !dateStr.includes(',')
+      ? `${dateStr}, ${new Date().getFullYear()} 12:00:00`
+      : dateStr;
+    const parsed = new Date(withYear);
+    return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  } catch { return 0; }
+}
+
 export default function WatchTower() {
   const insets = useSafeAreaInsets();
 
@@ -59,21 +72,16 @@ export default function WatchTower() {
     return () => { active = false; };
   }, []));
 
-  const now = Date.now();
-  const thirtyAgo = now - 30 * 24 * 60 * 60 * 1000;
+  const thirtyAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
-  const watched = entries.filter(e => e.status === 'watched');
-  const watchedRecent = watched.filter(e => {
-    const t = e.logged_at ? new Date(e.logged_at).getTime() : 0;
-    return t > thirtyAgo;
-  });
-  const watching  = entries.filter(e => e.status === 'watching' && !e.paused && !e.dropped);
-  const recent    = watched.slice(0, 3);
-  const flaggedCount = watched.filter(e => !e.rating).length;
+  // Stats pool: watched + dropped + watching entries that had a session (spec §20)
+  const statsPool  = entries.filter(e => e.status === 'watched' || e.dropped || e.status === 'watching');
+  const recentPool = statsPool.filter(e => getActivityDate(e) > thirtyAgo);
+  const isRecent   = recentPool.length > 0;
+  const countedEntries = isRecent ? recentPool : statsPool;
+  const totalCount = countedEntries.length;
 
-  // Compute watch time from watchTime strings
   let totalMins = 0;
-  const countedEntries = watchedRecent.length > 0 ? watchedRecent : watched;
   countedEntries.forEach(e => {
     if (e.watchTime) {
       const h = e.watchTime.match(/(\d+)h/);
@@ -81,15 +89,19 @@ export default function WatchTower() {
       totalMins += (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
     }
   });
-  const totalHours  = Math.round(totalMins / 60);
-  const estimated   = countedEntries.some(e => e.estimated);
-  const totalCount  = watchedRecent.length > 0 ? watchedRecent.length : watched.length;
-  const isRecent    = watchedRecent.length > 0;
+  const totalHours = Math.round(totalMins / 60);
+  const estimated  = countedEntries.some(e => e.estimated);
 
   const cats = ['Anime', 'Movie', 'TV Show'].map(t => ({
     label: t,
-    count: (isRecent ? watchedRecent : watched).filter(e => e.type === t).length,
+    count: countedEntries.filter(e => e.type === t).length,
   })).filter(c => c.count > 0);
+
+  // UI-only subsets — not used in stats above
+  const watched      = entries.filter(e => e.status === 'watched');
+  const watching     = entries.filter(e => e.status === 'watching' && !e.paused && !e.dropped);
+  const recent       = [...watched].sort((a, b) => getActivityDate(b) - getActivityDate(a)).slice(0, 3);
+  const flaggedCount = watched.filter(e => !e.rating).length;
 
   const STREAK   = 0;
   const streakCopy = getStreakCopy(STREAK);
