@@ -12,7 +12,7 @@ import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-g
 import Poster from '../components/Poster';
 import StarRating from '../components/StarRating';
 import BlockingPopup from '../components/BlockingPopup';
-import { addEntry, getEntry, updateEntry } from '../db/storage';
+import { addEntry, getEntry, updateEntry, getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
 import { highResPosterUrl } from '../utils/posterUtils';
 import { setPendingToast } from '../utils/toastBridge';
@@ -507,6 +507,9 @@ export default function LogItDetails() {
         watch_end_date: watchStatus === 'watched' ? watchEndDate : existing.watch_end_date,
       });
     } else {
+      const existing = await getEntries();
+      const isFirstLog = existing.length === 0;
+
       await addEntry({
         id: String(Date.now()),
         title: currentTitle, type: contentType, lang: language, genre,
@@ -532,17 +535,24 @@ export default function LogItDetails() {
         logged_at: new Date().toISOString(),
         epRuntime: resolvedRuntime, runtime: movieRuntimeValue || null,
       });
+
+      const statusLabel = watchStatus === 'watched' ? 'Watched' : watchStatus === 'watching' ? 'Watching' : 'Watch Plan';
+      setPendingToast(isFirstLog ? {
+        title: '🎬 WatchLog started!',
+        body:  `${currentTitle} · ${statusLabel}`,
+        sub:   'Entry #1. Many more await.',
+        isFirstLog: true,
+      } : {
+        title: isPlan ? '📋 Added to Watch Plan' : '🎬 Logged!',
+        body:  isPlan
+          ? `${currentTitle} is on your plan`
+          : `${currentTitle} logged as ${statusLabel}`,
+      });
     }
 
     if (isEdit) {
       router.back();
     } else {
-      setPendingToast({
-        title: isPlan ? '📋 Added to Watch Plan' : '🎬 Logged!',
-        body:  isPlan
-          ? `${currentTitle} is on your plan`
-          : `${currentTitle} logged as ${watchStatus === 'watched' ? 'Watched' : 'Watching'}`,
-      });
       // Emit so the LogItSearch RN Modal runs its own dismiss animation simultaneously
       DeviceEventEmitter.emit('dismissLogItSearch');
       router.back();

@@ -1,9 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, DeviceEventEmitter, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import Poster from '../components/Poster';
 import TypePill from '../components/TypePill';
+import GuidedCarousel from '../components/GuidedCarousel';
 import { getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
 import { consumePendingToast } from '../utils/toastBridge';
@@ -45,6 +47,7 @@ export default function WatchTower() {
   const [entries,        setEntries]        = useState([]);
   const [streakDismissed,setStreakDismissed] = useState(false);
   const [toastContent,   setToastContent]   = useState(null);
+  const [carouselOpen,   setCarouselOpen]   = useState(false);
   const toastAnim    = useRef(new Animated.Value(0)).current;
   const toastAnimRef = useRef(null);
 
@@ -118,8 +121,8 @@ export default function WatchTower() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Stats card */}
-        <View style={styles.card}>
+        {/* Stats card — hidden when WatchLog is empty */}
+        {entries.length > 0 && <View style={styles.card}>
           <View style={styles.period}>
             <View style={styles.dot} />
             <Text style={styles.periodText}>{isRecent ? 'Last 30 days' : 'All time'}</Text>
@@ -142,7 +145,7 @@ export default function WatchTower() {
           <Pressable onPress={() => router.push('/stats')} style={{ marginTop: 14 }}>
             <Text style={styles.statsLink}>See your stats →</Text>
           </Pressable>
-        </View>
+        </View>}
 
         {/* Unrated nudge */}
         {flaggedCount > 0 && (
@@ -236,16 +239,53 @@ export default function WatchTower() {
           </View>
         )}
 
-        {/* Empty state */}
+        {/* Welcome card — shown when WatchLog is empty */}
         {entries.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Nothing watched here. Go fix that.</Text>
-            <Pressable style={styles.emptyBtn} onPress={() => router.push('/logit/search')}>
-              <Text style={styles.emptyBtnText}>Log your first watch</Text>
-            </Pressable>
-          </View>
+          <>
+            <View style={styles.welcomeCard}>
+              <Text style={styles.welcomeEmoji}>🎬</Text>
+              <Text style={styles.welcomeHeadline}>Your WatchLog awaits.</Text>
+              <Text style={styles.welcomeSub}>
+                Log everything you watch — movies, anime, TV shows. Rate it, react to it, make it yours.
+              </Text>
+
+              <Pressable
+                onPress={() => DeviceEventEmitter.emit('openLogIt')}
+                style={styles.welcomeCtaWrap}
+              >
+                <LinearGradient
+                  colors={[T.amber, T.amberDeep]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.welcomeCta}
+                >
+                  <Text style={styles.welcomeCtaText}>Log your first watch →</Text>
+                </LinearGradient>
+              </Pressable>
+
+              <Pressable
+                onPress={() => DeviceEventEmitter.emit('openLogIt')}
+                style={styles.welcomeSecondaryBtn}
+              >
+                <Text style={styles.welcomeSecondaryText}>Save to Watch Plan</Text>
+              </Pressable>
+
+              <Pressable onPress={() => setCarouselOpen(true)} style={{ marginTop: 2 }}>
+                <Text style={styles.welcomeGhost}>How does this work? →</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.hintStrip}>
+              <Text style={{ fontSize: 15 }}>📋</Text>
+              <Text style={styles.hintStripText}>
+                Not done watching something? Watch Plan saves it for later.
+              </Text>
+            </View>
+          </>
         )}
       </ScrollView>
+
+      <GuidedCarousel visible={carouselOpen} onClose={() => setCarouselOpen(false)} />
 
       {toastContent && (
         <Animated.View style={[styles.toast, {
@@ -259,6 +299,9 @@ export default function WatchTower() {
           <View style={{ flex: 1 }}>
             <Text style={styles.toastTitle}>{toastContent.title}</Text>
             <Text style={styles.toastBody}>{toastContent.body}</Text>
+            {toastContent.sub && (
+              <Text style={styles.toastSub}>{toastContent.sub}</Text>
+            )}
           </View>
         </Animated.View>
       )}
@@ -313,10 +356,80 @@ const styles = StyleSheet.create({
   recentTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14, flex: 1 },
   recentDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 16 },
-  empty: { alignItems: 'center', paddingVertical: 60, gap: 16 },
-  emptyText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14, textAlign: 'center' },
-  emptyBtn: { backgroundColor: T.amber, borderRadius: T.radiusButton, paddingHorizontal: 24, paddingVertical: 12 },
-  emptyBtnText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 14 },
+  // Welcome card (empty state)
+  welcomeCard: {
+    backgroundColor: 'rgba(239,159,39,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,159,39,0.2)',
+    borderRadius: T.radiusCard,
+    padding: 24,
+    alignItems: 'center',
+    gap: 14,
+  },
+  welcomeEmoji: { fontSize: 44, lineHeight: 52 },
+  welcomeHeadline: {
+    color: T.textPrimary,
+    fontFamily: T.fontDisplay,
+    fontSize: 22,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  welcomeSub: {
+    color: T.textMuted,
+    fontFamily: T.fontBody,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 270,
+  },
+  welcomeCtaWrap: {
+    alignSelf: 'stretch',
+    borderRadius: T.radiusButton,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  welcomeCta: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: T.radiusButton,
+  },
+  welcomeCtaText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 15 },
+  welcomeSecondaryBtn: {
+    alignSelf: 'stretch',
+    borderWidth: 1,
+    borderColor: T.elevated,
+    borderRadius: T.radiusButton,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  welcomeSecondaryText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
+  welcomeGhost: {
+    color: T.textMuted,
+    fontFamily: T.fontTitleMedium,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    opacity: 0.7,
+  },
+
+  // Hint strip
+  hintStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(239,159,39,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(239,159,39,0.12)',
+    borderRadius: 14,
+    padding: 14,
+  },
+  hintStripText: {
+    flex: 1,
+    color: T.textMuted,
+    fontFamily: T.fontBody,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
   toast: {
     position: 'absolute', left: 16, right: 16,
     backgroundColor: T.surface, borderRadius: 16, padding: 16,
@@ -326,6 +439,7 @@ const styles = StyleSheet.create({
   },
   toastTitle:       { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
   toastBody:        { color: T.textMuted,  fontFamily: T.fontBody,  fontSize: 12, marginTop: 1 },
+  toastSub:         { color: T.textMuted,  fontFamily: T.fontMono,  fontSize: 10, marginTop: 3, opacity: 0.7 },
   toastDismiss:     { position: 'absolute', top: 10, right: 12, padding: 4 },
   toastDismissText: { color: T.textMuted, fontSize: 14 },
 });
