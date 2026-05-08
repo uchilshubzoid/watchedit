@@ -46,11 +46,20 @@ See spec v1.7 changelog for full detail. Fixes applied to WatchTower and StatsSc
 - **StatsScreen `buildTimePoints` All Time**: now spans all entry years, not current year only. Prior-year months labelled `Jan'25` etc.
 - **StatsScreen `totalEps`**: watching entries now contribute `e.ep` (episodes watched) not `e.total` (full series count) to the category breakdown eps callout.
 
+### Stage 2.3 — Onboarding Flow + WatchTower Empty State ✅ Complete (as of May 2026)
+Three-screen onboarding built in `app/onboarding/`. Two-phase bootstrap in root layout prevents any flash of the wrong screen. WatchTower empty state replaced with a proper welcome card. Key decisions:
+- **Screen 1 (index):** Watcher Name input — auto-focused, amber border on focus, disabled CTA until name entered. Saves to `watchedit_watcher_name`. Routes to Screen 2.
+- **Screen 2 (auth):** Auth choice — confirmation chip shows entered name. Google button (stubbed, shows "Coming soon" alert). Guest button saves `watchedit_auth_mode: 'guest'` and routes to Screen 3.
+- **Screen 3 (guest):** Guest callout — inline name edit (amber TextInput + pencil icon), info card with 3 rows, amber gradient CTA. On confirm: sets `watchedit_onboarding_done: 'true'` and replaces to `/(tabs)`.
+- **Bootstrap:** Root layout checks `watchedit_onboarding_done` after fonts load. Redirects to `/onboarding` if not done. Hides splash only after the check + navigate, preventing any flash.
+- **WatchTower empty state:** Stats card hidden when `entries.length === 0`. Replaced with amber-tinted welcome card (🎬 emoji, headline, two CTAs, "How does this work? →" ghost link) + hint strip below it.
+- **GuidedCarousel:** Full-screen RN Modal with 3 slides (Log It / WatchLog / Stats), each with a mini screen mockup. Dot indicators, "Next →" / "Let's log something →" CTA. Opens from welcome card ghost link.
+- **First-log toast:** LogItDetails checks `getEntries()` before `addEntry()`. If empty, fires `{ title: '🎬 WatchLog started!', body: '…', sub: 'Entry #1. Many more await.', isFirstLog: true }`. WatchTower toast renders `sub` line if present.
+
 ### What's NOT built yet (do these next in order)
-1. **Onboarding flow** — cold start problem, empty state for new users
-2. **Screen transition polish** — UX pass on nav animations (flagged, tracked for future)
-3. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
-4. **Play Store prep** — app signing, store listing, screenshots
+1. **Screen transition polish** — UX pass on nav animations (flagged, tracked for future)
+2. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
+3. **Play Store prep** — app signing, store listing, screenshots
 
 ---
 
@@ -59,13 +68,18 @@ See spec v1.7 changelog for full detail. Fixes applied to WatchTower and StatsSc
 ```
 /
 ├── app/                           ← Expo Router — all route files are thin re-exports
-│   ├── _layout.jsx                ← Root layout: font loading, GestureHandlerRootView
+│   ├── _layout.jsx                ← Root layout: font loading, two-phase bootstrap, GestureHandlerRootView
 │   ├── (tabs)/
 │   │   ├── _layout.jsx            ← Tab navigator (5 slots, + FAB opens logit modal)
 │   │   ├── index.jsx              ← Watch Tower tab
 │   │   ├── watchlist.jsx          ← WatchList tab
 │   │   ├── search.jsx             ← Search tab
 │   │   └── watcher.jsx            ← Watcher/Profile tab
+│   ├── onboarding/
+│   │   ├── _layout.jsx            ← Onboarding stack (slide_from_right, 280ms)
+│   │   ├── index.jsx              ← Screen 1: Watcher Name input
+│   │   ├── auth.jsx               ← Screen 2: Auth choice (Google / Guest)
+│   │   └── guest.jsx              ← Screen 3: Guest mode callout + inline name edit
 │   ├── logit/
 │   │   ├── search.jsx             ← Log It Step 1 (modal)
 │   │   └── details.jsx            ← Log It Step 2
@@ -78,11 +92,11 @@ See spec v1.7 changelog for full detail. Fixes applied to WatchTower and StatsSc
 │   │   └── tokens.js              ← Design tokens (T object) — LOCKED
 │   ├── screens/                   ← Screen components (logic lives here, app/ re-exports)
 │   │   ├── WatchedItApp.jsx       ← MIGRATION REFERENCE — do not add features here
-│   │   ├── WatchTower.jsx         ← Home screen — stats, currently watching, recently watched, success toast
+│   │   ├── WatchTower.jsx         ← Home screen — welcome card (empty), stats, toast, GuidedCarousel
 │   │   ├── WatchList.jsx          ← List screen
 │   │   ├── DetailView.jsx         ← Watch Deets / detail view
 │   │   ├── LogItSearch.jsx        ← Log It Step 1 (RN Modal, not a route — controlled by tab layout)
-│   │   ├── LogItDetails.jsx       ← Log It Step 2 (stack route)
+│   │   ├── LogItDetails.jsx       ← Log It Step 2 (stack route) — first-log detection
 │   │   ├── SearchScreen.jsx       ← Search tab
 │   │   ├── StatsScreen.jsx        ← Statistics screen
 │   │   └── WatcherScreen.jsx      ← Watcher / profile screen
@@ -94,7 +108,8 @@ See spec v1.7 changelog for full detail. Fixes applied to WatchTower and StatsSc
 │   │   ├── LogSeshSheet.jsx       ← Log a Sesh bottom sheet
 │   │   ├── RatingSheet.jsx        ← Mini rating sheet
 │   │   ├── MiniCalendar.jsx       ← Date picker calendar
-│   │   └── BlockingPopup.jsx      ← Modal popup (movie-watching block, rating required)
+│   │   ├── BlockingPopup.jsx      ← Modal popup (movie-watching block, rating required)
+│   │   └── GuidedCarousel.jsx     ← 3-slide onboarding carousel modal (Log It / WatchLog / Stats)
 │   ├── api/
 │   │   ├── index.js               ← unified searchTitles() entry point
 │   │   └── mal.js                 ← MAL API (direct fetch, no proxy needed in RN)
@@ -211,6 +226,10 @@ T.fontMono        = 'Inconsolata-Regular'  // mono — labels, stats, dates
 
 ```
 app/_layout.jsx              Root Stack
+├── onboarding               Onboarding stack (animation: none from root)
+│   ├── index                Screen 1 — Watcher Name
+│   ├── auth                 Screen 2 — Auth choice
+│   └── guest                Screen 3 — Guest callout
 ├── (tabs)                   Bottom tab navigator (app/(tabs)/_layout.jsx)
 │   ├── index (Watch Tower)
 │   ├── watchlist
@@ -252,13 +271,47 @@ router.push({
 router.push({ pathname: '/logit/details', params: { entryId: entry.id, isEdit: 'true' } });
 ```
 
+**Onboarding bootstrap (two-phase, in `app/_layout.jsx`):**
+```js
+// Phase 1: once fonts load, check if onboarding was completed
+useEffect(() => {
+  if (!fontsLoaded) return;
+  AsyncStorage.getItem('watchedit_onboarding_done').then(done => {
+    setReady(done ? 'tabs' : 'onboarding');
+  });
+}, [fontsLoaded]);
+// Phase 2: navigate, then hide splash — prevents any flash of wrong screen
+useEffect(() => {
+  if (!ready) return;
+  if (ready === 'onboarding') router.replace('/onboarding');
+  SplashScreen.hideAsync();
+}, [ready]);
+```
+AsyncStorage keys used by onboarding:
+- `watchedit_watcher_name` — user's display name (string)
+- `watchedit_auth_mode` — `'guest'` | future: `'google'`
+- `watchedit_onboarding_done` — `'true'` when complete (set in Screen 3)
+
 **Success toast after Log It submit:**
 ```js
-// In LogItDetails — before router.back()
-setPendingToast({ title: '🎬 Logged!', body: `${title} logged as Watched` });
+// In LogItDetails — before router.back() on new entry:
+// check if this is the first-ever log
+const existing = await getEntries();
+const isFirstLog = existing.length === 0;
+await addEntry({ ... });
+setPendingToast(isFirstLog ? {
+  title: '🎬 WatchLog started!',
+  body: `${title} · ${statusLabel}`,
+  sub: 'Entry #1. Many more await.',
+  isFirstLog: true,
+} : {
+  title: isPlan ? '📋 Added to Watch Plan' : '🎬 Logged!',
+  body: isPlan ? `${title} is on your plan` : `${title} logged as ${statusLabel}`,
+});
 DeviceEventEmitter.emit('dismissLogItSearch'); // closes search modal simultaneously
 router.back();
 // WatchTower reads consumePendingToast() in useFocusEffect and displays it
+// toast.sub is rendered as a third line if present (fontMono, 10px, dimmed)
 ```
 
 ---
@@ -348,7 +401,10 @@ await setTitleLanguagePref(p)
 - **Title language in Log It:** `displayTitle` (preferred language) is passed to LogItDetails as a separate field. `title` (original, e.g. Japanese) is preserved and always appears in the alternatives dropdown unchanged.
 - **Poster in Log It Step 2:** Tapping the poster thumbnail opens a full-screen zoom modal. Supports pinch-to-zoom (up to 6×) and drag-to-pan when zoomed. Uses `Gesture.Simultaneous(pinchGesture, panGesture)` inside a `GestureHandlerRootView` within the RN Modal.
 - **Keyboard + search sheet:** Both rise simultaneously — input is focused at the start of the sheet's entrance animation, not after it completes.
-- **Success toast:** Shown on Watch Tower after Log It submit. 10s auto-dismiss, top-right ✕ button, positioned 8px above tab bar. Passed via `toastBridge` singleton (not navigation params).
+- **Success toast:** Shown on Watch Tower after Log It submit. 10s auto-dismiss, top-right ✕ button, positioned 8px above tab bar. Passed via `toastBridge` singleton (not navigation params). Supports optional `sub` field (third line, fontMono 10px dimmed). `isFirstLog: true` triggers special first-entry copy.
+- **Onboarding flow:** 3-screen stack in `app/onboarding/`. Gated by `watchedit_onboarding_done` AsyncStorage key. Two-phase bootstrap in root layout ensures splash stays visible during the check. Onboarding completion sets the key and `router.replace('/(tabs)')`.
+- **WatchTower empty state:** Stats card hidden when `entries.length === 0`. Welcome card shown instead: amber-tinted, 🎬 emoji, two CTAs (Log It + Watch Plan, both emit `openLogIt`), ghost link opens GuidedCarousel.
+- **GuidedCarousel:** `src/components/GuidedCarousel.jsx`. Full-screen RN Modal, 3 slides, mini screen mockups, horizontal ScrollView with `scrollEnabled={false}` (manually controlled via `scrollTo`). Resets to slide 0 on `visible` change. Last slide CTA closes modal and emits `openLogIt`.
 
 ---
 
@@ -425,3 +481,8 @@ npm run build:aab
 - **`buildTimePoints(entries, filter, customStart, customEnd)`** — reusable function in StatsScreen. Pass a pre-filtered (by type) entry list to get per-type time series. All time-bucket arrays share the same X-axis positions regardless of input entries. All Time mode now spans all entry years.
 - **StatsScreen `byType` toggle** — when ON, the chart Y-axis uses `typeMaxVal` (max across types), not `maxVal` (combined total). The `effectiveMax` variable switches between them. `py()` depends on `effectiveMax`, so define it after `effectiveMax`.
 - **Calendar widget (DateRangePicker)** — uses explicit week rows (not `flexWrap`) to guarantee 7 cells per row. Range fill uses `left`/`right` absolute positioning: full width for mid-range cells, left-half for end cell, right-half for start cell. `DR_CELL = (SCREEN_W - 72) / 7` (20×2 overlay padding + 16×2 sheet padding = 72).
+- **Onboarding routing** — never call `router.push('/onboarding')` from inside the app. The bootstrap in `app/_layout.jsx` handles the initial redirect. Onboarding is a one-way flow: `index → auth → guest → /(tabs)`. Back-navigation is supported on auth screen only.
+- **`watchedit_onboarding_done`** — the single key that gates onboarding. Do not check `watchedit_watcher_name` or `watchedit_auth_mode` for routing decisions — they can be set independently. Only `watchedit_onboarding_done === 'true'` means onboarding is complete.
+- **First-log detection** — in LogItDetails `handleSubmit`, call `getEntries()` BEFORE `addEntry()` to get the pre-add count. `existing.length === 0` means this is the first entry. Do not call `getEntries()` after `addEntry()` for this check.
+- **WatchTower stats card** — conditionally rendered as `{entries.length > 0 && <View style={styles.card}>...</View>}`. The welcome card and hint strip replace it when the log is empty. Do not show both.
+- **GuidedCarousel scroll** — uses `scrollEnabled={false}` on the ScrollView; navigation is driven entirely by imperative `scrollRef.current?.scrollTo({ x: SW * pageIndex, animated: true })` calls inside `goNext()`. Do not enable user swipe — page tracking would desync.

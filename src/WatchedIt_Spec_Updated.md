@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v1.6
-*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete.*
+# WatchedIt — Full Product Spec v1.8
+*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete.*
 
 ---
 
@@ -77,10 +77,9 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 - Deprecated Create React App files are archived in `archive/web-shell/`.
 
 ### Next Product Work
-1. Onboarding flow for cold start and empty state.
-2. Screen transition polish and UX pass.
-3. Tone audit across empty states, errors, and action labels.
-4. Release polish and Play Store prep.
+1. Screen transition polish and UX pass.
+2. Tone audit across empty states, errors, and action labels.
+3. Release polish and Play Store prep.
 
 ### Do Not Use For New Work
 - `src/screens/WatchedItApp.jsx` — migration reference only.
@@ -182,6 +181,89 @@ router.push({
 
 ---
 
+## 4A. Onboarding Flow
+
+Shown on first launch (when `watchedit_onboarding_done` is not set). A 3-screen stack in `app/onboarding/`. The root layout performs a **two-phase bootstrap**: fonts load → AsyncStorage check → navigate if needed → hide splash. This keeps the splash visible through the redirect so there is no flash of the wrong screen.
+
+Progress dots (3 total) shown at top of each screen.
+
+### Screen 1 — Watcher Name (`app/onboarding/index.jsx`)
+```
+🎬
+
+Before we begin —
+Every WatchLog needs a name on it. What's yours?
+
+WATCHER NAME — what you're called in your WatchLog
+┌────────────────────────────────────────────────┐
+│  e.g. Alex, Shubh, MovieNerd...               │
+└────────────────────────────────────────────────┘
+
+              [ That's me → ]
+```
+- TextInput auto-focused on mount (120ms delay)
+- Amber border when focused, amber CTA disabled until at least 1 char
+- On submit: saves `watchedit_watcher_name`, routes to Screen 2
+
+### Screen 2 — Auth Choice (`app/onboarding/auth.jsx`)
+```
+← (back)          ● ● ○   (dot 1 done, dot 2 active)
+
+        [ S  Shubh · Watcher Name set ✓ ]
+
+          Where should your
+          WatchLog live?
+   Sign in to keep it safe across devices.
+
+   [ G  Sign in with Google ]
+
+               ── or ──
+
+   [      Continue as guest      ]
+
+   Guest mode: your WatchLog stays on this device only.
+   You can sign in anytime from the Watcher screen.
+```
+- Confirmation chip shows avatar initial (LinearGradient) + name + "· Watcher Name set ✓"
+- Google button: saves nothing, shows `Alert.alert('Coming soon', 'Google sign-in is coming in Stage 3.')`
+- Guest button: saves `watchedit_auth_mode: 'guest'`, routes to Screen 3
+
+### Screen 3 — Guest Callout (`app/onboarding/guest.jsx`)
+```
+● ● ●  (all done)
+
+JUST SO YOU KNOW —
+
+Hey  [Shubh ✏️],     ← inline name edit
+your WatchLog stays on this device.
+
+That's completely fine — everything works. But if you
+uninstall the app, your data goes with it.
+
+┌─────────────────────────────────────────────────────┐
+│ ✅  Full app, right now — Log It, WatchList, Stats.  │
+│ ─────────────────────────────────────────────────── │
+│ 📵  Device only — uninstalling clears your WatchLog. │
+│ ─────────────────────────────────────────────────── │
+│ 🔄  Sign in later — Watcher → Sign in with Google.  │
+└─────────────────────────────────────────────────────┘
+
+         [ That's me, let's go → ]
+```
+- Inline name edit: tap pencil icon → TextInput with amber border replaces the name text. `onBlur` / `onSubmitEditing` commits. Empty submit reverts to previous name.
+- Edit hint shown when editing: "↵ or tap outside to save"
+- CTA disabled while editing (opacity 0.3)
+- On CTA tap: sets `watchedit_onboarding_done: 'true'`, `router.replace('/(tabs)')`
+
+### AsyncStorage keys set by onboarding
+| Key | Value | Set by |
+|---|---|---|
+| `watchedit_watcher_name` | string | Screen 1 on continue, Screen 3 on name edit |
+| `watchedit_auth_mode` | `'guest'` | Screen 2 Guest button |
+| `watchedit_onboarding_done` | `'true'` | Screen 3 CTA |
+
+---
+
 ## 5. Screen: Watch Tower (Home)
 
 ### Stats Block
@@ -219,11 +301,35 @@ Shown between stats block and streak banner when flagged entry count > 0:
 - Card: poster · title · type pill · date · rating · rewatch ↺ icon
 - *"View all →"* → WatchList
 
+### Empty state — Welcome Card
+Shown when `entries.length === 0`. The stats card is hidden. Replaced by:
+
+**Welcome card** (amber-tinted, `rgba(239,159,39,0.06)` bg + `rgba(239,159,39,0.2)` border):
+- 🎬 emoji
+- Headline: "Your WatchLog awaits."
+- Sub: "Log everything you watch — movies, anime, TV shows. Rate it, react to it, make it yours."
+- Primary CTA: "Log your first watch →" — amber gradient, emits `openLogIt`
+- Secondary CTA: "Save to Watch Plan" — outline, emits `openLogIt` (user selects status in Step 2)
+- Ghost link: "How does this work? →" — opens GuidedCarousel modal
+
+**Hint strip** (below welcome card):
+📋 "Not done watching something? Watch Plan saves it for later."
+
+### GuidedCarousel
+Full-screen RN Modal opened from the welcome card ghost link. 3 slides:
+1. **Log It** — mini search bar + 3 result rows + amber Log button. Title: "Search, tap, done."
+2. **WatchLog** — mini recently-watched card with 3 entries + ratings. Title: "Your taste, your record."
+3. **Stats** — mini stats card with big number + category pills. Title: "Know your watching self."
+
+Controls: dot indicators (active dot expands to 20px wide), "Next →" on slides 1–2, "Let's log something →" on slide 3 (closes modal and emits `openLogIt`). ✕ close button top-right. Resets to slide 1 each time it opens.
+
 ### Success Toast
 Shown after a successful Log It submission. Slides up from the bottom of the screen (8px above the tab bar) when WatchTower regains focus.
 - Amber-bordered card, dark surface background, 10s auto-dismiss
 - ✕ dismiss button pinned to top-right of the toast card
-- Two lines: bold title (e.g. "🎬 Logged!" or "📋 Added to Watch Plan") + muted body (title + status)
+- Two or three lines: bold title + muted body + optional muted mono `sub` line
+- Standard toast: title = "🎬 Logged!" or "📋 Added to Watch Plan", body = entry title + status
+- **First-log toast** (when `isFirstLog: true`): title = "🎬 WatchLog started!", body = entry title + status, sub = "Entry #1. Many more await."
 - Implemented via `toastBridge.js` singleton — LogItDetails writes the pending toast before navigating back, WatchTower reads and clears it on `useFocusEffect`
 
 ---
@@ -402,10 +508,14 @@ Tapping the poster thumbnail in the sticky header opens a full-screen modal. Sup
 
 ### Submission flow
 On successful submit (non-edit):
-1. `setPendingToast(...)` writes toast data to `toastBridge`
-2. `DeviceEventEmitter.emit('dismissLogItSearch')` — search sheet animates out simultaneously
-3. `router.back()` — details screen slides down (animation: `slide_from_bottom` reverse)
-4. WatchTower gains focus, reads and displays the pending toast
+1. `getEntries()` called before `addEntry()` — captures pre-add count to detect first-ever log
+2. `addEntry(...)` saves the entry
+3. `setPendingToast(...)` writes toast data to `toastBridge`:
+   - First log (`existing.length === 0`): `{ title: '🎬 WatchLog started!', body: '…', sub: 'Entry #1. Many more await.', isFirstLog: true }`
+   - Standard: `{ title: '🎬 Logged!' / '📋 Added to Watch Plan', body: '…' }`
+4. `DeviceEventEmitter.emit('dismissLogItSearch')` — search sheet animates out simultaneously
+5. `router.back()` — details screen slides down (animation: `slide_from_bottom` reverse)
+6. WatchTower gains focus, reads and displays the pending toast
 
 ### Blocking popups
 - Movie + Watching → 🍿 *"Finish the movie first!"* · *"Lol faine, I'll finish it"* · *"Actually I'm done"* (flips to Watched)
@@ -870,6 +980,9 @@ await setTitleLanguagePref(pref);
 **AsyncStorage keys:**
 - `watchedit_entries` — array of persisted entries
 - `watchedit_title_language_pref` — `"en"` | `"ja"` | `"romanised"`; default `"en"`
+- `watchedit_watcher_name` — user's display name (set in onboarding Screen 1)
+- `watchedit_auth_mode` — `"guest"` | future: `"google"` (set in onboarding Screen 2)
+- `watchedit_onboarding_done` — `"true"` when onboarding complete (set in onboarding Screen 3)
 
 All storage calls are async. Always `await` them.
 
@@ -936,7 +1049,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 |---|---|---|
 | **1** | React web UI shell. All screens. Dummy data. No backend, no APIs. | ✅ Complete |
 | **2** | React Native + Expo migration. Android-first app shell. Expo Router. AsyncStorage persistence. MAL + TMDB + OMDB search. Revised Log It flow. Core screens/components migrated from web reference. | ✅ Complete |
-| **2.1** | Onboarding flow, tone audit, Log It Step 1→2 animation pass, release polish, Play Store prep. | 🔄 Next |
+| **2.1** | Onboarding flow (3-screen stack, two-phase bootstrap, welcome card, GuidedCarousel, first-log toast). Screen transition polish. | ✅ Complete (onboarding) · 🔄 In progress (transitions) |
 | **3** | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. | 🔲 |
 | **4** | Social/friends. Share extension. Shareable stats card. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
 
@@ -952,5 +1065,6 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | 1.3 | Revised Log It flow: two CTAs on search cards (+ Watch Plan instant add, WatchedIt →), collapsed metadata card with inline edit, hybrid episode selector, watch date fields (start + end), "continue without rating" secondary path. Flagged entries system (unrated watched). Mini Rating Sheet component. Title language preference in Watcher (EN/JP/Romanised). MAL field mapping table. Stats date attribution model (always watch_end_date, no spreading). json-server local DB documented. State transition rules table. Recently Watched reduced to 3. Watch Tower unrated nudge. "Log a Sesh" rename. |
 | 1.4 | Updated project status to Stage 2 native migration complete. Documented Expo Router route map, AsyncStorage persistence, current `searchTitles()` return shape, current persisted entry shape, and moved share extension/shareable stats out of completed Stage 2 scope. |
 | 1.5 | Log It UX polish pass. LogItSearch renders as RN Modal (not stack route) from tab layout; `logitOpen` state + `DeviceEventEmitter` control open/close. Keyboard lifts the sheet via plain `useState` `kbHeight` (no Animated driver conflict); keyboard and sheet now rise simultaneously. Poster zoom modal: pinch + pan gestures via `react-native-gesture-handler` inside `GestureHandlerRootView`. Bookmark flag uses Ionicons mono/dual-tone icon. Star rating haptics use `impactAsync(Light)` for Android reliability; PanResponder captures gesture before parent ScrollView. Title language: `displayTitle` passed separately so original title (e.g. Japanese) is preserved in the alternatives dropdown. Submit flow: `toastBridge` singleton passes toast data to WatchTower across navigation; `dismissLogItSearch` event closes search modal concurrently with `router.back()`; `presentation: 'modal'` removed from `logit/details` so back gesture slides the screen down correctly. Watch Tower success toast: 10s auto-dismiss, ✕ dismiss button at top-right, positioned 8px above tab bar. |
+| 1.8 | **Onboarding flow.** Three-screen stack in `app/onboarding/` (Name → Auth → Guest). Two-phase bootstrap in root layout: fonts load → AsyncStorage check → navigate → hide splash (no flash). Section 4A added. AsyncStorage keys for onboarding documented. **WatchTower empty state redesign.** Stats card hidden when WatchLog is empty. Replaced with amber welcome card (two CTAs + ghost link) and hint strip. GuidedCarousel modal (3 slides with mini screen mockups, dot indicators, controlled-scroll horizontal paging). Section 5 updated with welcome card spec and GuidedCarousel spec. **First-log toast.** LogItDetails detects first-ever entry via pre-add `getEntries()` check; fires special toast with sub line. Toast rendering updated to support optional `sub` field. Submission flow in Section 7 updated. |
 | 1.7 | Data attribution fixes. **Watch Tower stats block:** title count now includes watched + dropped + watching-with-session entries (was watched-only); date attribution uses `watch_end_date` → `finishedDate`/`lastWatchedDate` → `date` chain (was `logged_at`); category pills and watch time derived from same corrected pool; Recently Watched list sorted by activity date. **StatsScreen:** `filterByPeriod` 7/30-day cutoff now uses start-of-day so header count and chart bar sum are always equal; `buildTimePoints` All Time now spans all years (was current-year-only); `totalEps` in category breakdown now uses `e.ep` (episodes actually watched) for watching entries, not `e.total` (full series count). Spec sections 5, 13, 19 updated to reflect these rules. |
 | 1.6 | Stats Screen full redesign. **Time filters:** 7 Days / 30 Days / Custom (date range picker with calendar modal, chip shows "May 4 – Jul 18") / All Time. 90 Days removed. Category filter chips removed. **Hero cards (Option B):** 2×2 grid, number centered in amber, label centered below in muted text. **Breakdown by Category:** renamed section; each type gets a card with 3 mini stat boxes (Titles + eps sub-callout, Watch Time, Avg Rating) and an expandable title list (collapsed by default). Old duplicate bottom breakdown removed. **Section order in Summary:** hero cards → nudge → Breakdown by Category → Genre Distribution → Insights widget. **Timeline tab:** now shows all sections (line chart + Breakdown by Category + Genre Distribution + Insights widget). **Line chart:** replaces bar chart; area fill + line + tap-callout dots (r=18 transparent hit area behind each dot). **"By Type" toggle:** pill button right of the metric toggle; switches chart between single combined line and 3 colored lines (Anime=amber, Movie=amberSoft, TV Show=amberWarm); chart header number changes to per-type breakdown when active. **X-axis labels:** max 8 via `ceil((n-1)/7)` interval; first label left-anchored, last label right-anchored (never clips). **DateRangePicker:** week-row calendar grid, continuous range fill bar with correct left/right half logic for endpoints, amber circle for start, amber circle + outer ring for end. **Data fix:** `localDateStr()` uses local time methods to avoid UTC timezone shift in chart bucketing. **Stats inclusion:** `status === 'watching'` entries now count in stats if `lastWatchedDate` falls within the filter period (i.e. a Watch Sesh was logged in that period). **`buildTimePoints` extracted** as a reusable function for both combined and per-type chart data. **Insights widget** named for the hardest-genre callout; TODO comment marks it for future variant rotation. |
