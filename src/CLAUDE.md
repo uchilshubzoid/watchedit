@@ -48,18 +48,30 @@ See spec v1.7 changelog for full detail. Fixes applied to WatchTower and StatsSc
 
 ### Stage 2.3 — Onboarding Flow + WatchTower Empty State ✅ Complete (as of May 2026)
 Three-screen onboarding built in `app/onboarding/`. Two-phase bootstrap in root layout prevents any flash of the wrong screen. WatchTower empty state replaced with a proper welcome card. Key decisions:
-- **Screen 1 (index):** Watcher Name input — auto-focused, amber border on focus, disabled CTA until name entered. Saves to `watchedit_watcher_name`. Routes to Screen 2.
-- **Screen 2 (auth):** Auth choice — confirmation chip shows entered name. Google button (stubbed, shows "Coming soon" alert). Guest button saves `watchedit_auth_mode: 'guest'` and routes to Screen 3.
+- **Screen 1 (index):** Watcher Name input — auto-focused, amber border on focus, disabled CTA until name entered. Saves to `watchedit_watcher_name`. Routes to Screen 2. Placeholder: `"e.g. Matt, Mathai, Mithai, Machi…"`.
+- **Screen 2 (auth):** Auth choice — confirmation chip shows entered name. Google button stubbed — shows `InfoPopup` ("Coming soon — Google sign-in coming in Stage 3") instead of `Alert.alert`. Uses `AntDesign "google"` icon with amber-tinted button style. Guest button saves `watchedit_auth_mode: 'guest'` and routes to Screen 3. Back button uses `useFadeBack`.
 - **Screen 3 (guest):** Guest callout — inline name edit (amber TextInput + pencil icon), info card with 3 rows, amber gradient CTA. On confirm: sets `watchedit_onboarding_done: 'true'` and replaces to `/(tabs)`.
 - **Bootstrap:** Root layout checks `watchedit_onboarding_done` after fonts load. Redirects to `/onboarding` if not done. Hides splash only after the check + navigate, preventing any flash.
 - **WatchTower empty state:** Stats card hidden when `entries.length === 0`. Replaced with amber-tinted welcome card (🎬 emoji, headline, two CTAs, "How does this work? →" ghost link) + hint strip below it.
-- **GuidedCarousel:** Full-screen RN Modal with 3 slides (Log It / WatchLog / Stats), each with a mini screen mockup. Dot indicators, "Next →" / "Let's log something →" CTA. Opens from welcome card ghost link.
+- **GuidedCarousel:** Full-screen RN Modal with 3 slides. Swipe-only navigation (horizontal ScrollView, `scrollEnabled`, `onMomentumScrollEnd` tracks page). No Next button — "Let's log something →" only on last slide. Slide 1: real logo pill + real FAB + search results card. Slide 2: WatchList mockup. Slide 3: stats card with muted underlined statsLink. Opens from welcome card ghost link.
 - **First-log toast:** LogItDetails checks `getEntries()` before `addEntry()`. If empty, fires `{ title: '🎬 WatchLog started!', body: '…', sub: 'Entry #1. Many more await.', isFirstLog: true }`. WatchTower toast renders `sub` line if present.
 
+### Stage 2.4 — UX Polish Pass ✅ Complete (as of May 2026)
+- **Back transition:** `useFadeBack` hook (`src/hooks/useFadeBack.js`) fades screen opacity 1→0 over 380ms, calling `router.back()` after 60ms. Wired into StatsScreen, DetailView, onboarding/auth. Each screen wraps its root SafeAreaView in `<Animated.View style={{ flex: 1, opacity }}>` and passes `goBack` to `<BackButton onPress={goBack} />`.
+- **BackButton component** (`src/components/BackButton.jsx`): standard `Ionicons chevron-back` size 30. Optional `onPress` prop — defaults to `router.back()`.
+- **InfoPopup component** (`src/components/InfoPopup.jsx`): reusable in-app modal, replaces `Alert.alert`. Amber gradient CTA, dark surface + amber border card. Props: `visible`, `title`, `message`, `cta`, `onClose`.
+- **WatchList tab row:** replaced horizontal FlatList with horizontal ScrollView + `flexShrink: 0` to fix Android height-measurement gap below tabs.
+- **WatchList empty states:** per-tab Ionicons icons (`file-tray-outline`, `play-circle-outline`, `close-circle-outline`, `calendar-outline`, `bookmarks-outline`). Bookmark uses `Ionicons bookmark` / `bookmark-outline`.
+- **FilterSheet:** `maxHeight` raised to `'94%'`.
+- **LogItSearch:** type filter chips hidden when `bySourceFiltered.length === 0`.
+- **LogItDetails:** language field non-mandatory — removed validation gate, shows `hint="Optional"`.
+- **StatsScreen:** `statsLoading` state with loading placeholder + retry empty state. `loadStats()` extracted for direct retry. Chart zoom toggle (keyed ScrollView, `isScrollable` guard). Auto-scroll to most recent via `onContentSizeChange`.
+- **Tab bar:** height reduced from 63 to 56px.
+- **Dev:** "Reset onboarding" button on WatcherScreen for re-testing.
+
 ### What's NOT built yet (do these next in order)
-1. **Screen transition polish** — UX pass on nav animations (flagged, tracked for future)
-2. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
-3. **Play Store prep** — app signing, store listing, screenshots
+1. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
+2. **Play Store prep** — app signing, store listing, screenshots
 
 ---
 
@@ -109,7 +121,11 @@ Three-screen onboarding built in `app/onboarding/`. Two-phase bootstrap in root 
 │   │   ├── RatingSheet.jsx        ← Mini rating sheet
 │   │   ├── MiniCalendar.jsx       ← Date picker calendar
 │   │   ├── BlockingPopup.jsx      ← Modal popup (movie-watching block, rating required)
-│   │   └── GuidedCarousel.jsx     ← 3-slide onboarding carousel modal (Log It / WatchLog / Stats)
+│   │   ├── BackButton.jsx         ← Standard back button (chevron-back size 30, accepts onPress)
+│   │   ├── InfoPopup.jsx          ← In-app info modal replacing Alert.alert
+│   │   └── GuidedCarousel.jsx     ← 3-slide onboarding carousel modal (swipe-only navigation)
+│   ├── hooks/
+│   │   └── useFadeBack.js         ← Fade-out back transition hook (opacity + router.back)
 │   ├── api/
 │   │   ├── index.js               ← unified searchTitles() entry point
 │   │   └── mal.js                 ← MAL API (direct fetch, no proxy needed in RN)
@@ -485,4 +501,11 @@ npm run build:aab
 - **`watchedit_onboarding_done`** — the single key that gates onboarding. Do not check `watchedit_watcher_name` or `watchedit_auth_mode` for routing decisions — they can be set independently. Only `watchedit_onboarding_done === 'true'` means onboarding is complete.
 - **First-log detection** — in LogItDetails `handleSubmit`, call `getEntries()` BEFORE `addEntry()` to get the pre-add count. `existing.length === 0` means this is the first entry. Do not call `getEntries()` after `addEntry()` for this check.
 - **WatchTower stats card** — conditionally rendered as `{entries.length > 0 && <View style={styles.card}>...</View>}`. The welcome card and hint strip replace it when the log is empty. Do not show both.
-- **GuidedCarousel scroll** — uses `scrollEnabled={false}` on the ScrollView; navigation is driven entirely by imperative `scrollRef.current?.scrollTo({ x: SW * pageIndex, animated: true })` calls inside `goNext()`. Do not enable user swipe — page tracking would desync.
+- **GuidedCarousel scroll** — uses `scrollEnabled={true}` on the ScrollView; page tracking via `onMomentumScrollEnd` → `Math.round(contentOffset.x / SW)`. Navigation is swipe-only — there is no Next button. Do not revert to imperative `scrollTo` calls; the swipe + `onMomentumScrollEnd` approach is the correct pattern.
+- **Back transition** — screens with a BackButton that should fade on exit use the `useFadeBack` hook. The screen's root view must be `<Animated.View style={{ flex: 1, opacity }}>` wrapping the SafeAreaView. Pass `goBack` as `onPress` to BackButton. The 60ms `setTimeout` before `router.back()` gives the fade a visible head-start before the native slide animation begins. Do not remove the delay — without it the fade and slide start simultaneously and the fade is imperceptible.
+- **InfoPopup vs Alert.alert** — use `InfoPopup` for any in-app informational message. Do not use `Alert.alert` — it breaks the design language and is not styled.
+- **WatchList tabs** — must be rendered as a horizontal `ScrollView` with `flexShrink: 0, flexGrow: 0` on the tab row style. Do NOT use a horizontal `FlatList` — it mis-measures its own height in a flex-column SafeAreaView on Android, creating a gap below the tabs.
+- **LogItDetails language** — language is optional. Do not add a validation gate that blocks submit when language is empty. The field shows `hint="Optional"`.
+- **LogItSearch type chips** — chips are only rendered when `(bySourceFiltered?.length ?? 0) > 0`. When results are zero, only the gone-niche callout renders.
+- **StatsScreen loading** — `statsLoading` boolean gates the chart render. Use `loadStats()` (not direct `setEntries`) anywhere you need to trigger a re-fetch (e.g., retry button). `loadStats` always calls `setStatsLoading(true)` first and resolves via `.catch()`.
+- **StatsScreen zoom** — `isScrollable = n * 36 > SCREEN_W - 64`. When `zoomedOut`, `svgWidth = SCREEN_W - 64` (fixed). Chart ScrollView must have `key={zoomedOut ? 'chart-z' : 'chart-s'}` to force remount on zoom toggle — without it the SVG can render blank due to react-native-svg width reconciliation issues.

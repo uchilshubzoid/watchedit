@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v1.8
-*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete.*
+# WatchedIt — Full Product Spec v1.9
+*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete.*
 
 ---
 
@@ -225,7 +225,7 @@ WATCHER NAME — what you're called in your WatchLog
    You can sign in anytime from the Watcher screen.
 ```
 - Confirmation chip shows avatar initial (LinearGradient) + name + "· Watcher Name set ✓"
-- Google button: saves nothing, shows `Alert.alert('Coming soon', 'Google sign-in is coming in Stage 3.')`
+- Google button: saves nothing, shows a custom `InfoPopup` modal ("Coming soon — Google sign-in is coming in Stage 3.") — not `Alert.alert`. Button styled with amber tint border; uses `AntDesign "google"` icon.
 - Guest button: saves `watchedit_auth_mode: 'guest'`, routes to Screen 3
 
 ### Screen 3 — Guest Callout (`app/onboarding/guest.jsx`)
@@ -317,11 +317,11 @@ Shown when `entries.length === 0`. The stats card is hidden. Replaced by:
 
 ### GuidedCarousel
 Full-screen RN Modal opened from the welcome card ghost link. 3 slides:
-1. **Log It** — mini search bar + 3 result rows + amber Log button. Title: "Search, tap, done."
-2. **WatchLog** — mini recently-watched card with 3 entries + ratings. Title: "Your taste, your record."
-3. **Stats** — mini stats card with big number + category pills. Title: "Know your watching self."
+1. **Log It** — real WatchedIt logo pill + real amber FAB (entry point UI), plus a mocked search results card with 3 rows and source label. Title: "Search, Rate, Logged."
+2. **WatchLog** — WatchList mockup with "All" tab chip active and 3 mixed-status entries (Watched/Watching/Watch Plan) with color-coded status badges. Title: "Your Watch List remembers all."
+3. **Stats** — stats card with large amber number, period pill, category pills, and *"See your stats →"* as muted underlined text (matches real WatchTower `statsLink` style). Title: "Know your Watch Stats."
 
-Controls: dot indicators (active dot expands to 20px wide), "Next →" on slides 1–2, "Let's log something →" on slide 3 (closes modal and emits `openLogIt`). ✕ close button top-right. Resets to slide 1 each time it opens.
+Controls: **swipe-only** navigation (horizontal ScrollView, `scrollEnabled`, `onMomentumScrollEnd` tracks page). No Next button. "Let's log something →" CTA only on last slide (closes modal, emits `openLogIt`). "swipe to explore →" mono hint on non-last slides. Dot indicators (active dot 20px wide). ✕ close button top-right. Resets to slide 0 on open.
 
 ### Success Toast
 Shown after a successful Log It submission. Slides up from the bottom of the screen (8px above the tab bar) when WatchTower regains focus.
@@ -362,8 +362,19 @@ Real-time search within WatchList. Matches: title · genre · language
 - Bookmark — right edge gradient border (amber fading down)
 - "Rate it" amber pill — shown on Watched cards with no rating when Unrated filter is active
 
+### Tab strip
+Rendered as a horizontal `ScrollView` (not `FlatList`) with `flexShrink: 0` to prevent Android height-measurement gaps between the tab row and the filter chips line below it.
+
 ### Empty states
-Each tab has its own personality-led empty state message.
+Each tab has its own personality-led empty state message with a flat/mono Ionicons icon:
+- All: `file-tray-outline`
+- Watching: `play-circle-outline`
+- Watched: `close-circle-outline` (cross, not checkmark)
+- Watch Plan: `calendar-outline`
+- Bookmarks: `bookmarks-outline`
+
+### Bookmark icon
+Rendered as `Ionicons bookmark` (filled, amber) / `bookmark-outline` (muted, 35% opacity) — not an emoji.
 
 ---
 
@@ -418,7 +429,8 @@ After search:
 
 **No results:**
 *"Woah you've gone niche! 🎭 No results found online... add manually to log?"*
-Manual entry → typed title persists to Step 2 with "Manual" tag
+Manual entry → typed title persists to Step 2 with "Manual" tag.
+When zero results are returned, the **type filter chips (All / Movie / TV Show / Anime) are hidden** — only the gone-niche callout is shown. Chips reappear as soon as any results exist.
 
 ### Step 2 — Details
 
@@ -439,7 +451,7 @@ Read-only by default. Displays:
 
 **Editable fields (expanded):**
 1. Content type — Movie / TV Show / Anime pill selector
-2. Language — 10 quick-select chips + "Other" free text fallback
+2. Language — 10 quick-select chips + "Other" free text fallback. **Optional** — submission is not blocked if language is left empty.
 3. Genre tags — inline "+ Add Tag" chip at end of tag row
 4. Episodes — number input + Ongoing toggle (TV/Anime only)
 5. Episode runtime — 24min / 45min / Custom presets (TV/Anime only)
@@ -672,8 +684,11 @@ Same card style as WatchList.
 
 **Entry:** *"See your stats →"* on Watch Tower
 
+### Loading & empty state
+On screen focus, a `statsLoading` state is set to `true` and the chart area shows *"hang on, getting your stats…"* (same height as the chart, 140px, so the card does not jump). When entries are empty after load, an empty state shows *"couldn't load your stats right now"* with a *"try again →"* button that calls `loadStats()` directly (same function used by `useFocusEffect`).
+
 ### Time filters
-Last 7 Days · Last 30 Days · Last 90 Days · All Time · Custom (date range picker)
+Last 7 Days · Last 30 Days · All Time · Custom (date range picker)
 
 ### View toggle
 Summary · Timeline
@@ -695,7 +710,8 @@ Summary · Timeline
 - **Always uses `watch_end_date` for attribution** — entry appears on the day it was finished, not the day it was logged
 - Entry only appears in a time window if `watch_end_date` falls within it
 - Muted note below chart: *"Shows appear on the date you finished them"*
-- Horizontal scroll for wide date ranges
+- Horizontal scroll for wide date ranges; auto-scrolls to most recent data on load via `onContentSizeChange → scrollToEnd`
+- **Zoom toggle:** inline hint row below chart — left side shows *"← scroll for earlier data"*, right side is an underlined *"show all →"* CTA. Tapping compresses all points to fit screen width (no scroll) using the existing max-8-label spacing; CTA switches to *"← zoom in"* to restore. Only shown when chart is wider than the screen. Chart ScrollView is keyed on zoom state to force a clean remount on toggle.
 - **All Time** granularity: monthly, spans all years the user has entries (not restricted to current year). Prior-year months labelled `Jan'25` etc.
 - The header count and chart bar sum are always consistent: the 7-day/30-day period filter uses start-of-day on the earliest day (not an exact millisecond cutoff) so every entry in the count lands in exactly one chart bar
 
@@ -745,6 +761,24 @@ TITLE LANGUAGE
 
 ### Log Out
 Confirmation bottom sheet: *"Log out?"* · Stay / Log Out
+
+---
+
+## 14A. Screen Transitions
+
+### Back navigation fade
+Screens with a back button use the `useFadeBack` hook (`src/hooks/useFadeBack.js`). When the back button is tapped:
+1. The screen's root `Animated.View` opacity fades from 1 → 0 over 380ms (`useNativeDriver: true`)
+2. After a 60ms head-start on the fade, `router.back()` fires — the native stack slide-in of the previous screen begins
+3. Combined effect: current screen content visibly fades out while the previous screen slides in from the left, giving the impression that the previous screen slides in on top
+
+Affected screens: **StatsScreen**, **DetailView (Watch Deets)**, **onboarding/auth**
+
+### BackButton component
+`src/components/BackButton.jsx` — standard back button used across all screens that require one. Renders `Ionicons chevron-back` at size 30. Accepts an optional `onPress` override; defaults to `router.back()`. Screens using the fade transition pass `goBack` from `useFadeBack` as `onPress`.
+
+### InfoPopup component
+`src/components/InfoPopup.jsx` — reusable in-app modal replacing native `Alert.alert`. Renders a dark surface card with amber border, title, message, and an amber gradient CTA button. Used for the Google sign-in coming-soon notice on the auth screen. Props: `visible`, `title`, `message`, `cta` (default `'Got it'`), `onClose`.
 
 ---
 
@@ -1049,7 +1083,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 |---|---|---|
 | **1** | React web UI shell. All screens. Dummy data. No backend, no APIs. | ✅ Complete |
 | **2** | React Native + Expo migration. Android-first app shell. Expo Router. AsyncStorage persistence. MAL + TMDB + OMDB search. Revised Log It flow. Core screens/components migrated from web reference. | ✅ Complete |
-| **2.1** | Onboarding flow (3-screen stack, two-phase bootstrap, welcome card, GuidedCarousel, first-log toast). Screen transition polish. | ✅ Complete (onboarding) · 🔄 In progress (transitions) |
+| **2.1** | Onboarding flow (3-screen stack, two-phase bootstrap, welcome card, GuidedCarousel, first-log toast). Screen transition polish. | ✅ Complete |
 | **3** | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. | 🔲 |
 | **4** | Social/friends. Share extension. Shareable stats card. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
 
@@ -1065,6 +1099,6 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | 1.3 | Revised Log It flow: two CTAs on search cards (+ Watch Plan instant add, WatchedIt →), collapsed metadata card with inline edit, hybrid episode selector, watch date fields (start + end), "continue without rating" secondary path. Flagged entries system (unrated watched). Mini Rating Sheet component. Title language preference in Watcher (EN/JP/Romanised). MAL field mapping table. Stats date attribution model (always watch_end_date, no spreading). json-server local DB documented. State transition rules table. Recently Watched reduced to 3. Watch Tower unrated nudge. "Log a Sesh" rename. |
 | 1.4 | Updated project status to Stage 2 native migration complete. Documented Expo Router route map, AsyncStorage persistence, current `searchTitles()` return shape, current persisted entry shape, and moved share extension/shareable stats out of completed Stage 2 scope. |
 | 1.5 | Log It UX polish pass. LogItSearch renders as RN Modal (not stack route) from tab layout; `logitOpen` state + `DeviceEventEmitter` control open/close. Keyboard lifts the sheet via plain `useState` `kbHeight` (no Animated driver conflict); keyboard and sheet now rise simultaneously. Poster zoom modal: pinch + pan gestures via `react-native-gesture-handler` inside `GestureHandlerRootView`. Bookmark flag uses Ionicons mono/dual-tone icon. Star rating haptics use `impactAsync(Light)` for Android reliability; PanResponder captures gesture before parent ScrollView. Title language: `displayTitle` passed separately so original title (e.g. Japanese) is preserved in the alternatives dropdown. Submit flow: `toastBridge` singleton passes toast data to WatchTower across navigation; `dismissLogItSearch` event closes search modal concurrently with `router.back()`; `presentation: 'modal'` removed from `logit/details` so back gesture slides the screen down correctly. Watch Tower success toast: 10s auto-dismiss, ✕ dismiss button at top-right, positioned 8px above tab bar. |
-| 1.8 | **Onboarding flow.** Three-screen stack in `app/onboarding/` (Name → Auth → Guest). Two-phase bootstrap in root layout: fonts load → AsyncStorage check → navigate → hide splash (no flash). Section 4A added. AsyncStorage keys for onboarding documented. **WatchTower empty state redesign.** Stats card hidden when WatchLog is empty. Replaced with amber welcome card (two CTAs + ghost link) and hint strip. GuidedCarousel modal (3 slides with mini screen mockups, dot indicators, controlled-scroll horizontal paging). Section 5 updated with welcome card spec and GuidedCarousel spec. **First-log toast.** LogItDetails detects first-ever entry via pre-add `getEntries()` check; fires special toast with sub line. Toast rendering updated to support optional `sub` field. Submission flow in Section 7 updated. |
+| 1.9 | **UX polish pass.** Screen back-transition: `useFadeBack` hook fades current screen out over 380ms while previous screen slides in (StatsScreen, DetailView, onboarding/auth). `BackButton` standardised as a shared component (chevron-back size 30). `InfoPopup` component replaces `Alert.alert` for Google coming-soon notice on auth screen; Google button now uses `AntDesign "google"` icon with amber-tinted styling. Onboarding `paddingTop` raised to 82px; Watcher Name label font size 14px; placeholder uses Indian-flavored names. **GuidedCarousel** rewritten: swipe-only navigation (no Next button), real UI mockups for all 3 slides (logo pill + FAB entry points, WatchList tab mockup, stats card with muted underlined stats link), CTA only on last slide. **WatchList** tab row switched from FlatList to ScrollView to fix Android height gap; empty states use Ionicons per tab (Watched uses close-circle-outline); bookmark icon uses Ionicons mono/dual-tone. FilterSheet maxHeight raised to 94%. **LogIt**: language field is now optional (no validation gate); type filter chips hidden when search returns no results. **Stats screen**: `statsLoading` state with friendly loading placeholder; `loadStats()` for retry CTA; zoom toggle on timeline chart (compresses to screen width, max 8 labels, keyed ScrollView for clean remount); auto-scroll to most recent data on load. Tab bar height reduced by 7px. Fade animation from onboarding to tabs set to 700ms. | 1.8 | **Onboarding flow.** Three-screen stack in `app/onboarding/` (Name → Auth → Guest). Two-phase bootstrap in root layout: fonts load → AsyncStorage check → navigate → hide splash (no flash). Section 4A added. AsyncStorage keys for onboarding documented. **WatchTower empty state redesign.** Stats card hidden when WatchLog is empty. Replaced with amber welcome card (two CTAs + ghost link) and hint strip. GuidedCarousel modal (3 slides with mini screen mockups, dot indicators, controlled-scroll horizontal paging). Section 5 updated with welcome card spec and GuidedCarousel spec. **First-log toast.** LogItDetails detects first-ever entry via pre-add `getEntries()` check; fires special toast with sub line. Toast rendering updated to support optional `sub` field. Submission flow in Section 7 updated. |
 | 1.7 | Data attribution fixes. **Watch Tower stats block:** title count now includes watched + dropped + watching-with-session entries (was watched-only); date attribution uses `watch_end_date` → `finishedDate`/`lastWatchedDate` → `date` chain (was `logged_at`); category pills and watch time derived from same corrected pool; Recently Watched list sorted by activity date. **StatsScreen:** `filterByPeriod` 7/30-day cutoff now uses start-of-day so header count and chart bar sum are always equal; `buildTimePoints` All Time now spans all years (was current-year-only); `totalEps` in category breakdown now uses `e.ep` (episodes actually watched) for watching entries, not `e.total` (full series count). Spec sections 5, 13, 19 updated to reflect these rules. |
 | 1.6 | Stats Screen full redesign. **Time filters:** 7 Days / 30 Days / Custom (date range picker with calendar modal, chip shows "May 4 – Jul 18") / All Time. 90 Days removed. Category filter chips removed. **Hero cards (Option B):** 2×2 grid, number centered in amber, label centered below in muted text. **Breakdown by Category:** renamed section; each type gets a card with 3 mini stat boxes (Titles + eps sub-callout, Watch Time, Avg Rating) and an expandable title list (collapsed by default). Old duplicate bottom breakdown removed. **Section order in Summary:** hero cards → nudge → Breakdown by Category → Genre Distribution → Insights widget. **Timeline tab:** now shows all sections (line chart + Breakdown by Category + Genre Distribution + Insights widget). **Line chart:** replaces bar chart; area fill + line + tap-callout dots (r=18 transparent hit area behind each dot). **"By Type" toggle:** pill button right of the metric toggle; switches chart between single combined line and 3 colored lines (Anime=amber, Movie=amberSoft, TV Show=amberWarm); chart header number changes to per-type breakdown when active. **X-axis labels:** max 8 via `ceil((n-1)/7)` interval; first label left-anchored, last label right-anchored (never clips). **DateRangePicker:** week-row calendar grid, continuous range fill bar with correct left/right half logic for endpoints, amber circle for start, amber circle + outer ring for end. **Data fix:** `localDateStr()` uses local time methods to avoid UTC timezone shift in chart bucketing. **Stats inclusion:** `status === 'watching'` entries now count in stats if `lastWatchedDate` falls within the filter period (i.e. a Watch Sesh was logged in that period). **`buildTimePoints` extracted** as a reusable function for both combined and per-type chart data. **Insights widget** named for the hardest-genre callout; TODO comment marks it for future variant rotation. |
