@@ -1,8 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Dimensions } from 'react-native';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import BackButton from '../components/BackButton';
+import { useFadeBack } from '../hooks/useFadeBack';
 import Svg, { G, Line, Text as SvgText, Path, Circle, Rect } from 'react-native-svg';
 import { getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
@@ -412,17 +414,33 @@ export default function StatsScreen() {
   const [metric,      setMetric]      = useState('titles');
   const [byType,      setByType]      = useState(false);
   const [selectedPt,  setSelectedPt]  = useState(null);
+  const [zoomedOut,   setZoomedOut]   = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
   // const [showComp, setShowComp] = useState(false); // TODO: re-enable Compare in future UX pass
+  const chartScrollRef = useRef(null);
+  const { opacity, goBack } = useFadeBack();
+
+  const loadStats = useCallback(() => {
+    setStatsLoading(true);
+    getEntries().then(data => {
+      setEntries(data.filter(e =>
+        e.status === 'watched' || e.dropped || e.status === 'watching'
+      ));
+      setStatsLoading(false);
+    }).catch(() => setStatsLoading(false));
+  }, []);
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    setStatsLoading(true);
     getEntries().then(data => {
-      if (active) setEntries(data.filter(e =>
-        // Watched always counts. Dropped always counts.
-        // Currently Watching counts if a session was logged (lastWatchedDate reflects most recent session).
-        e.status === 'watched' || e.dropped || e.status === 'watching'
-      ));
-    });
+      if (active) {
+        setEntries(data.filter(e =>
+          e.status === 'watched' || e.dropped || e.status === 'watching'
+        ));
+        setStatsLoading(false);
+      }
+    }).catch(() => { if (active) setStatsLoading(false); });
     return () => { active = false; };
   }, []));
 
@@ -495,7 +513,8 @@ export default function StatsScreen() {
   );
   // Y-scale switches based on mode: combined vs per-type
   const effectiveMax = byType ? typeMaxVal : maxVal;
-  const svgWidth = Math.max(SCREEN_W - 64, n * 36);
+  const isScrollable = n * 36 > SCREEN_W - 64;
+  const svgWidth = (!isScrollable || zoomedOut) ? SCREEN_W - 64 : n * 36;
   const chartW   = svgWidth - PAD_L - PAD_R;
   const chartH   = SVG_H - PAD_T - PAD_B;
 
@@ -525,11 +544,10 @@ export default function StatsScreen() {
   })).filter(tc => tc.value > 0);
 
   return (
+    <Animated.View style={{ flex: 1, opacity }}>
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={30} color={T.textPrimary} />
-        </Pressable>
+        <BackButton onPress={goBack} />
         <Text style={styles.headerTitle}>Your Stats</Text>
       </View>
 
@@ -682,7 +700,26 @@ export default function StatsScreen() {
               )}
 
               {/* Chart SVG */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {statsLoading ? (
+                <View style={styles.chartLoadingWrap}>
+                  <Text style={styles.chartLoadingText}>hang on, getting your stats...</Text>
+                </View>
+              ) : entries.length === 0 ? (
+                <View style={styles.chartLoadingWrap}>
+                  <Text style={styles.chartEmptyText}>couldn't load your stats right now.</Text>
+                  <Pressable onPress={loadStats} hitSlop={8} style={styles.chartRetryBtn}>
+                    <Text style={styles.chartRetryText}>try again →</Text>
+                  </Pressable>
+                </View>
+              ) : (
+              <ScrollView
+                key={zoomedOut ? 'chart-z' : 'chart-s'}
+                ref={chartScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                scrollEnabled={!zoomedOut}
+                onContentSizeChange={() => !zoomedOut && chartScrollRef.current?.scrollToEnd({ animated: false })}
+              >
                 <Svg width={svgWidth} height={SVG_H} style={{ overflow: 'visible' }}>
 
                   {/* Y-axis grid lines */}
@@ -768,6 +805,19 @@ export default function StatsScreen() {
 
                 </Svg>
               </ScrollView>
+              )}
+              {!statsLoading && entries.length > 0 && isScrollable && (
+                <View style={styles.chartHintRow}>
+                  <Text style={styles.chartScrollHint}>
+                    {zoomedOut ? 'all shown' : '← scroll for earlier data'}
+                  </Text>
+                  <Pressable onPress={() => setZoomedOut(v => !v)} hitSlop={8}>
+                    <Text style={styles.chartZoomCta}>
+                      {zoomedOut ? '← zoom in' : 'show all →'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             {/* Breakdown by Category */}
@@ -803,6 +853,7 @@ export default function StatsScreen() {
         onClose={() => setShowPicker(false)}
       />
     </SafeAreaView>
+    </Animated.View>
   );
 }
 
@@ -878,6 +929,14 @@ const styles = StyleSheet.create({
   byTypeBtnText:       { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 11 },
   byTypeBtnTextActive: { color: T.amber },
 
+  chartLoadingWrap: { height: 140, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  chartLoadingText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 0.4, opacity: 0.6 },
+  chartEmptyText:   { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, textAlign: 'center' },
+  chartRetryBtn:    { paddingVertical: 6, paddingHorizontal: 14, backgroundColor: T.elevated, borderRadius: 12 },
+  chartRetryText:   { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 12 },
+  chartHintRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  chartScrollHint: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 0.6, opacity: 0.5 },
+  chartZoomCta:   { color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 0.6, textDecorationLine: 'underline' },
   chartHeader:   { gap: 4 },
   chartLabel:    { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
   chartBig:      { color: T.amber, fontFamily: T.fontDisplay, fontSize: 28, lineHeight: 34, marginTop: 4 },

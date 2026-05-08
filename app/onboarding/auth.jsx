@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { T } from '../../src/constants/tokens';
+import InfoPopup from '../../src/components/InfoPopup';
+import BackButton from '../../src/components/BackButton';
+import { useFadeBack } from '../../src/hooks/useFadeBack';
 
 function ProgressDots({ current, total }) {
   return (
@@ -28,16 +32,10 @@ function ProgressDots({ current, total }) {
   );
 }
 
-function GoogleG() {
-  return (
-    <View style={styles.googleSquare}>
-      <Text style={styles.googleLetter}>G</Text>
-    </View>
-  );
-}
-
 export default function OnboardingAuth() {
-  const [watcherName, setWatcherName] = useState('');
+  const [watcherName,   setWatcherName]   = useState('');
+  const [popupVisible,  setPopupVisible]  = useState(false);
+  const { opacity, goBack } = useFadeBack();
 
   useEffect(() => {
     AsyncStorage.getItem('watchedit_watcher_name').then(n => {
@@ -51,22 +49,20 @@ export default function OnboardingAuth() {
   }
 
   function handleGoogle() {
-    console.log('[Onboarding] Google auth tapped — not yet implemented');
-    Alert.alert('Coming soon', 'Google sign-in is coming in Stage 3.');
+    setPopupVisible(true);
   }
 
   const initial = watcherName ? watcherName[0].toUpperCase() : '?';
 
   return (
+    <Animated.View style={{ flex: 1, opacity }}>
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.inner}>
 
         <ProgressDots current={1} total={3} />
 
         {/* Back */}
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <Text style={styles.backArrow}>←</Text>
-        </Pressable>
+        <BackButton style={styles.backBtn} onPress={goBack} />
 
         {/* Name confirmation chip */}
         <View style={styles.chipRow}>
@@ -98,7 +94,7 @@ export default function OnboardingAuth() {
             onPress={handleGoogle}
             style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.8 }]}
           >
-            <GoogleG />
+            <AntDesign name="google" size={20} color={T.textPrimary} />
             <Text style={styles.googleBtnText}>Sign in with Google</Text>
           </Pressable>
 
@@ -124,7 +120,15 @@ export default function OnboardingAuth() {
         </View>
 
       </View>
+
+      <InfoPopup
+        visible={popupVisible}
+        title="Coming soon"
+        message="Google sign-in is coming in Stage 3."
+        onClose={() => setPopupVisible(false)}
+      />
     </SafeAreaView>
+    </Animated.View>
   );
 }
 
@@ -133,7 +137,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 72,
+    paddingTop: 82,
     paddingBottom: 24,
     justifyContent: 'flex-start',
     gap: 32,
@@ -152,9 +156,7 @@ const styles = StyleSheet.create({
   dotActive: { width: 36, backgroundColor: T.amber },
   dotDim:    { width: 24, backgroundColor: T.elevated },
 
-  // Back
-  backBtn: { position: 'absolute', top: 22, left: 20 },
-  backArrow: { color: T.textMuted, fontSize: 20, fontFamily: T.fontBody },
+  backBtn: { position: 'absolute', top: 18, left: 12 },
 
   // Confirmation chip
   chipRow: {
@@ -196,13 +198,10 @@ const styles = StyleSheet.create({
   authBlock: { gap: 14 },
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-    backgroundColor: T.elevated, borderRadius: T.radiusButton, paddingVertical: 14,
+    backgroundColor: 'rgba(239,159,39,0.07)',
+    borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)',
+    borderRadius: T.radiusButton, paddingVertical: 14,
   },
-  googleSquare: {
-    width: 22, height: 22, borderRadius: 5,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-  },
-  googleLetter: { color: '#4285F4', fontFamily: T.fontDisplay, fontSize: 13, lineHeight: 16 },
   googleBtnText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
 
   // Divider
@@ -212,7 +211,8 @@ const styles = StyleSheet.create({
 
   // Guest button
   guestBtn: {
-    borderWidth: 1, borderColor: T.elevated,
+    borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)',
+    backgroundColor: 'rgba(239,159,39,0.04)',
     borderRadius: T.radiusButton, paddingVertical: 14, alignItems: 'center',
   },
   guestBtnText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },

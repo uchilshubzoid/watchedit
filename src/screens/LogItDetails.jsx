@@ -465,7 +465,6 @@ export default function LogItDetails() {
   function handleLanguageChip(l) {
     const next = language === l ? '' : l;
     setLanguage(next); setLangText(next);
-    setErrors(p => ({ ...p, language: null }));
   }
 
   function addGenre(tag) {
@@ -475,7 +474,6 @@ export default function LogItDetails() {
   }
 
   async function handleSubmit() {
-    if (!language.trim()) { setErrors(p => ({ ...p, language: 'Language is required' })); return; }
     if (watchStatus === 'watched' && !rating) { setRatingPopup(true); return; }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -652,7 +650,7 @@ export default function LogItDetails() {
                     </View>
                   </Field>
 
-                  <Field label="Language" error={errors.language}>
+                  <Field label="Language" hint="Optional">
                     <View style={styles.langChips}>
                       {LANG_CHIPS.map(l => (
                         <Pressable key={l} onPress={() => handleLanguageChip(l)}
@@ -663,7 +661,7 @@ export default function LogItDetails() {
                     </View>
                     <TextInput
                       value={langText}
-                      onChangeText={t => { setLangText(t); setLanguage(t); setErrors(p => ({ ...p, language: null })); }}
+                      onChangeText={t => { setLangText(t); setLanguage(t); }}
                       placeholder="Other language..."
                       placeholderTextColor={T.textMuted}
                       style={styles.textInput}

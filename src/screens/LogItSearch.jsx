@@ -330,7 +330,7 @@ export default function LogItSearch({ onClose }) {
         </View>
       )}
 
-      {combined !== null && !loading && (
+      {combined !== null && !loading && (bySourceFiltered?.length ?? 0) > 0 && (
         <View style={styles.filterBlock}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
             {TYPE_FILTERS.map(t => {

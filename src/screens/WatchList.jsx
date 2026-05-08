@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, FlatList, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -17,6 +17,14 @@ const TABS = [
   { id: 'watchplan', label: 'Watch Plan' },
   { id: 'bookmarks', label: 'Bookmarks' },
 ];
+
+const EMPTY_STATES = {
+  all:       { icon: 'file-tray-outline',      title: 'Nothing logged yet. Go fix that.',                   sub: 'Your full WatchLog lives here once you start.' },
+  watching:  { icon: 'play-circle-outline',    title: 'Nothing in motion. Start something.',                sub: 'Titles you\'re mid-way through appear here.' },
+  watched:   { icon: 'close-circle-outline',   title: 'Your finished list is empty. Change that tonight.',  sub: 'Every title you\'ve completed lands here.' },
+  watchplan: { icon: 'calendar-outline',       title: 'Nothing planned? Pick something.',                   sub: 'Save titles here before you start watching.' },
+  bookmarks: { icon: 'bookmarks-outline',      title: 'Nothing bookmarked yet. Save the ones worth saving.', sub: 'Titles you\'ve flagged as a bookmark show up here.' },
+};
 
 function parseActivityDate(entry) {
   let dateStr = '';
@@ -90,7 +98,12 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
               hitSlop={8}
               style={styles.bookmarkBtn}
             >
-              <Text style={[styles.bookmarkIcon, isBookmarked && styles.bookmarkActive]}>🔖</Text>
+              <Ionicons
+                name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                size={16}
+                color={isBookmarked ? T.amber : T.textMuted}
+                style={{ opacity: isBookmarked ? 1 : 0.35 }}
+              />
             </Pressable>
           </View>
         </View>
@@ -213,20 +226,19 @@ export default function WatchList() {
       </View>
 
       {/* Tabs */}
-      <FlatList
-        data={TABS}
-        keyExtractor={t => t.id}
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabsContainer}
-        renderItem={({ item: t }) => (
-          <Pressable onPress={() => switchTab(t.id)} style={styles.tab}>
+        style={styles.tabRow}
+      >
+        {TABS.map(t => (
+          <Pressable key={t.id} onPress={() => switchTab(t.id)} style={styles.tab}>
             <Text style={[styles.tabText, tab === t.id && styles.tabTextActive]}>{t.label}</Text>
             {tab === t.id && <View style={styles.tabUnderline} />}
           </Pressable>
-        )}
-        style={styles.tabRow}
-      />
+        ))}
+      </ScrollView>
 
       {/* Quick type chips + filter button */}
       <View style={styles.chipRow}>
@@ -273,6 +285,7 @@ export default function WatchList() {
       {/* List */}
       <FlatList
         data={results}
+        style={{ flex: 1 }}
         keyExtractor={e => String(e.id)}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -286,7 +299,9 @@ export default function WatchList() {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Nothing here yet. Go watch something.</Text>
+            <Ionicons name={EMPTY_STATES[tab]?.icon} size={28} color={T.textMuted} style={{ opacity: 0.6 }} />
+            <Text style={styles.emptyTitle}>{EMPTY_STATES[tab]?.title}</Text>
+            <Text style={styles.emptySubtext}>{EMPTY_STATES[tab]?.sub}</Text>
           </View>
         }
       />
@@ -333,7 +348,7 @@ const styles = StyleSheet.create({
   searchIcon: { fontSize: 15 },
   searchInput: { flex: 1, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 13 },
   clearX: { color: T.textMuted, fontSize: 18 },
-  tabRow: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', marginTop: 4 },
+  tabRow: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', marginTop: 4, flexShrink: 0, flexGrow: 0 },
   tabsContainer: { paddingHorizontal: 16, gap: 4 },
   tab: { paddingHorizontal: 10, paddingVertical: 10, position: 'relative' },
   tabText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 13, whiteSpace: 'nowrap' },
@@ -371,13 +386,12 @@ const styles = StyleSheet.create({
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 15 },
   ratingEmpty: { color: T.textMuted },
   bookmarkBtn: { marginTop: 6 },
-  bookmarkIcon: { fontSize: 13, opacity: 0.3 },
-  bookmarkActive: { opacity: 1 },
   rateNudge: {
     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)',
     paddingVertical: 8, paddingHorizontal: 18, alignItems: 'flex-end',
   },
   rateNudgeText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11, backgroundColor: 'rgba(239,159,39,0.12)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
-  empty: { paddingVertical: 60, alignItems: 'center' },
-  emptyText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
+  empty: { paddingVertical: 60, alignItems: 'center', paddingHorizontal: 32, gap: 8 },
+  emptyTitle:   { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 15, textAlign: 'center' },
+  emptySubtext: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, textAlign: 'center', lineHeight: 18 },
 });

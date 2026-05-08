@@ -246,7 +246,7 @@ export default function WatchTower() {
               <Text style={styles.welcomeEmoji}>🎬</Text>
               <Text style={styles.welcomeHeadline}>Your WatchLog awaits.</Text>
               <Text style={styles.welcomeSub}>
-                Log everything you watch — movies, anime, TV shows. Rate it, react to it, make it yours.
+                Log everything you watch — movies, anime, TV shows.{'\n'}Rate it, react to it, make it yours.
               </Text>
 
               <Pressable
@@ -273,9 +273,14 @@ export default function WatchTower() {
               style={({ pressed }) => [styles.hintStrip, pressed && { opacity: 0.75 }]}
             >
               <Text style={{ fontSize: 15 }}>📋</Text>
-              <Text style={styles.hintStripText}>
-                Haven't finished something? Add it to your Watch Plan — it'll be there when you're ready.
-              </Text>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={styles.hintStripPrimary}>
+                  Not found time to watch anything lately?
+                </Text>
+                <Text style={styles.hintStripSub}>
+                  Add something to your Watch Plan so you can pick up quickly when you get to chill.
+                </Text>
+              </View>
             </Pressable>
           </>
         )}
@@ -409,12 +414,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
   },
-  hintStripText: {
-    flex: 1,
+  hintStripPrimary: {
+    color: T.textPrimary,
+    fontFamily: T.fontTitle,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  hintStripSub: {
     color: T.textMuted,
     fontFamily: T.fontBody,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 10,
+    lineHeight: 14,
   },
 
   toast: {

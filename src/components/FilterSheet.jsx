@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: T.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 20, paddingBottom: 40, maxHeight: '88%',
+    padding: 20, paddingBottom: 40, maxHeight: '94%',
   },
   handle: {
     width: 36, height: 4, backgroundColor: T.elevated,

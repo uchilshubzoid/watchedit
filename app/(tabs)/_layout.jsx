@@ -33,7 +33,7 @@ function TabIcon({ name, focused }) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const tabBarH = 63 + insets.bottom;
+  const tabBarH = 56 + insets.bottom;
   const [logitOpen, setLogitOpen] = useState(false);
 
   useEffect(() => {

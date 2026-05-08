@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { ConfirmModal } from '../components/BlockingPopup';
@@ -61,6 +62,15 @@ export default function WatcherScreen() {
     await clearEntries();
     setEntries([]);
     setClearModal(false);
+  }
+
+  async function handleResetOnboarding() {
+    await AsyncStorage.multiRemove([
+      'watchedit_onboarding_done',
+      'watchedit_watcher_name',
+      'watchedit_auth_mode',
+    ]);
+    Alert.alert('Done', 'Onboarding reset. Restart the app to go through it again.');
   }
 
   return (
@@ -200,6 +210,11 @@ export default function WatcherScreen() {
           <Text style={styles.clearBtnText}>Clear all data</Text>
         </Pressable>
 
+        {/* DEV: reset onboarding */}
+        <Pressable onPress={handleResetOnboarding} style={styles.devBtn}>
+          <Text style={styles.devBtnText}>⚙️ Reset onboarding (dev)</Text>
+        </Pressable>
+
         {/* Log out */}
         <Pressable onPress={() => setLogoutModal(true)} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Log Out</Text>
@@ -279,6 +294,8 @@ const styles = StyleSheet.create({
     borderRadius: 18, paddingVertical: 12, alignItems: 'center', backgroundColor: T.elevated,
   },
   clearBtnText: { color: 'rgba(196,122,122,0.7)', fontFamily: T.fontMono, fontWeight: '600', fontSize: 12, letterSpacing: 0.4 },
+  devBtn: { borderRadius: 18, paddingVertical: 12, alignItems: 'center', backgroundColor: T.elevated, opacity: 0.6 },
+  devBtnText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 0.4 },
   logoutBtn: { backgroundColor: T.surface, borderRadius: 18, paddingVertical: 14, alignItems: 'center' },
   logoutText: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 14 },
 });

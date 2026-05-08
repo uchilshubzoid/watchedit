@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Image, Modal,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import BackButton from '../components/BackButton';
+import { useFadeBack } from '../hooks/useFadeBack';
 import Poster from '../components/Poster';
 import TypePill from '../components/TypePill';
 import { ConfirmModal } from '../components/BlockingPopup';
@@ -88,6 +90,7 @@ export default function DetailView() {
   // Toast
   const [toast,    setToast]    = useState(null);
   const toastAnim  = useRef(new Animated.Value(0)).current;
+  const { opacity, goBack } = useFadeBack();
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -288,6 +291,7 @@ export default function DetailView() {
   const globalRatings = entry.malRating ? [{ source: 'MAL', rating: entry.malRating }] : [];
 
   return (
+    <Animated.View style={{ flex: 1, opacity }}>
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.screenWrap}>
         <Text style={styles.watermark} aria-hidden>Watch{'\n'}Deets</Text>
@@ -296,9 +300,7 @@ export default function DetailView() {
 
           {/* Top bar — status pill moved into hero card */}
           <View style={styles.topBar}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={30} color={T.textPrimary} />
-            </Pressable>
+            <BackButton onPress={goBack} />
             <View style={styles.actionBtns}>
               {isWatched && (
                 <ActionBtn iconName="refresh-outline" label="Rewatch" onPress={() =>
@@ -870,6 +872,7 @@ export default function DetailView() {
         />
       )}
     </SafeAreaView>
+    </Animated.View>
   );
 }
 

@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 72,
+    paddingTop: 82,
     paddingBottom: 24,
     justifyContent: 'flex-start',
     gap: 24,

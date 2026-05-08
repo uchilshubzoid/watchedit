@@ -70,7 +70,7 @@ export default function OnboardingName() {
               onBlur={() => setFocused(false)}
               onSubmitEditing={handleContinue}
               returnKeyType="done"
-              placeholder="e.g. Alex, Shubh, MovieNerd…"
+              placeholder="e.g. Matt, Mathai, Mithai, Machi…"
               placeholderTextColor={T.textMuted}
               style={[styles.input, focused && styles.inputFocused]}
               autoCapitalize="words"
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 72,
+    paddingTop: 82,
     paddingBottom: 24,
     justifyContent: 'flex-start',
     gap: 32,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   labelMono: {
     color: T.textMuted,
     fontFamily: T.fontMono,
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: 1.0,
   },
   labelBody: {

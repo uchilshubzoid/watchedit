@@ -61,7 +61,7 @@ export default function RootLayout() {
           gestureDirection: 'horizontal',
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ animation: 'fade', animationDuration: 220 }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade', animationDuration: 700 }} />
         <Stack.Screen name="onboarding" options={{ animation: 'none' }} />
         <Stack.Screen name="detail/[id]" />
         <Stack.Screen
