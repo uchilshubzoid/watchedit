@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -72,6 +72,10 @@ export default function OnboardingGuest() {
     router.replace('/(tabs)');
   }
 
+  function handleSignIn() {
+    Alert.alert('Coming soon', 'Google sign-in is coming in Stage 3.');
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
@@ -81,9 +85,8 @@ export default function OnboardingGuest() {
 
           {/* ── Headline block ── */}
           <View style={styles.headlineBlock}>
-            <Text style={styles.monoLabel}>JUST SO YOU KNOW —</Text>
 
-            {/* "Hey [NAME] ✏️ ," */}
+            {/* "Hey [NAME] ✏️ ," — name first */}
             <View style={styles.nameLine}>
               <Text style={styles.headline}>Hey </Text>
 
@@ -119,6 +122,9 @@ export default function OnboardingGuest() {
               <Text style={styles.editHint}>↵ or tap outside to save</Text>
             )}
 
+            {/* Mono label after name */}
+            <Text style={styles.monoLabel}>JUST SO YOU KNOW —</Text>
+
             <Text style={styles.headline}>your WatchLog stays on this device.</Text>
 
             <Text style={styles.sub}>
@@ -140,25 +146,31 @@ export default function OnboardingGuest() {
             ))}
           </View>
 
-          {/* ── CTA ── */}
-          <Pressable
-            onPress={handleContinue}
-            disabled={isEditing}
-            style={({ pressed }) => [
-              styles.ctaWrap,
-              isEditing && styles.ctaDisabled,
-              pressed && !isEditing && { opacity: 0.85 },
-            ]}
-          >
-            <LinearGradient
-              colors={[T.amber, T.amberDeep]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.cta}
+          {/* ── CTAs ── */}
+          <View style={styles.ctaBlock}>
+            <Pressable
+              onPress={handleContinue}
+              disabled={isEditing}
+              style={({ pressed }) => [
+                styles.ctaWrap,
+                isEditing && styles.ctaDisabled,
+                pressed && !isEditing && { opacity: 0.85 },
+              ]}
             >
-              <Text style={styles.ctaText}>That's me, let's go →</Text>
-            </LinearGradient>
-          </Pressable>
+              <LinearGradient
+                colors={[T.amber, T.amberDeep]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.cta}
+              >
+                <Text style={styles.ctaText}>That's me, let's go →</Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable onPress={handleSignIn} style={styles.signInLink} hitSlop={10}>
+              <Text style={styles.signInLinkText}>Changed my mind — I want to sign in →</Text>
+            </Pressable>
+          </View>
 
         </View>
       </KeyboardAvoidingView>
@@ -171,24 +183,24 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 28,
+    paddingTop: 72,
     paddingBottom: 24,
-    justifyContent: 'center',
-    gap: 28,
+    justifyContent: 'flex-start',
+    gap: 24,
   },
 
-  // Progress dots
+  // Progress dots — pill style
   dots: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     alignSelf: 'center',
     position: 'absolute',
     top: 28,
   },
-  dot:       { width: 7, height: 7, borderRadius: 4 },
-  dotDone:   { backgroundColor: T.amber, opacity: 0.4 },
-  dotActive: { backgroundColor: T.amber },
-  dotDim:    { backgroundColor: T.elevated },
+  dot:       { height: 6, borderRadius: 3 },
+  dotDone:   { width: 24, backgroundColor: T.amber, opacity: 0.45 },
+  dotActive: { width: 36, backgroundColor: T.amber },
+  dotDim:    { width: 24, backgroundColor: T.elevated },
 
   // Headline block
   headlineBlock: { gap: 8 },
@@ -196,8 +208,9 @@ const styles = StyleSheet.create({
   monoLabel: {
     color: T.textMuted,
     fontFamily: T.fontMono,
-    fontSize: 11,
-    letterSpacing: 0.8,
+    fontSize: 12,
+    letterSpacing: 1.0,
+    marginTop: 4,
     marginBottom: 2,
   },
 
@@ -210,8 +223,8 @@ const styles = StyleSheet.create({
   headline: {
     color: T.textPrimary,
     fontFamily: T.fontDisplay,
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 30,
   },
   headlineAmber: { color: T.amber },
 
@@ -227,19 +240,15 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     color: T.amber,
     fontFamily: T.fontDisplay,
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 30,
   },
 
   pencilBtn: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+    width: 22, height: 22, borderRadius: 6,
     backgroundColor: T.elevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 6,
-    marginRight: 2,
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 6, marginRight: 2,
   },
 
   editHint: {
@@ -253,9 +262,9 @@ const styles = StyleSheet.create({
   sub: {
     color: T.textMuted,
     fontFamily: T.fontBody,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
   },
 
   // Info card
@@ -286,20 +295,19 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  // CTA
-  ctaWrap: {
-    borderRadius: T.radiusButton,
-    overflow: 'hidden',
-  },
+  // CTA block
+  ctaBlock: { gap: 14, alignItems: 'center' },
+  ctaWrap: { alignSelf: 'stretch', borderRadius: T.radiusButton, overflow: 'hidden' },
   ctaDisabled: { opacity: 0.3 },
-  cta: {
-    paddingVertical: 15,
-    alignItems: 'center',
-    borderRadius: T.radiusButton,
-  },
-  ctaText: {
-    color: T.bgPrimary,
-    fontFamily: T.fontDisplay,
-    fontSize: 15,
+  cta: { paddingVertical: 15, alignItems: 'center', borderRadius: T.radiusButton },
+  ctaText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 15 },
+
+  signInLink: { paddingVertical: 4 },
+  signInLinkText: {
+    color: T.textMuted,
+    fontFamily: T.fontTitleMedium,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    opacity: 0.7,
   },
 });

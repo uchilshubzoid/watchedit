@@ -129,47 +129,32 @@ export default function OnboardingAuth() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: T.bgPrimary,
-  },
+  safe: { flex: 1, backgroundColor: T.bgPrimary },
   inner: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 28,
+    paddingTop: 72,
     paddingBottom: 24,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 32,
   },
 
-  // Progress dots
+  // Progress dots — pill style
   dots: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     alignSelf: 'center',
     position: 'absolute',
     top: 28,
   },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  dotDone:   { backgroundColor: T.amber, opacity: 0.4 },
-  dotActive: { backgroundColor: T.amber },
-  dotDim:    { backgroundColor: T.elevated },
+  dot:       { height: 6, borderRadius: 3 },
+  dotDone:   { width: 24, backgroundColor: T.amber, opacity: 0.45 },
+  dotActive: { width: 36, backgroundColor: T.amber },
+  dotDim:    { width: 24, backgroundColor: T.elevated },
 
   // Back
-  backBtn: {
-    position: 'absolute',
-    top: 22,
-    left: 20,
-  },
-  backArrow: {
-    color: T.textMuted,
-    fontSize: 20,
-    fontFamily: T.fontBody,
-  },
+  backBtn: { position: 'absolute', top: 22, left: 20 },
+  backArrow: { color: T.textMuted, fontSize: 20, fontFamily: T.fontBody },
 
   // Confirmation chip
   chipRow: {
@@ -183,120 +168,58 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   avatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
   },
-  avatarInitial: {
-    color: T.bgPrimary,
-    fontFamily: T.fontDisplay,
-    fontSize: 12,
-    lineHeight: 14,
-  },
-  chipName: {
-    color: T.textPrimary,
-    fontFamily: T.fontTitle,
-    fontSize: 13,
-  },
-  chipConfirm: {
-    color: T.textMuted,
-    fontFamily: T.fontBody,
-    fontSize: 12,
-  },
+  avatarInitial: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 12, lineHeight: 14 },
+  chipName:    { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
+  chipConfirm: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
 
   // Hero
-  hero: {
-    alignItems: 'center',
-    gap: 8,
-  },
+  hero: { alignItems: 'center', gap: 10 },
   headline: {
     color: T.textPrimary,
     fontFamily: T.fontDisplay,
-    fontSize: 18,
+    fontSize: 26,
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 34,
   },
   sub: {
     color: T.textMuted,
     fontFamily: T.fontBody,
-    fontSize: 12,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 22,
   },
 
   // Auth block
-  authBlock: {
-    gap: 14,
-  },
+  authBlock: { gap: 14 },
   googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: T.elevated,
-    borderRadius: T.radiusButton,
-    paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+    backgroundColor: T.elevated, borderRadius: T.radiusButton, paddingVertical: 14,
   },
   googleSquare: {
-    width: 22,
-    height: 22,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 22, height: 22, borderRadius: 5,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
   },
-  googleLetter: {
-    color: '#4285F4',
-    fontFamily: T.fontDisplay,
-    fontSize: 13,
-    lineHeight: 16,
-  },
-  googleBtnText: {
-    color: T.textPrimary,
-    fontFamily: T.fontTitle,
-    fontSize: 14,
-  },
+  googleLetter: { color: '#4285F4', fontFamily: T.fontDisplay, fontSize: 13, lineHeight: 16 },
+  googleBtnText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
 
   // Divider
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: T.elevated,
-  },
-  dividerLabel: {
-    color: T.textMuted,
-    fontFamily: T.fontBody,
-    fontSize: 12,
-  },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: T.elevated },
+  dividerLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
 
   // Guest button
   guestBtn: {
-    borderWidth: 1,
-    borderColor: T.elevated,
-    borderRadius: T.radiusButton,
-    paddingVertical: 14,
-    alignItems: 'center',
+    borderWidth: 1, borderColor: T.elevated,
+    borderRadius: T.radiusButton, paddingVertical: 14, alignItems: 'center',
   },
-  guestBtnText: {
-    color: T.textMuted,
-    fontFamily: T.fontTitleMedium,
-    fontSize: 14,
-  },
+  guestBtnText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
 
   // Disclaimer
   disclaimer: {
-    color: T.textMuted,
-    fontFamily: T.fontBody,
-    fontSize: 10,
-    textAlign: 'center',
-    lineHeight: 16,
-    opacity: 0.7,
+    color: T.textMuted, fontFamily: T.fontBody,
+    fontSize: 10, textAlign: 'center', lineHeight: 16, opacity: 0.7,
   },
 });

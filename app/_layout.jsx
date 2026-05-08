@@ -49,7 +49,7 @@ export default function RootLayout() {
   if (!fontsLoaded || !ready) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#292826' }}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -61,7 +61,7 @@ export default function RootLayout() {
           gestureDirection: 'horizontal',
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade', animationDuration: 220 }} />
         <Stack.Screen name="onboarding" options={{ animation: 'none' }} />
         <Stack.Screen name="detail/[id]" />
         <Stack.Screen

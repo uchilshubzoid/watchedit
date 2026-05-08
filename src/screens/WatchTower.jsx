@@ -263,24 +263,20 @@ export default function WatchTower() {
                 </LinearGradient>
               </Pressable>
 
-              <Pressable
-                onPress={() => DeviceEventEmitter.emit('openLogIt')}
-                style={styles.welcomeSecondaryBtn}
-              >
-                <Text style={styles.welcomeSecondaryText}>Save to Watch Plan</Text>
-              </Pressable>
-
               <Pressable onPress={() => setCarouselOpen(true)} style={{ marginTop: 2 }}>
                 <Text style={styles.welcomeGhost}>How does this work? →</Text>
               </Pressable>
             </View>
 
-            <View style={styles.hintStrip}>
+            <Pressable
+              onPress={() => DeviceEventEmitter.emit('openLogIt')}
+              style={({ pressed }) => [styles.hintStrip, pressed && { opacity: 0.75 }]}
+            >
               <Text style={{ fontSize: 15 }}>📋</Text>
               <Text style={styles.hintStripText}>
-                Not done watching something? Watch Plan saves it for later.
+                Haven't finished something? Add it to your Watch Plan — it'll be there when you're ready.
               </Text>
-            </View>
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -377,9 +373,9 @@ const styles = StyleSheet.create({
   welcomeSub: {
     color: T.textMuted,
     fontFamily: T.fontBody,
-    fontSize: 13,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
     maxWidth: 270,
   },
   welcomeCtaWrap: {
@@ -394,15 +390,6 @@ const styles = StyleSheet.create({
     borderRadius: T.radiusButton,
   },
   welcomeCtaText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 15 },
-  welcomeSecondaryBtn: {
-    alignSelf: 'stretch',
-    borderWidth: 1,
-    borderColor: T.elevated,
-    borderRadius: T.radiusButton,
-    paddingVertical: 13,
-    alignItems: 'center',
-  },
-  welcomeSecondaryText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
   welcomeGhost: {
     color: T.textMuted,
     fontFamily: T.fontTitleMedium,
