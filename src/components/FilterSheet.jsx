@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Modal, View, Text, Pressable, ScrollView, Switch, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { T } from '../constants/tokens';
 
 const SORT_OPTIONS  = ['Most Recent Activity','New to Old','Old to New','Rated High to Low','Rated Low to High','A-Z','Z-A'];
 const LANG_OPTIONS  = ['English','Japanese','Korean','Hindi','Tamil','Spanish','French'];
 const TYPE_OPTIONS  = ['Anime','Movie','TV Show','Rewatched'];
 const CATEGORIES    = [
-  { id: 'sort',     label: 'Sort',     icon: '📊' },
-  { id: 'category', label: 'Category', icon: '🏷️' },
-  { id: 'language', label: 'Language', icon: '🌍' },
-  { id: 'genre',    label: 'Genre',    icon: '🎭' },
+  { id: 'sort',     label: 'Sort',     icon: 'swap-vertical-outline' },
+  { id: 'category', label: 'Category', icon: 'pricetag-outline' },
+  { id: 'language', label: 'Language', icon: 'earth-outline' },
+  { id: 'genre',    label: 'Genre',    icon: 'film-outline' },
 ];
 
 export default function FilterSheet({
@@ -27,7 +28,7 @@ export default function FilterSheet({
   const [pane, setPane] = useState('sort');
 
   const cats = tab === 'watching'
-    ? [...CATEGORIES, { id: 'paused', label: 'Paused', icon: '⏸️' }]
+    ? [...CATEGORIES, { id: 'paused', label: 'Paused', icon: 'pause-circle-outline' }]
     : CATEGORIES;
 
   const hasActive =
@@ -147,7 +148,7 @@ export default function FilterSheet({
               {cats.map(c => (
                 <Pressable key={c.id} onPress={() => setPane(c.id)}
                   style={[styles.navItem, pane === c.id && styles.navItemActive]}>
-                  <Text style={styles.navIcon}>{c.icon}</Text>
+                  <Ionicons name={c.icon} size={14} color={pane === c.id ? T.amber : T.textMuted} />
                   <Text style={[styles.navLabel, pane === c.id && styles.navLabelActive]}>{c.label}</Text>
                 </Pressable>
               ))}
@@ -221,7 +222,6 @@ const styles = StyleSheet.create({
     marginBottom: 4, borderWidth: 1, borderColor: 'transparent',
   },
   navItemActive: { backgroundColor: T.elevated, borderColor: 'rgba(239,159,39,0.3)' },
-  navIcon: { fontSize: 14 },
   navLabel: { color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 13 },
   navLabelActive: { color: T.amber, fontFamily: T.fontTitleMedium },
   rightPane: { flex: 1 },

@@ -69,9 +69,20 @@ Three-screen onboarding built in `app/onboarding/`. Two-phase bootstrap in root 
 - **Tab bar:** height reduced from 63 to 56px.
 - **Dev:** "Reset onboarding" button on WatcherScreen for re-testing.
 
+### Stage 2.5 — DetailView Polish + Bug Fixes ✅ Complete (as of May 2026)
+See spec v2.0 changelog for full detail. Key decisions:
+- **WatchTower refresh:** `DeviceEventEmitter.emit('entryUpdated')` fired from DetailView `handleUpdate`; WatchTower listens in a `useEffect` (belt-and-suspenders alongside `useFocusEffect` which doesn't re-fire after root-stack pop).
+- **Episode tracker for watched entries:** condition extended to `isWatched` — all episodes show as checked. Auto-fix on load: watched entries with `ep === 0` and `total > 0` have `ep` set to `total` and `watchTime` estimated.
+- **Episode list scrollable window:** capped at `maxHeight: 474` (~10 items); `ScrollView` with `nestedScrollEnabled`; auto-scrolls to next episode on expand for currently-watching (puts next ep ~3rd from top); watched/plan stay at top (y=0).
+- **RatingSheet keyboard:** `KeyboardAvoidingView` removed entirely; plain `useState(kbHeight)` + `Keyboard.addListener` + inline `marginBottom` on the sheet. This avoids native-driver conflict with the Modal slide animation (per CLAUDE.md Animated driver rule).
+- **Watch date range for currently watching:** `watchingStart = entry.date` (title add date, not first session date); `watchingSameDay` compares against `endDate` (last session). Fixes bug where logging one sesh on day N would show only day N instead of "day 1 → day N". `DEETS_WATCHING` "Started Watching" timeline item also uses `entry.date`.
+- **What I Thought card:** edit button context-aware — `star-outline` / "Rate Now" when unrated, `create-outline` / "Edit" when rated; Watch Plan entries show motivational nudge, no Edit button.
+- **Watch Deets watermark:** PlayfairDisplay-BlackItalic (installed via `@expo-google-fonts/playfair-display`; registered in `app/_layout.jsx`).
+- **Icon audit:** all icons across FilterSheet, LogSeshSheet converted to Ionicons mono/dual-tone.
+- **Font sizes:** section labels 11→13px; heroTitle 18→20px; heroStatusText/heroLang/heroTime/genreChipText 11→12px; droppedBanner 12→13/12px; timelineDate 11→12px.
+
 ### What's NOT built yet (do these next in order)
-1. **Tone audit** — verify all empty states, error messages, action labels are warm + playful
-2. **Play Store prep** — app signing, store listing, screenshots
+1. **Play Store prep** — app signing, store listing, screenshots
 
 ---
 
@@ -509,3 +520,8 @@ npm run build:aab
 - **LogItSearch type chips** — chips are only rendered when `(bySourceFiltered?.length ?? 0) > 0`. When results are zero, only the gone-niche callout renders.
 - **StatsScreen loading** — `statsLoading` boolean gates the chart render. Use `loadStats()` (not direct `setEntries`) anywhere you need to trigger a re-fetch (e.g., retry button). `loadStats` always calls `setStatsLoading(true)` first and resolves via `.catch()`.
 - **StatsScreen zoom** — `isScrollable = n * 36 > SCREEN_W - 64`. When `zoomedOut`, `svgWidth = SCREEN_W - 64` (fixed). Chart ScrollView must have `key={zoomedOut ? 'chart-z' : 'chart-s'}` to force remount on zoom toggle — without it the SVG can render blank due to react-native-svg width reconciliation issues.
+- **`entryUpdated` event** — `DeviceEventEmitter.emit('entryUpdated')` must be fired from `handleUpdate` in DetailView after every entry save. WatchTower listens via `useEffect` (not just `useFocusEffect`) because `useFocusEffect` does not re-fire when returning from a root-stack screen pushed on top of a tab. Both listeners must coexist.
+- **Watch date range (currently watching)** — "Watching Since" section uses `watchingStart = entry.date` (when the title was added) as the range start, NOT `firstSesh?.date_display`. Using the first session date causes a single-session entry to show only that session's date instead of the full range. `DEETS_WATCHING` "Started Watching" timeline item must also use `entry.date`.
+- **Episode tracker condition** — render for `isWatching || isDropped || isWatched`. Watched TV/anime must show all episodes as complete. On load, auto-fix any watched entry where `ep === 0 && total > 0`: set `ep = total`, compute estimated `watchTime`.
+- **Episode list scroll** — the expanded episode list is a `ScrollView` with `maxHeight: 474` and `nestedScrollEnabled`. On expand, auto-scroll: for `isWatching`, compute `y = Math.max(0, (entry.ep - 2) * 48)` to put the next episode near the top; for all other statuses, stay at y=0. Use a 80ms `setTimeout` before `scrollTo` so the layout is ready.
+- **PlayfairDisplay-BlackItalic** — registered in `app/_layout.jsx` as `'PlayfairDisplay-BlackItalic'`. Installed via `@expo-google-fonts/playfair-display`. Used only for the Watch Deets watermark (decorative background text). Do not use it for any readable content.

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Image, Modal, Animated } from 'react-native';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Image, Modal, Animated, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -90,16 +90,42 @@ export default function DetailView() {
   // Toast
   const [toast,    setToast]    = useState(null);
   const toastAnim  = useRef(new Animated.Value(0)).current;
+  const epListScrollRef = useRef(null);
+
+  useEffect(() => {
+    if (!epListExpanded || !epListScrollRef.current) return;
+    const isCurrentlyWatching = entry?.status === 'watching' && !entry?.dropped;
+    if (!isCurrentlyWatching) return;
+    const nextEpIdx = entry?.ep ?? 0;
+    const EP_H = 48;
+    const scrollY = Math.max(0, (nextEpIdx - 2) * EP_H);
+    const t = setTimeout(() => epListScrollRef.current?.scrollTo({ y: scrollY, animated: true }), 80);
+    return () => clearTimeout(t);
+  }, [epListExpanded]);
+
   const { opacity, goBack } = useFadeBack();
 
   useFocusEffect(useCallback(() => {
     let active = true;
     Promise.all([getEntry(String(id)), getEntries()]).then(([e, all]) => {
-      if (active && e) {
-        setEntry(e);
-        const rewatches = all.filter(a => a.title === e.title && a.rewatch && a.id !== e.id && a.status === 'watched');
-        setRewatchEntries(rewatches);
+      if (!active || !e) return;
+      // Auto-fix: watched entries where ep tracking was skipped — mark all episodes watched
+      // and compute watchTime if it's missing
+      let entry = e;
+      if (e.status === 'watched' && e.total > 0 && !e.ep) {
+        const rt   = e.epRuntime || (e.type === 'Anime' ? 24 : 45);
+        const mins = rt * e.total;
+        entry = {
+          ...e,
+          ep: e.total,
+          ...(!e.watchTime ? { watchTime: `~${Math.floor(mins / 60)}h ${mins % 60}m`, estimated: true } : {}),
+        };
+        updateEntry(entry);
+        DeviceEventEmitter.emit('entryUpdated');
       }
+      setEntry(entry);
+      const rewatches = all.filter(a => a.title === e.title && a.rewatch && a.id !== e.id && a.status === 'watched');
+      setRewatchEntries(rewatches);
     });
     return () => { active = false; };
   }, [id]));
@@ -126,7 +152,7 @@ export default function DetailView() {
     ? { label: 'Watching',     color: T.amberSoft,  icon: 'play-circle' }
     : isDropped
     ? { label: 'Dropped',      color: T.dropped,    icon: 'close-circle' }
-    : { label: 'Yet to Watch', color: T.textMuted,  icon: 'time' };
+    : { label: 'Watch Plan',   color: T.textMuted,  icon: 'time' };
 
   const sessions    = entry.watch_sessions || [];
   const hasSessions = sessions.length > 0;
@@ -156,7 +182,7 @@ export default function DetailView() {
       ];
 
   const DEETS_WATCHING = hasSessions
-    ? [...sessionDeets, { icon: 'play-circle-outline', label: 'Started Watching', date: firstSesh?.date_display || entry.date }]
+    ? [...sessionDeets, { icon: 'play-circle-outline', label: 'Started Watching', date: entry.date }]
     : [{ icon: 'play-circle-outline', label: 'Started Watching', date: entry.date }];
 
   const DEETS_DROPPED = hasSessions
@@ -187,11 +213,16 @@ export default function DetailView() {
   const logWillComplete = !entry.ongoing && epTotal > 0 && logEpTo >= epTotal;
   const posterModalUrl = highResPosterUrl(entry.poster_url);
 
+  // For watched/dropped: start = first session date (accurate sesh-level tracking)
   const startDate = firstSesh?.date_display || null;
   const endDate   = isWatched
     ? (entry.finishedDate || lastSesh?.date_display || entry.date)
     : (lastSesh?.date_display || entry.lastWatchedDate || entry.date);
   const sameDay   = startDate && startDate === endDate;
+
+  // For currently watching: start = when they added the title (entry.date), not the first sesh date
+  const watchingStart   = entry.date;
+  const watchingSameDay = watchingStart === endDate;
 
   const watchSectionLabel = isWatching ? 'Watching Since' : isDropped ? 'Watching Period' : isPlan ? 'Added On' : 'When I Watched It';
 
@@ -208,6 +239,7 @@ export default function DetailView() {
   async function handleUpdate(updated) {
     setEntry(updated);
     await updateEntry(updated);
+    DeviceEventEmitter.emit('entryUpdated');
   }
 
   async function handleLogSesh() {
@@ -411,9 +443,9 @@ export default function DetailView() {
                 : <Text style={styles.dateText}>{entry.finishedDate || endDate}</Text>
             )}
             {(isWatching || isDropped) && (
-              startDate && !sameDay
-                ? <Text style={styles.dateRange}>{startDate} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{endDate}</Text></Text>
-                : <Text style={styles.dateText}>{startDate || entry.lastWatchedDate || entry.date}</Text>
+              !watchingSameDay
+                ? <Text style={styles.dateRange}>{watchingStart} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{endDate}</Text></Text>
+                : <Text style={styles.dateText}>{watchingStart}</Text>
             )}
             {isPlan && (
               <>
@@ -429,8 +461,13 @@ export default function DetailView() {
               <SectionLabel>What I Thought</SectionLabel>
               {!isPlan && (
                 <Pressable onPress={() => setRatingOpen(true)} style={styles.editThoughtsBtn}>
-                  <Ionicons name="create-outline" size={12} color={T.amber} />
-                  <Text style={styles.editThoughtsText}>Edit</Text>
+                  <Ionicons
+                    name={entry.rating ? 'create-outline' : 'star-outline'}
+                    size={12} color={T.amber}
+                  />
+                  <Text style={styles.editThoughtsText}>
+                    {entry.rating ? 'Edit' : 'Rate Now'}
+                  </Text>
                 </Pressable>
               )}
             </View>
@@ -443,12 +480,7 @@ export default function DetailView() {
                       <Text style={styles.ratingBig}>{entry.rating}</Text>
                     </View>
                   ) : (
-                    <View style={{ gap: 6 }}>
-                      <Text style={styles.noRating}>Not rated yet</Text>
-                      <Pressable onPress={() => setRatingOpen(true)}>
-                        <Text style={styles.rateLink}>Rate it ★</Text>
-                      </Pressable>
-                    </View>
+                    <Text style={styles.noRating}>Not rated yet</Text>
                   )}
                 </View>
                 {globalRatings.length > 0 && (
@@ -465,17 +497,24 @@ export default function DetailView() {
                 )}
               </View>
             )}
-            {isPlan && globalRatings.length > 0 && (
-              <View style={{ gap: 4 }}>
-                <Text style={styles.thoughtsRatingLabel}>Global</Text>
-                {globalRatings.map(({ source, rating }) => (
-                  <View key={source} style={styles.globalRow}>
-                    <View style={[styles.globalDot, { backgroundColor: sourceColors[source] || T.textMuted }]} />
-                    <Text style={styles.globalSource}>{sourceNames[source] || source}</Text>
-                    <Text style={styles.globalRating}>{rating}</Text>
+            {isPlan && (
+              <>
+                {globalRatings.length > 0 && (
+                  <View style={{ gap: 4 }}>
+                    <Text style={styles.thoughtsRatingLabel}>Global</Text>
+                    {globalRatings.map(({ source, rating }) => (
+                      <View key={source} style={styles.globalRow}>
+                        <View style={[styles.globalDot, { backgroundColor: sourceColors[source] || T.textMuted }]} />
+                        <Text style={styles.globalSource}>{sourceNames[source] || source}</Text>
+                        <Text style={styles.globalRating}>{rating}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                )}
+                <Text style={styles.planRatingNudge}>
+                  Mark it watched and rate it away. ★
+                </Text>
+              </>
             )}
             {!isPlan && entry.reaction ? (
               <Text style={styles.reaction}>"{entry.reaction}"</Text>
@@ -502,8 +541,8 @@ export default function DetailView() {
             </View>
           </View>
 
-          {/* Episode Tracker — currently watching or dropped */}
-          {(isWatching || isDropped) && !isMovie && (epTotal > 0 || entry.ongoing) && (
+          {/* Episode Tracker — watching, dropped, or watched (TV/Anime only) */}
+          {(isWatching || isDropped || isWatched) && !isMovie && (epTotal > 0 || entry.ongoing) && (
             <View style={styles.card}>
               <SectionLabel>Episode Tracker</SectionLabel>
               <View style={styles.epProgressRow}>
@@ -716,7 +755,13 @@ export default function DetailView() {
               </Pressable>
 
               {epListExpanded && (
-                <View style={{ gap: 6 }}>
+                <ScrollView
+                  ref={epListScrollRef}
+                  style={styles.epListScroll}
+                  contentContainerStyle={{ gap: 6 }}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                >
                   {episodes.map(ep => {
                     const isEpWatched = ep.state === 'watched';
                     const isNext      = ep.state === 'next';
@@ -768,7 +813,7 @@ export default function DetailView() {
                       </View>
                     );
                   })}
-                </View>
+                </ScrollView>
               )}
                 </>
               )}
@@ -881,8 +926,8 @@ const styles = StyleSheet.create({
   screenWrap: { flex: 1 },
   watermark: {
     position: 'absolute', top: 2, right: -8,
-    color: '#1e1d1b', fontFamily: T.fontDisplay, fontSize: 82, lineHeight: 76,
-    letterSpacing: -2, zIndex: 0,
+    color: '#1d1c1a', fontFamily: 'PlayfairDisplay-BlackItalic', fontSize: 84, lineHeight: 78,
+    letterSpacing: 0, zIndex: 0,
   },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14 },
@@ -901,15 +946,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
     borderWidth: 1, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
   },
-  heroStatusText: { fontFamily: T.fontTitleMedium, fontSize: 11 },
-  heroTitle: { color: T.amberDeep, fontFamily: T.fontDisplay, fontSize: 18, lineHeight: 24 },
+  heroStatusText: { fontFamily: T.fontTitleMedium, fontSize: 12 },
+  heroTitle: { color: T.amberDeep, fontFamily: T.fontDisplay, fontSize: 20, lineHeight: 26 },
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   heroDot: { color: T.textMuted, fontSize: 10 },
-  heroLang: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
-  heroTime: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
+  heroLang: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  heroTime: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 12 },
   genreRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   genreChip: { backgroundColor: T.elevated, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  genreChipText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 11 },
+  genreChipText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 12 },
   posterWrap: { position: 'relative' },
   posterExpandHint: {
     position: 'absolute', bottom: 4, right: 4,
@@ -928,14 +973,15 @@ const styles = StyleSheet.create({
   ctaSecondaryText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 15 },
   droppedBanner: { backgroundColor: 'rgba(196,122,122,0.08)', borderWidth: 1, borderColor: 'rgba(196,122,122,0.2)', borderRadius: 12, padding: 12, gap: 4 },
   droppedBannerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  droppedBannerTitle: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 12 },
-  droppedBannerSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
-  sectionLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
-  dateText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
-  dateRange: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 16 },
+  droppedBannerTitle: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 13 },
+  droppedBannerSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  sectionLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase' },
+  dateText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 20, lineHeight: 26 },
+  dateRange: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 20, lineHeight: 26 },
   dateArrow: { color: T.textMuted, fontFamily: T.fontBody },
   dateEnd: { color: T.amber },
   planNote: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  planRatingNudge: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, fontStyle: 'italic', lineHeight: 20 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   editThoughtsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
   editThoughtsText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11 },
@@ -946,7 +992,6 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   ratingBig: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 48, lineHeight: 52 },
   noRating: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
-  rateLink: { color: T.amber, fontFamily: T.fontTitle, fontSize: 12, textDecorationLine: 'underline' },
   globalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   globalDot: { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
   globalSource: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, textAlign: 'right' },
@@ -1009,9 +1054,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239,159,39,0.2)', borderRadius: 12, padding: 14, gap: 12,
   },
   logCompleteTitle: { color: T.amber, fontFamily: T.fontTitle, fontSize: 14 },
-  logStarWrap: { backgroundColor: T.elevated, borderRadius: 10, padding: 10 },
+  logStarWrap: { backgroundColor: T.bgPrimary, borderRadius: 10, padding: 10 },
   logReactionInput: {
-    backgroundColor: T.elevated, borderRadius: 10, padding: 10,
+    backgroundColor: T.bgPrimary, borderRadius: 10, padding: 10,
     color: T.textPrimary, fontFamily: T.fontBody, fontSize: 13, minHeight: 56,
   },
   logSessionBtn: {
@@ -1025,6 +1070,7 @@ const styles = StyleSheet.create({
 
   expandBtn: { backgroundColor: T.elevated, borderRadius: 12, paddingVertical: 9, alignItems: 'center' },
   expandBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 12 },
+  epListScroll: { maxHeight: 474 },
   epItem: { backgroundColor: T.elevated, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: 'transparent' },
   epItemNext: { backgroundColor: 'rgba(239,159,39,0.06)', borderColor: 'rgba(239,159,39,0.25)' },
   epItemRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -1063,7 +1109,7 @@ const styles = StyleSheet.create({
   timelineLine: { width: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 4, marginBottom: 0, minHeight: 16 },
   timelineContent: { flex: 1, paddingBottom: 16 },
   timelineLabel: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 13 },
-  timelineDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, marginTop: 2 },
+  timelineDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
 
   // Toast
   toast: {

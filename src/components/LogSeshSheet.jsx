@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import StarRating from './StarRating';
 import MiniCalendar from './MiniCalendar';
 import { T } from '../constants/tokens';
@@ -227,7 +228,7 @@ export default function LogSeshSheet({ entry, onClose, onUpdate, markAll = false
                   style={styles.dateInput}
                 />
                 <Pressable onPress={() => setCalOpen(o => !o)} style={styles.calBtn}>
-                  <Text style={[styles.calIcon, calOpen && styles.calIconActive]}>📅</Text>
+                  <Ionicons name="calendar-outline" size={18} color={calOpen ? T.amber : T.textMuted} />
                 </Pressable>
               </View>
               {calOpen && (
@@ -266,7 +267,7 @@ export default function LogSeshSheet({ entry, onClose, onUpdate, markAll = false
             )}
 
             <Pressable style={styles.submitBtn} onPress={handleSubmit}>
-              <Text style={styles.submitText}>Log Sesh ✓</Text>
+              <Text style={styles.submitText}>{isComplete ? 'Mark Watched ✓' : 'Log Sesh ✓'}</Text>
             </Pressable>
           </ScrollView>
         </View>
@@ -307,9 +308,7 @@ const styles = StyleSheet.create({
   errorText: { color: '#C47A7A', fontFamily: T.fontBody, fontSize: 11 },
   dateRow: { flexDirection: 'row', backgroundColor: T.elevated, borderRadius: 12, overflow: 'hidden' },
   dateInput: { flex: 1, padding: 12, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14 },
-  calBtn: { padding: 10, justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.06)' },
-  calIcon: { fontSize: 18 },
-  calIconActive: { tintColor: T.amber },
+  calBtn: { padding: 10, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.06)' },
   completeBox: {
     backgroundColor: 'rgba(239,159,39,0.08)', borderWidth: 1,
     borderColor: 'rgba(239,159,39,0.2)', borderRadius: 16, padding: 16, gap: 12,

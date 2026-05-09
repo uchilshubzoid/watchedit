@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, DeviceEventEmitter, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -74,6 +74,15 @@ export default function WatchTower() {
     }
     return () => { active = false; };
   }, []));
+
+  // Reload when any entry is updated from DetailView (tab focus may not re-fire when
+  // returning from a root-stack screen pushed on top of the tabs)
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('entryUpdated', () => {
+      getEntries().then(data => setEntries(data));
+    });
+    return () => sub.remove();
+  }, []);
 
   const thirtyAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
@@ -275,10 +284,10 @@ export default function WatchTower() {
               <Text style={{ fontSize: 15 }}>📋</Text>
               <View style={{ flex: 1, gap: 3 }}>
                 <Text style={styles.hintStripPrimary}>
-                  Not found time to watch anything lately?
+                  Not done watching something?
                 </Text>
                 <Text style={styles.hintStripSub}>
-                  Add something to your Watch Plan so you can pick up quickly when you get to chill.
+                  Watch Plan saves it for later.
                 </Text>
               </View>
             </Pressable>

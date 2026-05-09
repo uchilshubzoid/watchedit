@@ -1,11 +1,18 @@
-import { useState } from 'react';
-import { Modal, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { useState, useEffect } from 'react';
+import { Modal, View, Text, TextInput, Pressable, StyleSheet, ScrollView, Keyboard } from 'react-native';
 import StarRating from './StarRating';
 import { T } from '../constants/tokens';
 
 export default function RatingSheet({ entry, show, onClose, onSave }) {
   const [rating,   setRating]   = useState(entry?.rating ?? null);
   const [reaction, setReaction] = useState(entry?.reaction ?? '');
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', e => setKbHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   if (!show) return null;
 
@@ -17,8 +24,8 @@ export default function RatingSheet({ entry, show, onClose, onSave }) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.sheet}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View style={[styles.sheet, { marginBottom: kbHeight }]}>
           <Pressable onPress={onClose} style={styles.handleWrap}>
             <View style={styles.handle} />
           </Pressable>

@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/nunito';
 import { Poppins_400Regular, Poppins_500Medium } from '@expo-google-fonts/poppins';
 import { Inconsolata_400Regular } from '@expo-google-fonts/inconsolata';
+import { PlayfairDisplay_900Black_Italic } from '@expo-google-fonts/playfair-display';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -27,6 +28,7 @@ export default function RootLayout() {
     'Poppins-Regular': Poppins_400Regular,
     'Poppins-Medium': Poppins_500Medium,
     'Inconsolata-Regular': Inconsolata_400Regular,
+    'PlayfairDisplay-BlackItalic': PlayfairDisplay_900Black_Italic,
   });
 
   const [ready, setReady] = useState(false);
