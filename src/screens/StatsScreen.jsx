@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Modal, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -7,10 +7,11 @@ import BackButton from '../components/BackButton';
 import { useFadeBack } from '../hooks/useFadeBack';
 import Svg, { G, Line, Text as SvgText, Path, Circle, Rect } from 'react-native-svg';
 import { getEntries } from '../db/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { T } from '../constants/tokens';
 
 const TIME_FILTERS = ['7 Days', '30 Days', 'Custom', 'All Time'];
-const TYPE_COLOR   = { Anime: T.amber, Movie: T.amberSoft, 'TV Show': T.amberWarm };
+const TYPE_COLOR   = { Anime: T.colorAnime, Movie: T.colorMovie, 'TV Show': T.colorTV };
 const TYPE_LIST    = ['Anime', 'Movie', 'TV Show'];
 const GENRE_LIST   = ['Fantasy', 'Action', 'Drama', 'Thriller', 'Romance', 'Comedy', 'Sci-Fi'];
 const MONTHS_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -348,7 +349,7 @@ function CategoryBreakdownRow({ c, entries }) {
 
 // ─── GenreInsights ──────────────────────────────────────────────────────────
 
-function GenreInsights({ radarCounts, radarPath, hardest }) {
+function GenreInsights({ radarCounts, radarPath }) {
   const CX = 150, CY = 130, RADIUS = 88;
   return (
     <>
@@ -388,16 +389,253 @@ function GenreInsights({ radarCounts, radarPath, hardest }) {
         </View>
       </View>
 
-      {hardest && (
-        <View style={styles.hardestCard}>
-          {/* TODO: rotate callout variants in future UX pass */}
-          <Text style={styles.hardestTitle}>🎯 Hardest-rated genre</Text>
-          <Text style={styles.hardestGenre}>
-            {hardest.genre} <Text style={styles.hardestRating}>(avg {hardest.avg} ★)</Text>
-          </Text>
-          <Text style={styles.hardestSub}>You don't give that genre an easy ride.</Text>
+    </>
+  );
+}
+
+// ─── InsightsWidget ─────────────────────────────────────────────────────────
+
+function computeInsights(entries) {
+  const MIN = 3;
+  const insights = [];
+  if (entries.length < MIN) return insights;
+
+  const rated = entries.filter(e => e.rating);
+
+  const genreAllMap = {};
+  const genreRatedMap = {};
+  entries.forEach(e => {
+    (e.genre || []).forEach(g => {
+      if (!genreAllMap[g])   genreAllMap[g]   = [];
+      if (!genreRatedMap[g]) genreRatedMap[g] = [];
+      genreAllMap[g].push(e);
+      if (e.rating) genreRatedMap[g].push(e);
+    });
+  });
+
+  function freshAt(es) {
+    const ts = (es || []).map(e => e.logged_at ? new Date(e.logged_at).getTime() : 0).filter(t => t > 0);
+    return ts.length ? Math.max(...ts) : 0;
+  }
+
+  // 1. Hardest genre — lowest avg rating (need ≥3 rated entries)
+  const genresSortedAsc = Object.entries(genreRatedMap)
+    .filter(([, es]) => es.length >= MIN)
+    .map(([g, es]) => ({ genre: g, avg: Math.round(es.reduce((s,e)=>s+e.rating,0)/es.length*10)/10, entries: es }))
+    .sort((a,b) => a.avg - b.avg);
+  const hardestGenre = genresSortedAsc[0];
+  if (hardestGenre) {
+    insights.push({
+      id: 'hardest', icon: 'trending-down-outline', iconColor: T.dropped,
+      headline: `${hardestGenre.genre} is your toughest crowd`,
+      body: `You average ${hardestGenre.avg}★ there — lower than any other genre.`,
+      freshAt: freshAt(hardestGenre.entries),
+    });
+  }
+
+  // 2. Highest genre — best avg rating
+  const genresSortedDesc = [...genresSortedAsc].sort((a,b) => b.avg - a.avg);
+  const highestGenre = genresSortedDesc[0];
+  if (highestGenre && (!hardestGenre || highestGenre.genre !== hardestGenre.genre)) {
+    insights.push({
+      id: 'highest', icon: 'trending-up-outline', iconColor: T.colorAnime,
+      headline: `${highestGenre.genre} always delivers`,
+      body: `Your average: ${highestGenre.avg}★ — your most generous genre.`,
+      freshAt: freshAt(highestGenre.entries),
+    });
+  }
+
+  // 3. Most-watched genre
+  const topGenreEntry = Object.entries(genreAllMap).sort((a,b) => b[1].length - a[1].length)[0];
+  if (topGenreEntry && topGenreEntry[1].length >= MIN) {
+    const [genre, es] = topGenreEntry;
+    insights.push({
+      id: 'mostWatched', icon: 'repeat-outline', iconColor: T.colorTV,
+      headline: `${genre} is your go-to`,
+      body: `${es.length} of your ${entries.length} logged titles hit that genre.`,
+      freshAt: freshAt(es),
+    });
+  }
+
+  // 4. Hidden gem — you rated it way above community score
+  const gems = entries
+    .filter(e => e.rating && e.malRating && e.rating - e.malRating >= 2)
+    .sort((a,b) => (b.rating - b.malRating) - (a.rating - a.malRating));
+  if (gems.length > 0) {
+    const gem = gems[0];
+    insights.push({
+      id: 'hiddenGem', icon: 'diamond-outline', iconColor: T.amberSoft,
+      headline: `You found a hidden gem`,
+      body: `You gave ${gem.title} ${gem.rating}★ — well above its ${gem.malRating.toFixed(1)}★ community score.`,
+      freshAt: gem.logged_at ? new Date(gem.logged_at).getTime() : 0,
+    });
+  }
+
+  // 5. Niche taste — genre you rate high but log rarely
+  const overallAvg = rated.length ? rated.reduce((s,e)=>s+e.rating,0)/rated.length : 0;
+  if (overallAvg > 0) {
+    const nicheGenre = Object.entries(genreRatedMap)
+      .filter(([g, es]) => {
+        const avg = es.reduce((s,e)=>s+e.rating,0)/es.length;
+        const allCount = (genreAllMap[g]||[]).length;
+        const isHighAvg = avg >= overallAvg + 0.5;
+        const isSmall = allCount >= 2 && allCount <= Math.max(2, Math.floor(entries.length * 0.2));
+        const notAlreadyCovered = !hardestGenre || g !== hardestGenre.genre;
+        const notHighest = !highestGenre || g !== highestGenre.genre;
+        return isHighAvg && isSmall && notAlreadyCovered && notHighest;
+      })
+      .map(([g, es]) => ({
+        genre: g,
+        avg: Math.round(es.reduce((s,e)=>s+e.rating,0)/es.length*10)/10,
+        count: (genreAllMap[g]||[]).length,
+        entries: genreAllMap[g] || es,
+      }))
+      .sort((a,b) => b.avg - a.avg)[0];
+    if (nicheGenre) {
+      insights.push({
+        id: 'niche', icon: 'glasses-outline', iconColor: T.colorMovie,
+        headline: `Your niche: ${nicheGenre.genre}`,
+        body: `You watch it less but love it more — ${nicheGenre.avg}★ average across ${nicheGenre.count} titles.`,
+        freshAt: freshAt(nicheGenre.entries),
+      });
+    }
+  }
+
+  // 6. Peak binge month
+  const monthMap = {};
+  entries.forEach(e => {
+    const t = parseActivityDate(e);
+    if (!t) return;
+    const d = new Date(t);
+    const key = `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+    if (!monthMap[key]) monthMap[key] = [];
+    monthMap[key].push(e);
+  });
+  const topMonth = Object.entries(monthMap).sort((a,b) => b[1].length - a[1].length)[0];
+  if (topMonth && topMonth[1].length >= MIN) {
+    const [month, es] = topMonth;
+    insights.push({
+      id: 'binge', icon: 'flame-outline', iconColor: T.amberDeep,
+      headline: `Peak binge: ${month}`,
+      body: `You logged ${es.length} title${es.length!==1?'s':''} in ${month} alone.`,
+      freshAt: freshAt(es),
+    });
+  }
+
+  // 7. Completion rate
+  const watchedCount = entries.filter(e => e.status === 'watched').length;
+  const droppedCount = entries.filter(e => e.dropped).length;
+  if (watchedCount + droppedCount >= MIN) {
+    const pct = Math.round(watchedCount / (watchedCount + droppedCount) * 100);
+    const allTs = entries.map(e => e.logged_at ? new Date(e.logged_at).getTime() : 0).filter(t=>t>0);
+    insights.push({
+      id: 'completion',
+      icon: pct >= 70 ? 'checkmark-circle-outline' : 'close-circle-outline',
+      iconColor: pct >= 70 ? T.colorMovie : T.dropped,
+      headline: pct >= 80 ? `You finish what you start` : pct >= 60 ? `You know when to call it` : `You're a tough critic`,
+      body: droppedCount > 0
+        ? `${pct}% completion rate — ${droppedCount} title${droppedCount!==1?'s':''} dropped along the way.`
+        : `${pct}% completion rate. Not a single drop. Impressive.`,
+      freshAt: allTs.length ? Math.max(...allTs) : 0,
+    });
+  }
+
+  // 8. Peak season
+  const seasonMap = { Winter: [], Spring: [], Summer: [], Fall: [] };
+  entries.forEach(e => {
+    const t = parseActivityDate(e);
+    if (!t) return;
+    const mo = new Date(t).getMonth();
+    const s = mo <= 1 || mo === 11 ? 'Winter' : mo <= 4 ? 'Spring' : mo <= 7 ? 'Summer' : 'Fall';
+    seasonMap[s].push(e);
+  });
+  const topSeason = Object.entries(seasonMap).sort((a,b) => b[1].length - a[1].length)[0];
+  if (topSeason && topSeason[1].length >= MIN) {
+    const [season, es] = topSeason;
+    insights.push({
+      id: 'peak', icon: 'calendar-outline', iconColor: T.paused,
+      headline: `${season} is your season`,
+      body: `Most of your watches land in ${season} — ${es.length} titles and counting.`,
+      freshAt: freshAt(es),
+    });
+  }
+
+  // 9. Type loyalty
+  const typeCounts = {};
+  entries.forEach(e => { if (e.type) typeCounts[e.type] = (typeCounts[e.type]||0)+1; });
+  const topType = Object.entries(typeCounts).sort((a,b) => b[1]-a[1])[0];
+  if (topType && entries.length >= MIN) {
+    const [type, count] = topType;
+    const pct = Math.round(count / entries.length * 100);
+    if (pct >= 40) {
+      insights.push({
+        id: 'loyalty', icon: 'ribbon-outline', iconColor: TYPE_COLOR[type] || T.amber,
+        headline: `${type} watcher, through and through`,
+        body: `${pct}% of your logged titles are ${type}. You know what you like.`,
+        freshAt: freshAt(entries.filter(e => e.type === type)),
+      });
+    }
+  }
+
+  return insights;
+}
+
+const INSIGHTS_KEY = 'watchedit_insights_last_viewed';
+
+function InsightsWidget({ entries }) {
+  const [idx, setIdx]              = useState(0);
+  const [prevTimestamp, setPrevTs] = useState(null);
+
+  const insights = useMemo(() => computeInsights(entries), [entries]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(INSIGHTS_KEY).then(raw => {
+      const stored = raw ? JSON.parse(raw) : null;
+      setPrevTs(stored?.timestamp ?? null);
+      AsyncStorage.setItem(INSIGHTS_KEY, JSON.stringify({ timestamp: Date.now() }));
+    });
+  }, []);
+
+  const sorted = useMemo(() => {
+    const isNew = (ins) => prevTimestamp ? ins.freshAt > prevTimestamp : false;
+    const newOnes = insights.filter(isNew).sort((a,b) => b.freshAt - a.freshAt);
+    const oldOnes = insights.filter(i => !isNew(i)).sort((a,b) => b.freshAt - a.freshAt);
+    return [...newOnes, ...oldOnes];
+  }, [insights, prevTimestamp]);
+
+  if (sorted.length === 0) return null;
+
+  const insight  = sorted[idx] || sorted[0];
+  const total    = sorted.length;
+  const isLast   = idx === total - 1;
+  const showNew  = prevTimestamp ? insight.freshAt > prevTimestamp : false;
+
+  return (
+    <>
+      <Text style={styles.sectionHeader}>YOUR INSIGHTS</Text>
+      <View style={styles.insightCard}>
+        {showNew && (
+          <View style={styles.insightNewBadge}>
+            <Text style={styles.insightNewText}>NEW</Text>
+          </View>
+        )}
+        <View style={styles.insightTop}>
+          <View style={[styles.insightIconBg, { backgroundColor: insight.iconColor + '28' }]}>
+            <Ionicons name={insight.icon} size={32} color={insight.iconColor} />
+          </View>
+          <View style={styles.insightTextWrap}>
+            <Text style={styles.insightHeadline}>{insight.headline}</Text>
+            <Text style={styles.insightBodyText} numberOfLines={2}>{insight.body}</Text>
+          </View>
         </View>
-      )}
+        <View style={styles.insightDivider} />
+        <View style={styles.insightFooter}>
+          <Text style={styles.insightPageNum}>{idx + 1} / {total}</Text>
+          <Pressable onPress={() => setIdx(isLast ? 0 : idx + 1)} hitSlop={8}>
+            <Text style={styles.insightNext}>{isLast ? 'back to first ↻' : 'another one →'}</Text>
+          </Pressable>
+        </View>
+      </View>
     </>
   );
 }
@@ -469,18 +707,6 @@ export default function StatsScreen() {
     }, 0) : 0;
     return { type, count: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10, avg, totalEps };
   }).filter(c => c.count > 0);
-
-  const genreRatings = {};
-  filtered.forEach(e => {
-    if (e.rating) (e.genre || []).forEach(g => {
-      if (!genreRatings[g]) genreRatings[g] = [];
-      genreRatings[g].push(e.rating);
-    });
-  });
-  const genreAvgs = Object.entries(genreRatings)
-    .map(([g, rs]) => ({ genre: g, avg: Math.round(rs.reduce((s, r) => s + r, 0) / rs.length * 10) / 10 }))
-    .sort((a, b) => a.avg - b.avg);
-  const hardest = genreAvgs[0];
 
   const radarCounts = GENRE_LIST.map(g => ({
     genre: g,
@@ -630,7 +856,8 @@ export default function StatsScreen() {
               </View>
             )}
 
-            <GenreInsights radarCounts={radarCounts} radarPath={radarPath} hardest={hardest} />
+            <GenreInsights radarCounts={radarCounts} radarPath={radarPath} />
+            <InsightsWidget entries={entries} />
           </>
         )}
 
@@ -835,7 +1062,8 @@ export default function StatsScreen() {
             )}
 
             {/* Genre Distribution + Insights widget */}
-            <GenreInsights radarCounts={radarCounts} radarPath={radarPath} hardest={hardest} />
+            <GenreInsights radarCounts={radarCounts} radarPath={radarPath} />
+            <InsightsWidget entries={entries} />
           </>
         )}
 
@@ -911,11 +1139,6 @@ const styles = StyleSheet.create({
 
   card: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 16, gap: 14 },
 
-  hardestCard:   { backgroundColor: 'rgba(239,159,39,0.08)', borderWidth: 1, borderColor: 'rgba(239,159,39,0.15)', borderRadius: 16, padding: 14, gap: 4 },
-  hardestTitle:  { color: T.amberSoft, fontFamily: T.fontTitle, fontSize: 13 },
-  hardestGenre:  { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 16 },
-  hardestRating: { color: T.amber, fontFamily: T.fontMono },
-  hardestSub:    { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
 
   timelineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metricToggle:   { flexDirection: 'row', backgroundColor: T.elevated, borderRadius: 12, padding: 3 },
@@ -960,6 +1183,19 @@ const styles = StyleSheet.create({
 
   shareCard: { backgroundColor: T.surface, borderRadius: 16, padding: 14, alignItems: 'center' },
   shareText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, textAlign: 'center' },
+
+  insightCard:     { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 16, gap: 14 },
+  insightNewBadge: { position: 'absolute', top: 12, right: 12, backgroundColor: T.amber, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, zIndex: 1 },
+  insightNewText:  { color: T.bgPrimary, fontFamily: T.fontMono, fontSize: 10, fontWeight: '700' },
+  insightTop:      { flexDirection: 'row', gap: 14, alignItems: 'center' },
+  insightIconBg:   { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  insightTextWrap: { flex: 1, gap: 5 },
+  insightHeadline: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14, lineHeight: 20 },
+  insightBodyText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, lineHeight: 18 },
+  insightDivider:  { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  insightFooter:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  insightPageNum:  { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
+  insightNext:     { color: T.amber, fontFamily: T.fontTitle, fontSize: 12 },
 
   // Date Range Picker
   drOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: 20 },

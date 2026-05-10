@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, DeviceEventEmitter, Animated } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import Poster from '../components/Poster';
@@ -28,6 +28,15 @@ function formatDateWithYear(dateStr) {
   return `${dateStr}, ${new Date().getFullYear()}`;
 }
 
+function daysAgoStr(e) {
+  const ms = getActivityDate(e);
+  if (!ms) return e.lastWatchedDate || '';
+  const days = Math.floor((Date.now() - ms) / 864e5);
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
+}
+
 function getActivityDate(e) {
   if (e.watch_end_date) return new Date(e.watch_end_date + 'T12:00:00').getTime();
   const dateStr = (e.status === 'watched' ? e.finishedDate : e.lastWatchedDate) || e.date || '';
@@ -42,8 +51,6 @@ function getActivityDate(e) {
 }
 
 export default function WatchTower() {
-  const insets = useSafeAreaInsets();
-
   const [entries,        setEntries]        = useState([]);
   const [streakDismissed,setStreakDismissed] = useState(false);
   const [toastContent,   setToastContent]   = useState(null);
@@ -104,10 +111,17 @@ export default function WatchTower() {
   const totalHours = Math.round(totalMins / 60);
   const estimated  = countedEntries.some(e => e.estimated);
 
-  const cats = ['Anime', 'Movie', 'TV Show'].map(t => ({
-    label: t,
-    count: countedEntries.filter(e => e.type === t).length,
-  })).filter(c => c.count > 0);
+  const typeStats = [
+    { type: 'Anime',   color: T.colorAnime, showEps: true },
+    { type: 'Movie',   color: T.colorMovie, showEps: false },
+    { type: 'TV Show', color: T.colorTV,    showEps: true },
+  ].map(def => ({
+    ...def,
+    count: countedEntries.filter(e => e.type === def.type).length,
+    eps:   def.showEps
+      ? countedEntries.filter(e => e.type === def.type).reduce((s, e) => s + (e.ep || 0), 0)
+      : null,
+  })).filter(t => t.count > 0);
 
   // UI-only subsets — not used in stats above
   const watched      = entries.filter(e => e.status === 'watched');
@@ -131,30 +145,71 @@ export default function WatchTower() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Stats card — hidden when WatchLog is empty */}
-        {entries.length > 0 && <View style={styles.card}>
-          <View style={styles.period}>
-            <View style={styles.dot} />
-            <Text style={styles.periodText}>{isRecent ? 'Last 30 days' : 'All time'}</Text>
-          </View>
-          <Text style={styles.statsLabel}>Titles Watched</Text>
-          <Text style={styles.statsNum}>{totalCount}</Text>
-          {totalHours > 0 && (
-            <Text style={styles.statsTime}>{estimated ? '~' : ''}{totalHours}h watched</Text>
-          )}
-          {cats.length > 0 && (
-            <View style={styles.catPills}>
-              {cats.map(c => (
-                <View key={c.label} style={styles.catPill}>
-                  <Text style={styles.catLabel}>{c.label}</Text>
-                  <Text style={styles.catCount}>{c.count}</Text>
+        {entries.length > 0 && (
+          <View style={styles.card}>
+
+            {/* Headline: centered number + watch time pinned to right */}
+            <Pressable onPress={() => router.push('/(tabs)/watchlist')}>
+              <View>
+                <Text style={styles.statsNum}>{totalCount}</Text>
+                {totalHours > 0 && (
+                  <View style={styles.watchTimeBlock}>
+                    <Text style={styles.watchTimeNum}>{estimated ? '~' : ''}{totalHours}h</Text>
+                    <Text style={styles.watchTimeLabel}>watch time</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.titlesRow}>
+                <Text style={styles.titlesLabel}>titles watched</Text>
+                <Text style={styles.titlesSubLabel}> · {isRecent ? 'last 30 days' : 'all time'}</Text>
+              </Text>
+            </Pressable>
+
+            {/* Segmented bar + labels */}
+            {typeStats.length > 0 && (
+              <View style={{ marginTop: 28 }}>
+                <View style={styles.segBar}>
+                  {typeStats.map((t, i) => (
+                    <Pressable
+                      key={t.type}
+                      onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { type: t.type } })}
+                      style={[
+                        styles.segBarSegment,
+                        { flex: t.count, backgroundColor: t.color },
+                        i === 0 && styles.segFirst,
+                        i === typeStats.length - 1 && styles.segLast,
+                      ]}
+                    />
+                  ))}
                 </View>
-              ))}
-            </View>
-          )}
-          <Pressable onPress={() => router.push('/stats')} style={{ marginTop: 14 }}>
-            <Text style={styles.statsLink}>See your stats →</Text>
-          </Pressable>
-        </View>}
+                <View style={styles.segLabels}>
+                  {typeStats.map((t, i) => (
+                    <Pressable
+                      key={t.type}
+                      onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { type: t.type } })}
+                      style={[styles.segLabelCol, i < typeStats.length - 1 && { paddingRight: 14 }]}
+                    >
+                      <View style={styles.segLabelRow1}>
+                        <View style={[styles.segDot, { backgroundColor: t.color }]} />
+                        <Text style={[styles.segTypeName, { color: t.color }]} numberOfLines={1}>{t.type}</Text>
+                      </View>
+                      <Text style={styles.segSub}>
+                        {`${t.count} ${t.count === 1 ? 'title' : 'titles'}`}{t.eps !== null && t.eps > 0 ? ` · ${t.eps} eps` : ''}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Divider + CTA */}
+            <View style={styles.statsDivider} />
+            <Pressable onPress={() => router.push('/stats')}>
+              <Text style={styles.statsCtaText}>See your watch stats →</Text>
+            </Pressable>
+
+          </View>
+        )}
 
         {/* Unrated nudge */}
         {flaggedCount > 0 && (
@@ -191,17 +246,26 @@ export default function WatchTower() {
               contentContainerStyle={{ gap: 12, paddingRight: 16 }}>
               {watching.slice(0, 8).map(e => (
                 <Pressable key={e.id} onPress={() => router.push(`/detail/${e.id}`)} style={styles.watchCard}>
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <Poster title={e.title} size={44} url={e.poster_url} />
-                    <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                  <View style={styles.watchPosterWrap}>
+                    <Poster title={e.title} size={79} url={e.poster_url} />
+                  </View>
+                  <View style={styles.watchContent}>
+                    <View style={styles.watchPills}>
                       <TypePill type={e.type} />
-                      <Text style={styles.watchTitle} numberOfLines={2}>{e.title}</Text>
+                      {e.paused && (
+                        <View style={styles.pausedPill}>
+                          <Text style={styles.pausedPillText}>Paused</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.watchTitle} numberOfLines={2}>{e.title}</Text>
+                    <View>
+                      <Text style={styles.watchEp}>
+                        {e.ongoing ? `${e.ep} eps · Ongoing` : e.total ? `Ep ${e.ep} / ${e.total}` : `${e.ep} eps watched`}
+                      </Text>
+                      <Text style={styles.watchDate}>last watched · {daysAgoStr(e)}</Text>
                     </View>
                   </View>
-                  <Text style={styles.watchEp}>
-                    {e.ongoing ? `${e.ep} eps · Ongoing` : e.total ? `Ep ${e.ep} of ${e.total}` : `${e.ep} eps watched`}
-                  </Text>
-                  <Text style={styles.watchDate}>Last: <Text style={{ color: T.textPrimary, fontFamily: T.fontBodyMedium }}>{e.lastWatchedDate}</Text></Text>
                 </Pressable>
               ))}
               {watching.length > 8 && (
@@ -330,18 +394,26 @@ const styles = StyleSheet.create({
   logoText: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 22, letterSpacing: -0.5 },
   logoDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: T.amberDeep, marginTop: 2 },
   scroll: { padding: 16, gap: 20, paddingBottom: 32 },
-  card: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 20, alignItems: 'center' },
-  period: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.elevated, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 14 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: T.amber },
-  periodText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10, letterSpacing: 0.8 },
-  statsLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 },
-  statsNum: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 80, lineHeight: 88 },
-  statsTime: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, marginTop: 8 },
-  catPills: { flexDirection: 'row', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' },
-  catPill: { backgroundColor: T.elevated, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  catLabel: { color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 11 },
-  catCount: { color: T.amber, fontFamily: T.fontMono, fontWeight: '600', fontSize: 11 },
-  statsLink: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 12, textDecorationLine: 'underline' },
+  card: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 20 },
+  statsNum: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 84, lineHeight: 84, textAlign: 'center' },
+  watchTimeBlock: { position: 'absolute', right: 0, bottom: 0 },
+  watchTimeNum: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 22, lineHeight: 26 },
+  watchTimeLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, marginTop: 2 },
+  titlesRow: { textAlign: 'center', marginTop: 6 },
+  titlesLabel: { color: T.textPrimary, fontFamily: T.fontBodyMedium, fontSize: 15 },
+  titlesSubLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
+  segBar: { flexDirection: 'row', height: 14 },
+  segBarSegment: { height: 14 },
+  segFirst: { borderTopLeftRadius: 7, borderBottomLeftRadius: 7 },
+  segLast: { borderTopRightRadius: 7, borderBottomRightRadius: 7 },
+  segLabels: { flexDirection: 'row', marginTop: 12 },
+  segLabelCol: { flex: 1 },
+  segLabelRow1: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  segDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  segTypeName: { fontFamily: T.fontTitle, fontSize: 14 },
+  segSub: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 13, marginTop: 2 },
+  statsDivider: { height: 1, backgroundColor: T.elevated, opacity: 0.6, marginTop: 20, marginBottom: 14 },
+  statsCtaText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 14, textAlign: 'center' },
   nudge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(239,159,39,0.08)', borderWidth: 1, borderColor: 'rgba(239,159,39,0.15)', borderRadius: 16, padding: 14 },
   nudgeTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
   nudgeLink: { color: T.amber, fontFamily: T.fontTitle, fontSize: 12 },
@@ -350,11 +422,16 @@ const styles = StyleSheet.create({
   streakSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
   streakNum: { color: T.amberSoft, fontFamily: T.fontMono, fontWeight: '600' },
   sectionTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 17, letterSpacing: -0.1, marginBottom: 12 },
-  watchCard: { width: 190, backgroundColor: T.surface, borderRadius: 18, padding: 14, gap: 10 },
-  watchTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14, lineHeight: 18, height: 36 },
-  watchEp: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
-  watchDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
-  watchMoreCard: { width: 110, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 18, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
+  watchCard: { width: 284, height: 138, backgroundColor: T.surface, borderRadius: 16, flexDirection: 'row' },
+  watchPosterWrap: { padding: 14, paddingRight: 0, justifyContent: 'center' },
+  watchContent: { flex: 1, paddingTop: 14, paddingBottom: 14, paddingLeft: 12, paddingRight: 14, justifyContent: 'space-between' },
+  watchPills: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pausedPill: { backgroundColor: 'rgba(139,163,196,0.15)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  pausedPillText: { color: T.paused, fontFamily: T.fontTitleMedium, fontSize: 10 },
+  watchTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 16, lineHeight: 21 },
+  watchEp: { color: T.amber, fontFamily: T.fontMono, fontWeight: '700', fontSize: 13 },
+  watchDate: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, marginTop: 2 },
+  watchMoreCard: { width: 100, height: 180, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 16, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center' },
   watchMoreCount: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 26 },
   watchMoreLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
   watchMoreLink: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 11, marginTop: 4 },

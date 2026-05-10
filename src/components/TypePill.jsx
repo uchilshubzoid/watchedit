@@ -2,9 +2,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { T } from '../constants/tokens';
 
 const TYPE_STYLES = {
-  Anime:    { bg: 'rgba(239,159,39,0.13)', color: T.amber },
-  Movie:    { bg: 'rgba(250,199,117,0.13)', color: T.amberSoft },
-  'TV Show':{ bg: 'rgba(200,133,74,0.15)', color: T.amberWarm },
+  Anime:    { bg: 'rgba(239,159,39,0.18)',  color: T.colorAnime },
+  Movie:    { bg: 'rgba(92,158,143,0.18)',  color: T.colorMovie },
+  'TV Show':{ bg: 'rgba(139,126,200,0.18)', color: T.colorTV },
 };
 
 export default function TypePill({ type }) {

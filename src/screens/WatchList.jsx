@@ -41,12 +41,12 @@ function parseActivityDate(entry) {
   } catch { return 0; }
 }
 
-function statusColor(e) {
-  if (e.dropped)                 return T.dropped;
-  if (e.paused)                  return T.paused;
-  if (e.status === 'watching')   return T.amber;
-  if (e.status === 'watched')    return T.amberDeep;
-  if (e.status === 'watchplan')  return T.amberSoft;
+function typeAccentColor(e) {
+  if (e.dropped) return T.dropped;
+  if (e.paused)  return T.paused;
+  if (e.type === 'Anime')   return T.colorAnime;
+  if (e.type === 'Movie')   return T.colorMovie;
+  if (e.type === 'TV Show') return T.colorTV;
   return T.textMuted;
 }
 
@@ -76,7 +76,7 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
 
   return (
     <Pressable onPress={() => router.push(`/detail/${e.id}`)} style={styles.card}>
-      <View style={[styles.statusBar, { backgroundColor: statusColor(e) }]} />
+      <View style={[styles.statusBar, { backgroundColor: typeAccentColor(e) }]} />
       <View style={styles.cardInner}>
         <Poster title={e.title} size={42} url={e.poster_url} />
         <View style={styles.cardMeta}>
@@ -119,14 +119,15 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
 
 export default function WatchList() {
   const params = useLocalSearchParams();
-  const initialTab    = String(params.tab || 'all');
+  const initialTab     = String(params.tab || 'all');
   const initialUnrated = params.unrated === 'true';
+  const initialType    = params.type ? [String(params.type)] : [];
 
   const [entries,       setEntries]       = useState([]);
   const [tab,           setTab]           = useState(initialTab);
   const [search,        setSearch]        = useState('');
   const [sort,          setSort]          = useState('Most Recent Activity');
-  const [chips,         setChips]         = useState([]);
+  const [chips,         setChips]         = useState(initialType);
   const [language,      setLanguage]      = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [showPaused,    setShowPaused]    = useState(false);
@@ -141,12 +142,13 @@ export default function WatchList() {
       if (!active) return;
       setEntries(data);
       setBookmarkedIds(new Set(data.filter(e => e.bookmark).map(e => e.id)));
-      // sync tab/unrated from params on focus
+      // sync tab/unrated/type from params on focus
       setTab(String(params.tab || 'all'));
       setUnrated(params.unrated === 'true');
+      setChips(params.type ? [String(params.type)] : []);
     });
     return () => { active = false; };
-  }, [params.tab, params.unrated]));
+  }, [params.tab, params.unrated, params.type]));
 
   function toggleBookmark(id) {
     setBookmarkedIds(prev => {

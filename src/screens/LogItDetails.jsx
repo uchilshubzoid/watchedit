@@ -527,6 +527,7 @@ export default function LogItDetails() {
         estimated: isTV,
         poster_url: highResPosterUrl(show?.poster_url),
         malRating: show?.global_rating || null,
+        ratingSource: show?.source || null,
         watch_sessions: [], episode_notes: {},
         watch_start_date: isCurrent ? (watchStartDate || todayISO) : null,
         watch_end_date: watchStatus === 'watched' ? watchEndDate : null,

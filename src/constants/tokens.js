@@ -17,6 +17,11 @@ export const T = {
   textPrimary: '#F5F0E8',
   textMuted:   '#9E9B96',
 
+  // Content type colours
+  colorAnime:  '#EF9F27',   // amber — same as T.amber
+  colorMovie:  '#5C9E8F',   // dusty teal
+  colorTV:     '#8B7EC8',   // soft violet
+
   // Status colours — outside amber family
   paused:      '#8BA3C4',
   dropped:     '#C47A7A',

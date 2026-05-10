@@ -318,9 +318,11 @@ export default function DetailView() {
     setEditingNoteEp(null);
   }
 
-  const sourceColors  = { MAL: '#6B9BDF', IMDB: '#F5C518', TMDB: '#01B4E4' };
-  const sourceNames   = { MAL: 'MyAnimeList', IMDB: 'IMDB', TMDB: 'TMDB' };
-  const globalRatings = entry.malRating ? [{ source: 'MAL', rating: entry.malRating }] : [];
+  const sourceColors  = { MAL: '#6B9BDF', TMDB: '#01B4E4', OMDB: '#F5C518', IMDB: '#F5C518' };
+  const sourceNames   = { MAL: 'MyAnimeList', TMDB: 'TMDB', OMDB: 'IMDB', IMDB: 'IMDB' };
+  const globalRatings = entry.malRating
+    ? [{ source: entry.ratingSource || 'MAL', rating: entry.malRating }]
+    : [];
 
   return (
     <Animated.View style={{ flex: 1, opacity }}>
@@ -328,7 +330,7 @@ export default function DetailView() {
       <View style={styles.screenWrap}>
         <Text style={styles.watermark} aria-hidden>Watch{'\n'}Deets</Text>
 
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} style={{ zIndex: 1 }}>
 
           {/* Top bar — status pill moved into hero card */}
           <View style={styles.topBar}>
@@ -542,18 +544,18 @@ export default function DetailView() {
           </View>
 
           {/* Episode Tracker — watching, dropped, or watched (TV/Anime only) */}
-          {(isWatching || isDropped || isWatched) && !isMovie && (epTotal > 0 || entry.ongoing) && (
+          {(isWatching || isDropped || isWatched) && !isMovie && (epTotal > 0 || entry.ongoing || epCurrent > 0) && (
             <View style={styles.card}>
               <SectionLabel>Episode Tracker</SectionLabel>
               <View style={styles.epProgressRow}>
                 <Text style={styles.epProgressText}>
-                  {entry.ongoing ? `${epCurrent} eps watched` : `${epCurrent} of ${epTotal} episodes`}
+                  {entry.ongoing || epTotal === 0 ? `${epCurrent} eps watched` : `${epCurrent} of ${epTotal} episodes`}
                 </Text>
-                {!entry.ongoing && (
+                {!entry.ongoing && epTotal > 0 && (
                   <Text style={styles.epPercent}>{Math.round((epCurrent / epTotal) * 100)}%</Text>
                 )}
               </View>
-              {!entry.ongoing && (
+              {!entry.ongoing && epTotal > 0 && (
                 <View style={styles.progressBar}>
                   <View style={[styles.progressFill, { width: `${Math.min(100, Math.round((epCurrent / epTotal) * 100))}%` }]} />
                 </View>
@@ -925,9 +927,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bgPrimary },
   screenWrap: { flex: 1 },
   watermark: {
-    position: 'absolute', top: 2, right: -8,
-    color: '#1d1c1a', fontFamily: 'PlayfairDisplay-BlackItalic', fontSize: 84, lineHeight: 78,
-    letterSpacing: 0, zIndex: 0,
+    position: 'absolute', bottom: 24, left: 0, right: 0,
+    textAlign: 'center',
+    color: T.textPrimary, fontFamily: 'PlayfairDisplay-BlackItalic', fontSize: 72, lineHeight: 84,
+    opacity: 0.04, zIndex: 0,
+    transform: [{ rotate: '-10deg' }],
   },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14 },
