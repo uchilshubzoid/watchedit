@@ -88,6 +88,20 @@ See spec v2.0 changelog for full detail. Key decisions:
 - **WatcherScreen name persist:** `handleSave` now calls `AsyncStorage.setItem('watchedit_watcher_name', ...)`. Name loaded from AsyncStorage in `useFocusEffect`. Dev reset-onboarding button removed.
 - **LogIt start date for Watched:** Section D shows two `WatchDatePicker` rows for Watched status. "Started (optional)" with `optional` prop (shows "not set" muted italic when empty). `watch_start_date` saved when set.
 
+### Stage 2.7 — WatchList Filters + Platform + Manage Tags + Watcher Overhaul ✅ Complete (as of May 2026)
+See spec v2.3 changelog for full detail. Key decisions:
+- **Rating filter:** Two-sided slider (0–10) built from scratch with two `PanResponder` instances + `stateRef` pattern (always has fresh value/onChange without recreating responders). Track width measured via `onLayout`. Amber fill between thumbs. "Reset ✕" link when range is narrowed.
+- **Watch Date filter:** Inline `MiniCalendar` toggled by tapping From/To fields (`calTarget` state: `null | 'start' | 'end'`). `MiniCalendar` gained a `min` prop — added `minDate`, `isPast()` guard, `prevMonth()` navigation block, and disabled prev chevron at min month. Preset chips apply `last7` / `last30` date ranges. `key={dateRange.start}` / `key={dateRange.end}` force MiniCalendar to remount when presets change.
+- **Platform filter:** Single-select chip grid. "Others" maps to entries where `watch_platform` is truthy and NOT in `KNOWN_PLATFORMS`. All filter state (`ratingRange`, `dateRange`, `platform`) added to WatchList.
+- **FilterSheet height:** `navItem.paddingVertical` 8→5, `marginBottom` 4→2 (items ~32dp each); `navSectionLabel.marginBottom` 10→6; body `minHeight` 300→320; sheet `paddingBottom` 52→44; `maxHeight: '96%'`. Math: 8 items × 32dp + 18dp label = 274dp, fits in 320dp body.
+- **WatchTower deep link:** Type segment bar and label `onPress` pass `params: { type, datePreset: 'last30' }`. WatchList `useFocusEffect` syncs on every focus — `'last30'` computes ISO range; any other value clears it.
+- **Platform field in Log It (`watch_platform`):** Between Watch Date and Rating in LogItDetails. `PLATFORMS = ['Netflix', 'Crunchyroll', 'Amazon Prime', 'Hotstar', 'Apple TV', 'Theater', 'Others']`. "Others" reveals `TextInput`. Chip deselects on re-tap. Saved: known platform → name; Others + custom text → custom text; empty → `null`. Editable in edit mode. Load logic: if stored value not in `KNOWN_PLATFORMS` → set chip to "Others", populate `customPlatform`.
+- **DetailView platform display:** `whereRow` card between episode tracker and Watch Log. Only shown when `entry.watch_platform` is truthy. Muted mono label "WHERE I WATCHED IT" + primary font value.
+- **Active days banner:** `activeDays` computation and JSX banner in WatchTower commented out (pending scope decision).
+- **WatcherScreen overhaul:** Profile header — avatar (52px) + name + pencil edit icon in a horizontal `profileIdentity` row; row centered via `alignSelf: 'center'` inside a column `profileSection`. Auth badge ("Guest" / "Google") below the row, also centered. Name TextInput: `returnKeyType="done"` + `onSubmitEditing={handleSave}` — no keyboard dismiss needed. App Preferences section removed. Data & Connections: Export + Import from Other Source only (both "Soon" pill). "Manage Tags & Categories" → `router.push('/manage-tags')` with amber-tint icon (`rgba(239,159,39,0.12)`).
+- **ManageTagsScreen:** `app/manage-tags.jsx` + `src/screens/ManageTagsScreen.jsx`. Two tabs (Categories / Genre Tags). Category rename updates all `entry.type` fields via `saveEntries`. Delete blocked with error banner if titles use it ("rename instead" framing). Max 5 enforced on add. Genre delete uses `ConfirmModal` with count-aware copy; on confirm strips genre from all `entry.genre` arrays.
+- **Categories system in storage.js:** `getCategories()`, `saveCategories()`, `DEFAULT_CATEGORIES = ['Anime', 'TV Show', 'Movie']` exported. Key: `watchedit_categories`. LogItDetails loads categories in `init()` alongside other entry data; content type selector uses `typeChips` / `typeChip` style (flexWrap: 'wrap') instead of `flex: 1` segmented buttons to handle 3–5 items. `cats.includes(ct) ? ct : firstCat` fallback for API-suggested type on new entries.
+
 ### What's NOT built yet (do these next in order)
 1. **Play Store prep** — app signing, store listing, screenshots
 
@@ -115,6 +129,7 @@ See spec v2.0 changelog for full detail. Key decisions:
 │   │   └── details.jsx            ← Log It Step 2
 │   ├── detail/
 │   │   └── [id].jsx               ← Detail view (dynamic route)
+│   ├── manage-tags.jsx            ← Manage Tags & Categories screen
 │   └── stats.jsx                  ← Statistics screen
 ├── src/
 │   ├── CLAUDE.md                  ← this file
@@ -129,7 +144,9 @@ See spec v2.0 changelog for full detail. Key decisions:
 │   │   ├── LogItDetails.jsx       ← Log It Step 2 (stack route) — first-log detection
 │   │   ├── SearchScreen.jsx       ← Search tab
 │   │   ├── StatsScreen.jsx        ← Statistics screen
-│   │   └── WatcherScreen.jsx      ← Watcher / profile screen
+│   │   ├── WatcherScreen.jsx      ← Watcher / profile screen
+│   │   ├── ManageTagsScreen.jsx   ← Manage Tags & Categories (Categories + Genre Tags tabs)
+│   │   └── RecommendationsScreen.jsx ← Recommendations list
 │   ├── components/                ← Shared UI components
 │   │   ├── Poster.jsx             ← Poster thumbnail with initials fallback
 │   │   ├── TypePill.jsx           ← Movie / TV Show / Anime pill
@@ -541,3 +558,8 @@ npm run build:aab
 - **Recommendations screen** — `app/recommendations.jsx` re-exports `RecommendationsScreen`. WatcherScreen has a CTA row (always visible) that routes to `/recommendations`. The screen shows all `e.recommend === true` entries as WatchList-style cards with `<Poster>`. Deselecting taps `updateEntry({ ...entry, recommend: false })` and immediately removes the card from local state (optimistic update). Do not embed recommendations inline in WatcherScreen.
 - **LogIt Watch Date for Watched entries** — the date card shows two `WatchDatePicker` components when `watchStatus === 'watched'`: "Started (optional)" with `optional={true}` prop (renders "not set" in muted italic when `watchStartDate` is empty, only saves if user interacts) and "Finished" (always shows, defaults to today). The `WatchDatePicker` component accepts an `optional` prop that changes the display text to "not set" when `value` is empty and applies `dpStyles.triggerDateUnset` style. For new Watched entries, submit saves `watch_start_date: watchStartDate || null`.
 - **Rating is mandatory for Watched status** — submitting without a rating shows the BlockingPopup ("C'mon, you know what you felt"). There is no "continue without rating" escape hatch. This is intentional — intentional, rated logs are the core value of the app. Do not add a secondary bypass path.
+- **`watch_platform` field** — optional string on entries. Known platform → saves chip label directly. "Others" + custom text → saves custom text. "Others" + empty → `null`. Load logic in edit mode: if stored value is truthy and not in `KNOWN_PLATFORMS`, set chip to 'Others' and populate `customPlatform`. Displayed in DetailView as "WHERE I WATCHED IT" one-line card (muted mono label + primary value); only rendered when `entry.watch_platform` is truthy.
+- **Categories system** — `getCategories()`, `saveCategories()`, and `DEFAULT_CATEGORIES = ['Anime', 'TV Show', 'Movie']` are exported from `src/db/storage.js`. AsyncStorage key: `watchedit_categories`. Max 5 categories. LogItDetails loads categories in `init()` and stores in `categories` state; the content type selector uses `typeChips` / `typeChip` styles (flexWrap: 'wrap') instead of equal-width `segBtn` to handle 3–5 categories without cramping. For new entries from search results, API-suggested type is validated against loaded categories (`cats.includes(ct) ? ct : firstCat`). For edit mode, `entry.type` is used as-is — preserves any saved category name including custom ones.
+- **ManageTagsScreen** — `app/manage-tags.jsx` re-exports `ManageTagsScreen`. Uses `getCategories` / `saveCategories` / `DEFAULT_CATEGORIES` from storage (not local copies). Category rename calls `saveEntries(updatedEntries)` to update all matching `entry.type` fields atomically. Delete is blocked with an error banner (not a modal) if any entries use that category — error copy frames it as "rename instead." Genre delete uses `ConfirmModal` with count-aware body copy; on confirm strips the genre from all `entry.genre` arrays via `saveEntries`. Both tabs share the same `entries` state loaded in a single `useFocusEffect`.
+- **WatcherScreen profile layout** — `profileSection` is a column with `alignItems: 'center'`. Within it, `profileIdentity` is a horizontal row (`flexDirection: 'row'`, `alignSelf: 'center'`) containing the avatar, name text, and pencil icon — it hugs its content and is centered as a unit. Auth badge sits below with `alignSelf: 'center'`. In edit mode, `editRow` has `width: '100%'` so the TextInput and buttons expand to fill the card width. Name TextInput has `returnKeyType="done"` and `onSubmitEditing={handleSave}` — both keyboard submit and the Save CTA call `handleSave` directly without needing to dismiss the keyboard first.
+- **FilterSheet categories note** — FilterSheet still uses the hardcoded `CATEGORIES` array for its left nav (Sort, Category, Rating, Watch Date, Platform, Language, Genre). This is a UI navigation list, not the user-configurable content categories. Do not conflate the two. The user-configurable categories (from `getCategories()`) are used only in LogItDetails and ManageTagsScreen.

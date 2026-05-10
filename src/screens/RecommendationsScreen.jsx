@@ -53,7 +53,7 @@ export default function RecommendationsScreen() {
 
         {entries.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="thumbs-up-outline" size={36} color={T.textMuted} style={{ opacity: 0.4 }} />
+            <Ionicons name="sparkles-outline" size={36} color={T.textMuted} style={{ opacity: 0.4 }} />
             <Text style={styles.emptyTitle}>No recommendations yet.</Text>
             <Text style={styles.emptySub}>
               When you log a title and mark it as Recommended, it shows up here — ready to share when someone asks.
@@ -61,7 +61,10 @@ export default function RecommendationsScreen() {
           </View>
         ) : (
           <>
-            <Text style={styles.listHint}>Tap 👍 to remove from this list</Text>
+            <View style={styles.listHintRow}>
+              <Ionicons name="remove-circle-outline" size={14} color={T.textMuted} style={{ opacity: 0.75 }} />
+              <Text style={styles.listHint}>Tap to remove from this list</Text>
+            </View>
             <FlatList
               data={entries}
               keyExtractor={e => String(e.id)}
@@ -77,7 +80,6 @@ export default function RecommendationsScreen() {
                         <Text style={styles.cardTitle} numberOfLines={1}>{e.title}</Text>
                         <View style={styles.pillRow}>
                           <TypePill type={e.type} />
-                          {e.lang ? <Text style={styles.cardLang}>{e.lang}</Text> : null}
                         </View>
                         {e.reaction ? (
                           <Text style={styles.cardReaction} numberOfLines={1}>"{e.reaction}"</Text>
@@ -90,7 +92,7 @@ export default function RecommendationsScreen() {
                           hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                           style={styles.removeBtn}
                         >
-                          <Ionicons name="thumbs-up" size={16} color={T.amber} />
+                          <Ionicons name="remove-circle-outline" size={18} color={T.amber} />
                         </Pressable>
                       </View>
                     </View>
@@ -117,12 +119,17 @@ const styles = StyleSheet.create({
   },
   headerBadge: {
     backgroundColor: T.elevated, borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 4,
+    minWidth: 32, alignItems: 'center',
+    paddingHorizontal: 11, paddingVertical: 5,
   },
-  headerBadgeText: { color: T.amber, fontFamily: T.fontMono, fontWeight: '700', fontSize: 13 },
+  headerBadgeText: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 16, lineHeight: 18 },
+  listHintRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingHorizontal: 20, paddingBottom: 10,
+  },
   listHint: {
-    color: T.textMuted, fontFamily: T.fontBody, fontSize: 12,
-    paddingHorizontal: 20, paddingBottom: 8, opacity: 0.7,
+    color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 13,
+    textAlign: 'center', opacity: 0.8,
   },
   empty: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
@@ -140,13 +147,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 14, alignItems: 'flex-start',
     padding: 12, paddingLeft: 18,
   },
-  cardMeta: { flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: 8 },
+  cardMeta: { flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: 8, minHeight: 58 },
   cardText: { flex: 1, minWidth: 0, gap: 4 },
   cardTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 15, lineHeight: 20 },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardLang: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
   cardReaction: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, fontStyle: 'italic' },
-  cardRight: { alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
+  cardRight: { alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, alignSelf: 'stretch' },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 15 },
-  removeBtn: { padding: 4 },
+  removeBtn: { padding: 4, marginTop: 'auto' },
 });

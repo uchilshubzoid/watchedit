@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v2.2
-*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched.*
+# WatchedIt — Full Product Spec v2.3
+*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system.*
 
 ---
 
@@ -340,11 +340,17 @@ All · Watching · Watched · Watch Plan · Bookmarks
 
 ### Filters (consolidated bottom sheet)
 Single "Filter & Sort" button opens bottom sheet containing:
-- Sort: Most Recent (default) · Oldest · Highest Rated · A–Z
-- Category: Anime · Movie · TV Show · Rewatched · Dropped
-- Language: quick chips for common languages
-- Completeness: Unrated (filters for Watched entries with no rating)
-- Paused toggle — appears in Watching tab only
+- **Sort:** Most Recent (default) · Oldest · Highest Rated · A–Z
+- **Category:** Anime · Movie · TV Show · Rewatched · Dropped
+- **Rating:** Two-sided slider, 0–10, integer steps. Built from scratch with `PanResponder` + `stateRef` pattern (no external library). Amber fill between thumbs. Reset link clears range. Active pill shows `★ 3–8`.
+- **Watch Date:** Filter by watch end date (Watched and Currently Watching entries only; Watch Plan / Bookmark entries pass through unfiltered). Start/end date pickers use inline `MiniCalendar` toggled by tapping From/To fields. Preset chips: Last 7 days · Last 30 days · Clear. Active pill shows `May 1 – May 30`. Min prop on MiniCalendar blocks selecting end date earlier than start date.
+- **Platform:** Where the title was watched. Chips: Netflix · Crunchyroll · Amazon Prime · Hotstar · Apple TV · Theater · Others. "Others" maps to any custom-named platform (i.e. `watch_platform` is truthy and not in the known list). Single-select.
+- **Language:** quick chips for common languages
+- **Genre:** tag filter
+- **Paused toggle** — appears in Watching tab only
+
+### WatchTower → WatchList navigation
+Tapping a content type segment (Anime / Movie / TV Show) or its label on Watch Tower navigates to WatchList pre-filtered for that type and the last 30 days. Implemented via `router.push` with `params: { type, datePreset: 'last30' }`. WatchList's `useFocusEffect` reads `datePreset` on every focus — `'last30'` computes and applies the ISO date range; any other value clears it.
 
 ### Search
 Real-time search within WatchList. Matches: title · genre · language
@@ -449,7 +455,7 @@ Read-only by default. Displays:
 - If API data incomplete → subtle amber note: *"Some details missing — tap Edit to complete"*
 
 **Editable fields (expanded):**
-1. Content type — Movie / TV Show / Anime pill selector
+1. Content type — pill selector showing all categories (default: Anime / TV Show / Movie; custom categories included). Uses a wrapping chip layout (`flexWrap: 'wrap'`) to handle 3–5 categories without overflow.
 2. Language — 10 quick-select chips + "Other" free text fallback. **Optional** — submission is not blocked if language is left empty.
 3. Genre tags — inline "+ Add Tag" chip at end of tag row
 4. Episodes — number input + Ongoing toggle (TV/Anime only)
@@ -500,6 +506,16 @@ YOUR RATING                        Required
 - For Watching status: label → "Rating So Far (Optional)". Rating block is shown but not required.
 - Reaction textarea — 500 chars, emoji supported
 - *"This is yours forever. Future you will thank present you."* — shown below reaction when empty
+
+#### Section E.5 — Where Did You Watch It? (between Watch Date and Rating)
+**Optional.** Platform chips: Netflix · Crunchyroll · Amazon Prime · Hotstar · Apple TV · Theater · Others. Selecting "Others" reveals a free-text input for a custom name. Tapping an active chip deselects it (clears the field). Saved as `watch_platform` on the entry. Editable via the Edit flow in LogItDetails.
+
+- Known platform selected → saves chip label as `watch_platform`
+- "Others" selected + custom text entered → saves custom text as `watch_platform`
+- "Others" selected + custom text empty → saves `null`
+- Nothing selected → saves `null`
+
+Only shown when status is not Watch Plan (`!isPlan`).
 
 #### Section F — Flags
 - Recommend toggle
@@ -610,6 +626,13 @@ Unwatch → confirmation bottom sheet
 ### When I Watched It
 Date range if both dates captured: `Mar 15, 2026 – Apr 10, 2026`
 Single date if only end date: `Apr 10, 2026`
+
+### Where I Watched It
+Shown as a one-line card between the episode tracker and Watch Log sections (only when `entry.watch_platform` is set). Format:
+```
+WHERE I WATCHED IT          Netflix
+```
+Label in muted mono uppercase · value in primary font.
 
 ### What I Thought
 Your rating (amber 48px) · Global ratings per source · Reaction text · Watched / Recommended / Bookmarked badges
@@ -728,12 +751,18 @@ Category breakdown expandable by category → titles → tap goes to detail view
 
 ## 14. Screen: Watcher (Profile)
 
-- Avatar: initials in amber circle
-- Name — inline edit (TextInput with amber border), saved to `AsyncStorage` key `watchedit_watcher_name` on confirm. Name is loaded from AsyncStorage on `useFocusEffect` to stay in sync across sessions.
-- Quick stats strip: Watched · Hours · Avg Rating
+### Profile header
+Avatar (52px amber circle with initials) and name displayed **side by side, centered as a unit** on screen. A small pencil icon button (26px circle) sits inline with the name — tapping it opens the name edit inline. Auth badge ("Guest" or "Google") is shown below the avatar+name row, also centered.
+
+Name edit: TextInput replaces the name row. `returnKeyType="done"` + `onSubmitEditing` allows saving via keyboard submit. Save CTA also works directly without dismissing keyboard first. Saved to `watchedit_watcher_name` AsyncStorage key. Name loaded from AsyncStorage on `useFocusEffect`.
+
+Auth badge sourced from `watchedit_auth_mode` AsyncStorage key (`'guest'` → "Guest" pill, `'google'` → "Google" pill with faint green tint).
+
+### Quick stats strip
+Watched · Hours · Avg Rating
 
 ### My Recommendations
-A CTA row in the Watcher screen (always visible) that navigates to the dedicated Recommendations screen (`app/recommendations.jsx`). Shows count of recommended titles in the sub-label.
+A CTA row (always visible) navigating to the dedicated Recommendations screen (`app/recommendations.jsx`). Shows count of recommended titles in the sub-label.
 
 **Recommendations screen** (`src/screens/RecommendationsScreen.jsx`):
 - Full-screen stack route with BackButton + `useFadeBack` transition
@@ -743,36 +772,65 @@ A CTA row in the Watcher screen (always visible) that navigates to the dedicated
 - Card layout matches WatchList style: color-coded status bar left edge, `<Poster>` (size 42), title (amberDeep), TypePill + language, reaction snippet in italic
 - Right column: rating number + amber filled thumbs-up icon
 - Tapping anywhere on the card (except the thumbs-up) → `router.push('/detail/${e.id}')`
-- Tapping the thumbs-up icon → calls `updateEntry({ ...entry, recommend: false })` and removes the card from the list immediately (optimistic local update)
+- Tapping the thumbs-up icon → calls `updateEntry({ ...entry, recommend: false })` and removes the card immediately (optimistic local update)
 - Empty state: thumbs-up-outline icon + "No recommendations yet." + explanatory sub copy
 - `useFocusEffect` reloads entries on focus to stay in sync with DetailView edits
 
 ### Manage
-- Manage Tags & Categories — view all genre tags, add/remove. Primary entry point for tag management (secondary entry point is inline in Log It).
-- App Preferences
+- **Manage Tags & Categories** — navigates to `/manage-tags` (see Section 14B). Icon has amber-tint background matching Recommendations CTA style.
+- ~~App Preferences~~ — removed (no alternate styles currently)
+- **Preferred Title Language** — inline in the Manage card: English / Romanised / Japanese pill selector. Stored via `getTitleLanguagePref()` / `setTitleLanguagePref()`. Default: English.
 
-### Title Language Preference
-```
-TITLE LANGUAGE
-[ English ]  [ Romanised ]  [ Japanese ]
-```
-- Stored in AsyncStorage via `getTitleLanguagePref()` / `setTitleLanguagePref()`
-- Storage key: `watchedit_title_language_pref`
-- Default: English
-- Applies to all MAL-sourced title display throughout the app
-- `getPreferredTitle(malResult, pref)` utility:
-  - English → `alternative_titles.en` || `title`
-  - Japanese → `alternative_titles.ja` || `title`
-  - Romanised → `title`
+### Data & Connections
+Two rows, both disabled with "Soon" pill:
+- **Export My Data** — download full WatchLog as JSON (coming soon)
+- **Import from Other Source** — bring in watch history from elsewhere (coming soon)
 
-### Data & Connections (Stage 3 — locked)
-- Connect MyAnimeList — import anime history + sync
-- Import Netflix History — upload CSV
-- Review to Log Queue — review auto-detected watches
-- Export My Data — download full WatchLog as JSON or CSV
+Removed: Connect MyAnimeList, Import Netflix History, Stage 3 label, Clear All Data button.
 
 ### Log Out
-Confirmation bottom sheet: *"Log out?"* · Stay / Log Out
+Confirmation modal: *"Log out?"* — Your WatchLog stays safe.
+
+---
+
+## 14B. Screen: Manage Tags & Categories
+
+Route: `app/manage-tags.jsx` → `src/screens/ManageTagsScreen.jsx`. Stack route (slide_from_right). BackButton in header.
+
+Two tabs: **Categories** | **Genre Tags**
+
+### Categories tab
+Displays all categories (default: Anime / TV Show / Movie; plus any custom ones). Each row shows:
+- Category name
+- Title count pill (count of entries where `entry.type === category`)
+- Pencil icon → inline rename (TextInput replaces name row; confirm / cancel buttons)
+- Trash icon → delete
+
+**Rules:**
+- **Delete blocked if any titles use the category.** Error banner shown: *"Can't delete 'X' — N title(s) are using it. Rename it instead, or reassign those titles first."* The error is informational — no separate confirmation step.
+- **Max 5 categories.** "Add Category" button hidden when at 5; replaced with "Maximum of 5 categories reached" muted text.
+- Renaming updates `entry.type` across all affected entries via `saveEntries()`.
+- Adding/deleting persists the category list to AsyncStorage.
+
+### Genre Tags tab
+Displays all unique genre tags across all entries, sorted descending by title count. Each row shows:
+- Genre name
+- Title count pill
+- Trash icon → delete
+
+**Delete flow:**
+- If the genre is used by any titles: `ConfirmModal` warns *"This tag is on N title(s). Removing it will strip the tag from all of them."*
+- If unused: `ConfirmModal` shows a simple confirmation.
+- On confirm: strips the genre from all `entry.genre` arrays via `saveEntries()`.
+
+### Empty state (Genre Tags)
+When no genres exist: pricetags-outline icon + "No genre tags yet" + "Add genre tags when logging a title".
+
+### Categories storage
+- AsyncStorage key: `watchedit_categories` (JSON array of strings)
+- Default: `['Anime', 'TV Show', 'Movie']`
+- Read/write via `getCategories()` / `saveCategories()` in `src/db/storage.js`
+- `DEFAULT_CATEGORIES` exported from storage as a named constant
 
 ---
 
@@ -862,6 +920,7 @@ The current Expo build stores entries in AsyncStorage under `watchedit_entries`.
   episode_notes,       // { [epNumber]: string } | undefined
   watch_start_date,    // ISO string | null
   watch_end_date,      // ISO string | null
+  watch_platform,      // string | null — platform name (e.g. "Netflix", "Crunchyroll", custom text)
   logged_at,           // ISO string
   malId,               // number | null, when available
   tmdbId,              // number | null, when available
@@ -1021,6 +1080,8 @@ await getEntry(id);
 await clearEntries();
 await getTitleLanguagePref();
 await setTitleLanguagePref(pref);
+await getCategories();          // returns string[] — default ['Anime', 'TV Show', 'Movie']
+await saveCategories(cats);     // persists category list
 ```
 
 **AsyncStorage keys:**
@@ -1029,6 +1090,7 @@ await setTitleLanguagePref(pref);
 - `watchedit_watcher_name` — user's display name (set in onboarding Screen 1)
 - `watchedit_auth_mode` — `"guest"` | future: `"google"` (set in onboarding Screen 2)
 - `watchedit_onboarding_done` — `"true"` when onboarding complete (set in onboarding Screen 3)
+- `watchedit_categories` — JSON array of category name strings; default `['Anime', 'TV Show', 'Movie']`; max 5
 
 All storage calls are async. Always `await` them.
 
@@ -1105,7 +1167,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 
 | Version | Changes |
 |---|---|
-| 2.2 | **UX pass + Recommendations screen.** **Active days:** WatchTower streak banner replaced with "active days" count (unique calendar days with logged content in last 30d / all time window); StatsScreen "Day Streak" stat card replaced with "Active Days" computed per selected time filter. **Sub-copy readability:** TypePill 10→11px (paddingVertical 2→3); WatchTower hintStripSub 10→12px, watchTimeLabel/recentDate/watchDate 11→12px; welcomeGhost opacity removed; WatchList tabText 13→14px, cardSub 11→12px, bookmarkBtn hitSlop enlarged to {top:14,bottom:14,left:14,right:14} + padding:8; StatsScreen SVG axis labels 9→11px, chartScrollHint/chartZoomCta 9→11px, catMiniSub 10→11px; DetailView noteBtn padding 2→8 + hitSlop=8, noteBtnText 11→12px, epNotes 11→12px, epUpNext 10→11px, editThoughtsText 11→13px; LogItSearch metaSub 11→12px, infoBtn hitSlop 8→10; LogItDetails metaLine1 lifted to T.textPrimary + 12→13px, metaLine2/Muted 12→13px, genreChipText 11→13px (paddingVertical 6→9), langChipText 12→13px (paddingVertical 8→10), reactionNudge 11→12px. **Stats card tap fix:** headline Pressable on WatchTower now routes to `/stats` (was `/(tabs)/watchlist`) to eliminate dual-destination confusion. **WatcherScreen fixes:** name edit now persists to `watchedit_watcher_name` AsyncStorage key via `handleSave`; name loaded from AsyncStorage in `useFocusEffect`. Dev "Reset onboarding" button removed. **Recommendations screen:** new full-screen stack route `app/recommendations.jsx` → `RecommendationsScreen`; WatcherScreen "My Recommendations" section replaced with a CTA row; screen shows all `recommend: true` entries with poster/title/type/rating/reaction; tapping the card → DetailView; tapping 👍 icon removes the recommendation via `updateEntry` with optimistic local update. **LogIt start date for Watched:** Section D now shows two `WatchDatePicker` rows for Watched status — "Started (optional)" (shows "not set" when empty, saves only if user picks a date) + "Finished" (required, defaults to today); `watch_start_date` saved for Watched new entries when set. **Spec corrections:** rating is mandatory for Watched status (no escape hatch — confirmed intentional); unrated callout in Stats appears above Category Breakdown (not below avg rating card); previous period comparison removed from spec (not built, not in scope); active days replaces streak in Stats Summary. | 2.1 | **WatchTower stats card polish.** Time period chip replaced with inline text row: "titles watched" (15px Nunito-Medium, T.textPrimary) + " · last 30 days / all time" (11px Inconsolata, T.textMuted) on one centered line; `period`, `dot`, `periodText` styles removed. Bar label second line consolidated from two separate Text elements into one: "9 titles · 63 eps" for Anime/TV, "4 titles" for Movie; singular/plural applied (`1 title` vs `N titles`). **Currently Watching card resize.** Width 300→284px, height 180→138px, poster size 100→79 (height ≈ 110px, 2:3 ratio), vertical card padding 16→14px, episode line font 14→13px, ep+date wrapped in a View so `justifyContent: space-between` treats them as a bottom pair, `marginTop: 2` on last-watched line, watchTitle confirmed T.textPrimary (not amber). **StatsScreen InsightsWidget.** Replaced static hardest-genre callout with a cycling single card under "YOUR INSIGHTS" heading. 9 computed variants: hardest-rated genre, highest-rated genre, most-watched genre, hidden gem (personal >> community rating), niche taste, peak binge month, completion rate, peak season, type loyalty — each skipped if fewer than 3 entries qualify. Card layout: 48×48 amber-tint icon block (32px Ionicon) + headline (14px Nunito-Bold) + body (13px Nunito-Regular, max 2 lines). Footer divider + "X / N" page indicator left, "another one →" / "back to first ↻" right. NEW badge (amber pill top-right) shown for insights whose source entries were logged after last-viewed timestamp; AsyncStorage key `watchedit_insights_last_viewed` (`{ timestamp }`); timestamp updated on widget mount so subsequent visits don't re-flag. Insights sorted: NEW first (by freshAt desc) then seen (by freshAt desc). Widget rendered in both Summary and Timeline tabs after Genre Distribution. `hardestCard` and its dead styles removed. **Episode tracker bug fix.** Outer render condition changed from `(epTotal > 0 \|\| entry.ongoing)` to `(epTotal > 0 \|\| entry.ongoing \|\| epCurrent > 0)` — tracker now shows for any TV/Anime entry where episodes have been logged regardless of whether total is set. Progress text shows "X eps watched" when total is unknown (`epTotal === 0`) to avoid "X of 0 episodes". Percent and progress bar guarded with `epTotal > 0` to prevent NaN. **ratingSource fix.** `LogItDetails` now saves `ratingSource: show?.source \|\| null` alongside `malRating` on every new entry. DetailView reads `entry.ratingSource` (falling back to `'MAL'` for old entries) to display the correct source label — MAL → "MyAnimeList", TMDB → "TMDB", OMDB → "IMDB". Source dot colors updated: MAL blue (#6B9BDF), TMDB teal (#01B4E4), OMDB/IMDB yellow (#F5C518). |
+| 2.3 | **WatchList filter enhancements + platform field + Manage Tags & Categories + Watcher overhaul.** **Rating filter:** two-sided slider (0–10, integer steps) built with PanResponder + stateRef pattern; amber fill between thumbs; Reset link; active pill shows `★ 3–8`. **Watch Date filter:** start/end date pickers using inline MiniCalendar (min prop added to block end before start); Last 7/30 days presets; applies only to Watched + Watching entries. **Platform filter:** single-select chips (Netflix / Crunchyroll / Amazon Prime / Hotstar / Apple TV / Theater / Others); "Others" matches any custom-named platform. **WatchTower → WatchList deep link:** tapping a content type segment on Watch Tower navigates to WatchList with `datePreset: 'last30'` and the matching type pre-selected; `useFocusEffect` in WatchList syncs all params on every focus. **FilterSheet height fix:** `navItem.paddingVertical` 8→5, `marginBottom` 4→2, `navSectionLabel.marginBottom` 10→6; body `minHeight` 300→320; `paddingBottom` 52→44; `maxHeight: '96%'` — ensures 7 filter categories + Paused all fit without scroll. **MiniCalendar `min` prop:** added `minDate`, `isPast()` guard, `prevMonth()` navigation block, and disabled prev-chevron at min month. **Platform field in Log It:** new "Where Did You Watch It?" section between Watch Date and Rating (Section E.5); optional; chips for 7 platforms; "Others" reveals free-text input; saved as `watch_platform`; shown and editable in the details edit flow. **"WHERE I WATCHED IT" in DetailView:** one-line card row between episode tracker and Watch Log; muted mono label + primary value; only shown when `watch_platform` is set. **Active days banner:** WatchTower `activeDays` computation and JSX banner commented out pending scope decision. **Watcher screen overhaul:** profile header now shows avatar + name side by side centered on screen, with pencil edit icon inline; auth badge ("Guest" / "Google") below; keyboard submit (`returnKeyType="done"` + `onSubmitEditing`) on name input so Save works without dismissing keyboard. App Preferences section removed. Data & Connections trimmed to Export (disabled/soon) + Import from Other Source (disabled/soon); MAL connect, Netflix import, Clear All Data all removed. "Manage Tags & Categories" row wired to `/manage-tags` with amber-tint icon. **Manage Tags & Categories screen:** new `app/manage-tags.jsx` + `src/screens/ManageTagsScreen.jsx`; two tabs (Categories / Genre Tags); category rename (inline edit), add (max 5), delete (blocked with error banner if titles use it — suggests rename instead); genre delete with ConfirmModal warning (strips tag from all entries). **Custom categories system:** `getCategories()` / `saveCategories()` / `DEFAULT_CATEGORIES` added to `src/db/storage.js`; key `watchedit_categories`; LogItDetails loads categories in `init()` and uses them for the content type selector (wrapping chip layout handles 3–5 categories); API-suggested type validated against loaded categories on new entries. | 2.2 | **UX pass + Recommendations screen.** **Active days:** WatchTower streak banner replaced with "active days" count (unique calendar days with logged content in last 30d / all time window); StatsScreen "Day Streak" stat card replaced with "Active Days" computed per selected time filter. **Sub-copy readability:** TypePill 10→11px (paddingVertical 2→3); WatchTower hintStripSub 10→12px, watchTimeLabel/recentDate/watchDate 11→12px; welcomeGhost opacity removed; WatchList tabText 13→14px, cardSub 11→12px, bookmarkBtn hitSlop enlarged to {top:14,bottom:14,left:14,right:14} + padding:8; StatsScreen SVG axis labels 9→11px, chartScrollHint/chartZoomCta 9→11px, catMiniSub 10→11px; DetailView noteBtn padding 2→8 + hitSlop=8, noteBtnText 11→12px, epNotes 11→12px, epUpNext 10→11px, editThoughtsText 11→13px; LogItSearch metaSub 11→12px, infoBtn hitSlop 8→10; LogItDetails metaLine1 lifted to T.textPrimary + 12→13px, metaLine2/Muted 12→13px, genreChipText 11→13px (paddingVertical 6→9), langChipText 12→13px (paddingVertical 8→10), reactionNudge 11→12px. **Stats card tap fix:** headline Pressable on WatchTower now routes to `/stats` (was `/(tabs)/watchlist`) to eliminate dual-destination confusion. **WatcherScreen fixes:** name edit now persists to `watchedit_watcher_name` AsyncStorage key via `handleSave`; name loaded from AsyncStorage in `useFocusEffect`. Dev "Reset onboarding" button removed. **Recommendations screen:** new full-screen stack route `app/recommendations.jsx` → `RecommendationsScreen`; WatcherScreen "My Recommendations" section replaced with a CTA row; screen shows all `recommend: true` entries with poster/title/type/rating/reaction; tapping the card → DetailView; tapping 👍 icon removes the recommendation via `updateEntry` with optimistic local update. **LogIt start date for Watched:** Section D now shows two `WatchDatePicker` rows for Watched status — "Started (optional)" (shows "not set" when empty, saves only if user picks a date) + "Finished" (required, defaults to today); `watch_start_date` saved for Watched new entries when set. **Spec corrections:** rating is mandatory for Watched status (no escape hatch — confirmed intentional); unrated callout in Stats appears above Category Breakdown (not below avg rating card); previous period comparison removed from spec (not built, not in scope); active days replaces streak in Stats Summary. | 2.1 | **WatchTower stats card polish.** Time period chip replaced with inline text row: "titles watched" (15px Nunito-Medium, T.textPrimary) + " · last 30 days / all time" (11px Inconsolata, T.textMuted) on one centered line; `period`, `dot`, `periodText` styles removed. Bar label second line consolidated from two separate Text elements into one: "9 titles · 63 eps" for Anime/TV, "4 titles" for Movie; singular/plural applied (`1 title` vs `N titles`). **Currently Watching card resize.** Width 300→284px, height 180→138px, poster size 100→79 (height ≈ 110px, 2:3 ratio), vertical card padding 16→14px, episode line font 14→13px, ep+date wrapped in a View so `justifyContent: space-between` treats them as a bottom pair, `marginTop: 2` on last-watched line, watchTitle confirmed T.textPrimary (not amber). **StatsScreen InsightsWidget.** Replaced static hardest-genre callout with a cycling single card under "YOUR INSIGHTS" heading. 9 computed variants: hardest-rated genre, highest-rated genre, most-watched genre, hidden gem (personal >> community rating), niche taste, peak binge month, completion rate, peak season, type loyalty — each skipped if fewer than 3 entries qualify. Card layout: 48×48 amber-tint icon block (32px Ionicon) + headline (14px Nunito-Bold) + body (13px Nunito-Regular, max 2 lines). Footer divider + "X / N" page indicator left, "another one →" / "back to first ↻" right. NEW badge (amber pill top-right) shown for insights whose source entries were logged after last-viewed timestamp; AsyncStorage key `watchedit_insights_last_viewed` (`{ timestamp }`); timestamp updated on widget mount so subsequent visits don't re-flag. Insights sorted: NEW first (by freshAt desc) then seen (by freshAt desc). Widget rendered in both Summary and Timeline tabs after Genre Distribution. `hardestCard` and its dead styles removed. **Episode tracker bug fix.** Outer render condition changed from `(epTotal > 0 \|\| entry.ongoing)` to `(epTotal > 0 \|\| entry.ongoing \|\| epCurrent > 0)` — tracker now shows for any TV/Anime entry where episodes have been logged regardless of whether total is set. Progress text shows "X eps watched" when total is unknown (`epTotal === 0`) to avoid "X of 0 episodes". Percent and progress bar guarded with `epTotal > 0` to prevent NaN. **ratingSource fix.** `LogItDetails` now saves `ratingSource: show?.source \|\| null` alongside `malRating` on every new entry. DetailView reads `entry.ratingSource` (falling back to `'MAL'` for old entries) to display the correct source label — MAL → "MyAnimeList", TMDB → "TMDB", OMDB → "IMDB". Source dot colors updated: MAL blue (#6B9BDF), TMDB teal (#01B4E4), OMDB/IMDB yellow (#F5C518). |
 | 2.0 | **DetailView UX polish + bug fixes.** **Font size pass:** heroTitle 18→20px (lineHeight 24→26); heroStatusText, heroLang, heroTime, genreChipText 11→12px; droppedBannerTitle 12→13px; droppedBannerSub 11→12px; timelineDate 11→12px; sectionLabel 11→13px. **Icon audit:** FilterSheet category nav icons converted from emoji to Ionicons (swap-vertical-outline, pricetag-outline, earth-outline, film-outline, pause-circle-outline); LogSeshSheet calendar emoji → Ionicons calendar-outline. **Watch Tower refresh fix:** `DeviceEventEmitter.emit('entryUpdated')` fired from DetailView `handleUpdate`; WatchTower listens in `useEffect` to force data reload when returning from detail (fixes `useFocusEffect` not re-firing after root-stack pop). **Episode tracker:** now renders for `isWatched` entries (not just watching/dropped); auto-fixes watched entries where `ep = 0` but `total > 0` (sets `ep = total`, computes estimated watchTime). Episode list expanded into a capped `ScrollView` (maxHeight ≈ 10 items); auto-scrolls to next episode on expand for currently-watching; stays at top for watched/plan. **Star rating visibility:** `logStarWrap` background changed from `T.elevated` to `T.bgPrimary` so empty stars are visible against the completion box. Reaction textarea background unified to match. **What I Thought card:** edit button is context-aware — shows `star-outline` / "Rate Now" when unrated, `create-outline` / "Edit" when rated; inline rate CTA removed for unrated watching entries; Watch Plan entries show motivational nudge copy instead of Edit button. **Status pill:** "Yet to Watch" → "Watch Plan". **Watch Deets watermark:** font changed to PlayfairDisplay-BlackItalic (decorative editorial accent, legible but subtle). **RatingSheet keyboard:** `KeyboardAvoidingView` removed; uses `Keyboard.addListener` + plain `useState(kbHeight)` + `marginBottom` on the sheet to avoid native-driver animation conflict with Modal slide. **Watch date range fix:** "currently watching" date display now uses `entry.date` (when the title was added) as the range start, not `firstSesh?.date_display` (first logged session date); fixes the bug where logging a first sesh on day N caused only day N to show instead of "day 1 → day N"; DEETS_WATCHING "Started Watching" timeline entry also corrected to use `entry.date`. |
 | 1.0 | Initial spec |
 | 1.1 | Added rewatch, dropped, paused, ongoing, watch time, stats screen, naming conventions |

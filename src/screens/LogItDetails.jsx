@@ -12,13 +12,15 @@ import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-g
 import Poster from '../components/Poster';
 import StarRating from '../components/StarRating';
 import BlockingPopup from '../components/BlockingPopup';
-import { addEntry, getEntry, updateEntry, getEntries } from '../db/storage';
+import { addEntry, getEntry, updateEntry, getEntries, getCategories } from '../db/storage';
 import { T } from '../constants/tokens';
 import { highResPosterUrl } from '../utils/posterUtils';
 import { setPendingToast } from '../utils/toastBridge';
 
 const SCREEN_W = Dimensions.get('window').width;
 const LANG_CHIPS = ['Japanese', 'English', 'Korean', 'Hindi', 'Tamil', 'Spanish', 'French', 'Mandarin', 'Arabic', 'Italian'];
+const PLATFORMS  = ['Netflix', 'Crunchyroll', 'Amazon Prime', 'Hotstar', 'Apple TV', 'Theater', 'Others'];
+const KNOWN_PLATFORMS = PLATFORMS.filter(p => p !== 'Others');
 const CAL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_HEADS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -357,6 +359,7 @@ export default function LogItDetails() {
   const [loading,       setLoading]       = useState(true);
   const [posterModal,   setPosterModal]   = useState(false);
 
+  const [categories,    setCategories]    = useState(['Movie', 'TV Show', 'Anime']);
   const [contentType,   setContentType]   = useState('Movie');
   const [currentTitle,  setCurrentTitle]  = useState('');
   const [language,      setLanguage]      = useState('');
@@ -382,17 +385,23 @@ export default function LogItDetails() {
   const [showTitleDropdown, setShowTitleDropdown] = useState(false);
 
   const todayISO = localISODate();
-  const [watchStartDate, setWatchStartDate] = useState('');
-  const [watchEndDate,   setWatchEndDate]   = useState(todayISO);
+  const [watchStartDate,  setWatchStartDate]  = useState('');
+  const [watchEndDate,    setWatchEndDate]    = useState(todayISO);
+  const [watchPlatform,   setWatchPlatform]   = useState('');
+  const [customPlatform,  setCustomPlatform]  = useState('');
 
   useEffect(() => {
     async function init() {
+      const cats = await getCategories();
+      setCategories(cats);
+      const firstCat = cats[0] || 'Movie';
+
       if (isEdit && entryId) {
         const entry = await getEntry(entryId);
         if (!entry) { router.back(); return; }
         setShow(entry);
         setCurrentTitle(entry.title || '');
-        setContentType(entry.type || 'Movie');
+        setContentType(entry.type || firstCat);
         setLanguage(entry.lang || '');
         setLangText(entry.lang || '');
         setGenre(entry.genre || []);
@@ -408,14 +417,21 @@ export default function LogItDetails() {
         setBookmark(entry.bookmark || false);
         setWatchStartDate(entry.watch_start_date || '');
         setWatchEndDate(entry.watch_end_date || todayISO);
+        const storedPlatform = entry.watch_platform || '';
+        if (storedPlatform && !KNOWN_PLATFORMS.includes(storedPlatform)) {
+          setWatchPlatform('Others');
+          setCustomPlatform(storedPlatform);
+        } else {
+          setWatchPlatform(storedPlatform);
+        }
       } else if (resultJson) {
         const r = JSON.parse(resultJson);
         setShow(r);
         setIsRewatch(r.isRewatch || false);
         setIsManual(r.isManual || false);
         setCurrentTitle(r.displayTitle || r.title || '');
-        const ct = r.content_type || r.type || 'Movie';
-        setContentType(ct);
+        const ct = r.content_type || r.type || firstCat;
+        setContentType(cats.includes(ct) ? ct : firstCat);
         setLanguage(r.language || r.lang || '');
         setLangText(r.language || r.lang || '');
         setGenre(r.genre_tags || r.genre || []);
@@ -424,6 +440,8 @@ export default function LogItDetails() {
         setMovieRuntime(r.runtime?.toString() || '');
         setOngoing(r.is_ongoing || r.ongoing || false);
         setBookmark(r.bookmark || false);
+      } else {
+        setContentType(firstCat);
       }
       setLoading(false);
     }
@@ -506,6 +524,7 @@ export default function LogItDetails() {
         finishedDate: watchStatus === 'watched' ? (existing.finishedDate || today) : existing.finishedDate,
         watch_start_date: watchStartDate || existing.watch_start_date,
         watch_end_date: watchStatus === 'watched' ? watchEndDate : existing.watch_end_date,
+        watch_platform: watchPlatform === 'Others' ? (customPlatform.trim() || null) : (watchPlatform || null),
       });
     } else {
       const existing = await getEntries();
@@ -536,6 +555,7 @@ export default function LogItDetails() {
         watch_end_date: watchStatus === 'watched' ? watchEndDate : null,
         logged_at: new Date().toISOString(),
         epRuntime: resolvedRuntime, runtime: movieRuntimeValue || null,
+        watch_platform: watchPlatform === 'Others' ? (customPlatform.trim() || null) : (watchPlatform || null),
       });
 
       const statusLabel = watchStatus === 'watched' ? 'Watched' : watchStatus === 'watching' ? 'Watching' : 'Watch Plan';
@@ -644,10 +664,10 @@ export default function LogItDetails() {
                 <View style={styles.divider} />
                 <View style={{ gap: 20, paddingTop: 4 }}>
                   <Field label="Content Type">
-                    <View style={styles.segmented}>
-                      {['Movie', 'TV Show', 'Anime'].map(t => (
+                    <View style={styles.typeChips}>
+                      {categories.map(t => (
                         <Pressable key={t} onPress={() => setContentType(t)}
-                          style={[styles.segBtn, contentType === t && styles.segBtnActive]}>
+                          style={[styles.typeChip, contentType === t && styles.typeChipActive]}>
                           <Text style={[styles.segBtnText, contentType === t && styles.segBtnTextActive]}>{t}</Text>
                         </Pressable>
                       ))}
@@ -827,6 +847,39 @@ export default function LogItDetails() {
             </View>
           )}
 
+          {/* ── Where Did You Watch It? ── */}
+          {!isPlan && (
+            <View style={styles.card}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionLabel}>Where Did You Watch It?</Text>
+                <Text style={styles.sectionHint}>Optional</Text>
+              </View>
+              <View style={styles.langChips}>
+                {PLATFORMS.map(p => (
+                  <Pressable
+                    key={p}
+                    onPress={() => {
+                      setWatchPlatform(prev => prev === p ? '' : p);
+                      if (p !== 'Others') setCustomPlatform('');
+                    }}
+                    style={[styles.langChip, watchPlatform === p && styles.langChipActive]}
+                  >
+                    <Text style={[styles.langChipText, watchPlatform === p && styles.langChipTextActive]}>{p}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {watchPlatform === 'Others' && (
+                <TextInput
+                  value={customPlatform}
+                  onChangeText={setCustomPlatform}
+                  placeholder="Where did you watch it?"
+                  placeholderTextColor={T.textMuted}
+                  style={[styles.textInput, { marginTop: 12 }]}
+                />
+              )}
+            </View>
+          )}
+
           {/* ── Rating + Reaction + Flags ── */}
           {!isPlan && (
             <View style={styles.card}>
@@ -941,6 +994,9 @@ const styles = StyleSheet.create({
   editBtn: { backgroundColor: T.elevated, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 10, flexShrink: 0 },
   editBtnText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 12 },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
+  typeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  typeChip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: T.elevated, alignItems: 'center' },
+  typeChipActive: { backgroundColor: T.amber },
   segmented: { flexDirection: 'row', gap: 8 },
   segBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: T.elevated, alignItems: 'center' },
   segBtnActive: { backgroundColor: T.amber },
@@ -960,6 +1016,8 @@ const styles = StyleSheet.create({
   ongoingLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
   estTime: { color: T.amberSoft, fontFamily: T.fontMono, fontSize: 11 },
   sectionLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase' },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionHint: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, opacity: 0.7 },
   statusRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   statusBtn: { flex: 1, minWidth: 90, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, backgroundColor: T.elevated, alignItems: 'center' },
   statusBtnActive: { backgroundColor: T.amber },

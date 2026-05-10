@@ -6,15 +6,18 @@ const DAYS = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const MONTHS = ['January','February','March','April','May','June',
   'July','August','September','October','November','December'];
 
-export default function MiniCalendar({ value, max, onChange }) {
+export default function MiniCalendar({ value, max, min, onChange }) {
   const selected = value ? new Date(value + 'T12:00:00') : new Date();
   const maxDate  = max   ? new Date(max   + 'T12:00:00') : new Date();
+  const minDate  = min   ? new Date(min   + 'T12:00:00') : null;
   const [viewYear,  setViewYear]  = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth());
 
   function prevMonth() {
-    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
-    else setViewMonth(m => m - 1);
+    const ny = viewMonth === 0 ? viewYear - 1 : viewYear;
+    const nm = viewMonth === 0 ? 11 : viewMonth - 1;
+    if (minDate && (ny < minDate.getFullYear() || (ny === minDate.getFullYear() && nm < minDate.getMonth()))) return;
+    setViewYear(ny); setViewMonth(nm);
   }
   function nextMonth() {
     const ny = viewMonth === 11 ? viewYear + 1 : viewYear;
@@ -24,6 +27,7 @@ export default function MiniCalendar({ value, max, onChange }) {
   }
 
   const atMaxMonth = viewYear === maxDate.getFullYear() && viewMonth === maxDate.getMonth();
+  const atMinMonth = minDate && viewYear === minDate.getFullYear() && viewMonth === minDate.getMonth();
   const firstDay   = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
@@ -36,6 +40,10 @@ export default function MiniCalendar({ value, max, onChange }) {
     const c  = new Date(viewYear, viewMonth, d);
     const mx = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
     if (c > mx) return;
+    if (minDate) {
+      const mn = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+      if (c < mn) return;
+    }
     const iso = `${viewYear}-${String(viewMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     onChange(iso);
   }
@@ -52,12 +60,18 @@ export default function MiniCalendar({ value, max, onChange }) {
     const mx = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
     return c > mx;
   }
+  function isPast(d) {
+    if (!minDate) return false;
+    const c  = new Date(viewYear, viewMonth, d);
+    const mn = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+    return c < mn;
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={prevMonth} style={styles.navBtn}>
-          <Text style={styles.navText}>‹</Text>
+        <Pressable onPress={prevMonth} style={styles.navBtn} disabled={atMinMonth}>
+          <Text style={[styles.navText, atMinMonth && styles.navDisabled]}>‹</Text>
         </Pressable>
         <Text style={styles.monthLabel}>{MONTHS[viewMonth]} {viewYear}</Text>
         <Pressable onPress={nextMonth} style={styles.navBtn} disabled={atMaxMonth}>
@@ -77,7 +91,7 @@ export default function MiniCalendar({ value, max, onChange }) {
             <Pressable
               key={d}
               onPress={() => selectDay(d)}
-              disabled={isFuture(d)}
+              disabled={isFuture(d) || isPast(d)}
               style={[
                 styles.cell,
                 isSelected(d) && styles.selectedCell,
@@ -88,7 +102,7 @@ export default function MiniCalendar({ value, max, onChange }) {
                 styles.dayNum,
                 isSelected(d) && styles.selectedNum,
                 isToday(d) && !isSelected(d) && styles.todayNum,
-                isFuture(d) && styles.futureNum,
+                (isFuture(d) || isPast(d)) && styles.futureNum,
               ]}>
                 {d}
               </Text>

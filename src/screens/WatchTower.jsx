@@ -44,29 +44,64 @@ export default function WatchTower() {
   const [carouselOpen,   setCarouselOpen]   = useState(false);
   const toastAnim    = useRef(new Animated.Value(0)).current;
   const toastAnimRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const focusedRef = useRef(false);
+
+  function clearToastTimer() {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+  }
+
+  function hideToast({ animated = true } = {}) {
+    clearToastTimer();
+    if (toastAnimRef.current) toastAnimRef.current.stop();
+    if (!animated) {
+      toastAnim.setValue(0);
+      setToastContent(null);
+      return;
+    }
+    const anim = Animated.timing(toastAnim, { toValue: 0, duration: 180, useNativeDriver: true });
+    toastAnimRef.current = anim;
+    anim.start(() => {
+      toastAnimRef.current = null;
+      setToastContent(null);
+    });
+  }
+
+  function showToast(pending) {
+    clearToastTimer();
+    if (toastAnimRef.current) toastAnimRef.current.stop();
+    setToastContent(pending);
+    toastAnim.setValue(0);
+
+    const anim = Animated.timing(toastAnim, { toValue: 1, duration: 220, useNativeDriver: true });
+    toastAnimRef.current = anim;
+    anim.start(({ finished }) => {
+      toastAnimRef.current = null;
+      if (!finished || !focusedRef.current) return;
+      toastTimerRef.current = setTimeout(() => {
+        if (focusedRef.current) hideToast();
+      }, 10000);
+    });
+  }
 
   function dismissToast() {
-    if (toastAnimRef.current) toastAnimRef.current.stop();
-    Animated.timing(toastAnim, { toValue: 0, duration: 180, useNativeDriver: true })
-      .start(() => setToastContent(null));
+    hideToast();
   }
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    focusedRef.current = true;
     getEntries().then(data => { if (active) setEntries(data); });
     const pending = consumePendingToast();
-    if (pending) {
-      setToastContent(pending);
-      toastAnim.setValue(0);
-      const seq = Animated.sequence([
-        Animated.timing(toastAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.delay(10000),
-        Animated.timing(toastAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-      ]);
-      toastAnimRef.current = seq;
-      seq.start(() => { toastAnimRef.current = null; setToastContent(null); });
-    }
-    return () => { active = false; };
+    if (pending) showToast(pending);
+    return () => {
+      active = false;
+      focusedRef.current = false;
+      hideToast({ animated: false });
+    };
   }, []));
 
   // Reload when any entry is updated from DetailView (tab focus may not re-fire when
@@ -116,14 +151,14 @@ export default function WatchTower() {
   const recent       = [...watched].sort((a, b) => getActivityDate(b) - getActivityDate(a)).slice(0, 3);
   const flaggedCount = watched.filter(e => !e.rating).length;
 
-  const activeDays = new Set(
-    countedEntries.map(e => {
-      const t = getActivityDate(e);
-      if (!t) return null;
-      const d = new Date(t);
-      return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
-    }).filter(Boolean)
-  ).size;
+  // const activeDays = new Set(
+  //   countedEntries.map(e => {
+  //     const t = getActivityDate(e);
+  //     if (!t) return null;
+  //     const d = new Date(t);
+  //     return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+  //   }).filter(Boolean)
+  // ).size;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -165,7 +200,7 @@ export default function WatchTower() {
                   {typeStats.map((t, i) => (
                     <Pressable
                       key={t.type}
-                      onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { type: t.type } })}
+                      onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { type: t.type, datePreset: 'last30' } })}
                       style={[
                         styles.segBarSegment,
                         { flex: t.count, backgroundColor: t.color },
@@ -179,7 +214,7 @@ export default function WatchTower() {
                   {typeStats.map((t, i) => (
                     <Pressable
                       key={t.type}
-                      onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { type: t.type } })}
+                      onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { type: t.type, datePreset: 'last30' } })}
                       style={[styles.segLabelCol, i < typeStats.length - 1 && { paddingRight: 14 }]}
                     >
                       <View style={styles.segLabelRow1}>
@@ -217,8 +252,8 @@ export default function WatchTower() {
           </View>
         )}
 
-        {/* Active days banner */}
-        {activeDays > 0 && (
+        {/* Active days banner — commented out for later scope */}
+        {/* activeDays > 0 && (
           <View style={styles.streak}>
             <Text style={{ fontSize: 24 }}>📅</Text>
             <View style={{ flex: 1 }}>
@@ -226,7 +261,7 @@ export default function WatchTower() {
               <Text style={styles.streakSub}>{isRecent ? 'last 30 days' : 'all time'} · days you logged content</Text>
             </View>
           </View>
-        )}
+        ) */}
 
         {/* Currently Watching */}
         {watching.length > 0 && (
@@ -503,15 +538,15 @@ const styles = StyleSheet.create({
   },
 
   toast: {
-    position: 'absolute', left: 16, right: 16,
+    position: 'absolute', left: 16, right: 16, zIndex: 50,
     backgroundColor: T.surface, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)',
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 10, elevation: 10,
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 20,
   },
   toastTitle:       { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
   toastBody:        { color: T.textMuted,  fontFamily: T.fontBody,  fontSize: 12, marginTop: 1 },
   toastSub:         { color: T.textMuted,  fontFamily: T.fontMono,  fontSize: 10, marginTop: 3, opacity: 0.7 },
-  toastDismiss:     { position: 'absolute', top: 10, right: 12, padding: 4 },
+  toastDismiss:     { position: 'absolute', top: 10, right: 12, padding: 4, zIndex: 2, elevation: 2 },
   toastDismissText: { color: T.textMuted, fontSize: 14 },
 });

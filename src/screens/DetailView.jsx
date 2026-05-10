@@ -218,7 +218,9 @@ export default function DetailView() {
   const endDate   = isWatched
     ? (entry.finishedDate || lastSesh?.date_display || entry.date)
     : (lastSesh?.date_display || entry.lastWatchedDate || entry.date);
-  const sameDay   = startDate && startDate === endDate;
+  const watchedStartDate = entry.watch_start_date ? isoToDisplay(entry.watch_start_date) : startDate;
+  const watchedEndDate   = entry.watch_end_date ? isoToDisplay(entry.watch_end_date) : (entry.finishedDate || endDate);
+  const watchedHasDateRange = !!(watchedStartDate && watchedEndDate);
 
   // For currently watching: start = when they added the title (entry.date), not the first sesh date
   const watchingStart   = entry.date;
@@ -440,9 +442,9 @@ export default function DetailView() {
           <View style={styles.card}>
             <SectionLabel>{watchSectionLabel}</SectionLabel>
             {isWatched && (
-              hasSessions && !sameDay && startDate
-                ? <Text style={styles.dateRange}>{startDate} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{endDate}</Text></Text>
-                : <Text style={styles.dateText}>{entry.finishedDate || endDate}</Text>
+              watchedHasDateRange
+                ? <Text style={styles.dateRange}>{watchedStartDate} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{watchedEndDate}</Text></Text>
+                : <Text style={styles.dateText}>{watchedEndDate}</Text>
             )}
             {(isWatching || isDropped) && (
               !watchingSameDay
@@ -843,6 +845,14 @@ export default function DetailView() {
             </View>
           )}
 
+          {/* Where I Watched It */}
+          {entry.watch_platform ? (
+            <View style={styles.card}>
+              <SectionLabel>Where I Watched It</SectionLabel>
+              <Text style={styles.whereValue}>{entry.watch_platform}</Text>
+            </View>
+          ) : null}
+
           {/* Watch Log */}
           <View style={styles.card}>
             <SectionLabel>Watch Log</SectionLabel>
@@ -980,6 +990,7 @@ const styles = StyleSheet.create({
   droppedBannerTitle: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 13 },
   droppedBannerSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
   sectionLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase' },
+  whereValue: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 20, lineHeight: 26 },
   dateText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 20, lineHeight: 26 },
   dateRange: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 20, lineHeight: 26 },
   dateArrow: { color: T.textMuted, fontFamily: T.fontBody },

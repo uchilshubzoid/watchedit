@@ -41,6 +41,22 @@ export async function clearEntries() {
   await AsyncStorage.removeItem(ENTRIES_KEY);
 }
 
+const CATEGORIES_KEY = 'watchedit_categories';
+export const DEFAULT_CATEGORIES = ['Anime', 'TV Show', 'Movie'];
+
+export async function getCategories() {
+  try {
+    const raw = await AsyncStorage.getItem(CATEGORIES_KEY);
+    return raw ? JSON.parse(raw) : DEFAULT_CATEGORIES;
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+export async function saveCategories(cats) {
+  await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(cats));
+}
+
 export async function getTitleLanguagePref() {
   try {
     return (await AsyncStorage.getItem(LANG_PREF_KEY)) || 'en';

@@ -123,18 +123,21 @@ export default function WatchList() {
   const initialUnrated = params.unrated === 'true';
   const initialType    = params.type ? [String(params.type)] : [];
 
-  const [entries,       setEntries]       = useState([]);
-  const [tab,           setTab]           = useState(initialTab);
-  const [search,        setSearch]        = useState('');
-  const [sort,          setSort]          = useState('Most Recent Activity');
-  const [chips,         setChips]         = useState(initialType);
-  const [language,      setLanguage]      = useState('');
+  const [entries,        setEntries]        = useState([]);
+  const [tab,            setTab]            = useState(initialTab);
+  const [search,         setSearch]         = useState('');
+  const [sort,           setSort]           = useState('Most Recent Activity');
+  const [chips,          setChips]          = useState(initialType);
+  const [language,       setLanguage]       = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
-  const [showPaused,    setShowPaused]    = useState(false);
-  const [filterOpen,    setFilterOpen]    = useState(false);
-  const [unrated,       setUnrated]       = useState(initialUnrated);
-  const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
-  const [ratingEntry,   setRatingEntry]   = useState(null);
+  const [showPaused,     setShowPaused]     = useState(false);
+  const [filterOpen,     setFilterOpen]     = useState(false);
+  const [unrated,        setUnrated]        = useState(initialUnrated);
+  const [ratingRange,    setRatingRange]    = useState([0, 10]);
+  const [dateRange,      setDateRange]      = useState({ start: null, end: null });
+  const [platform,       setPlatform]       = useState('');
+  const [bookmarkedIds,  setBookmarkedIds]  = useState(new Set());
+  const [ratingEntry,    setRatingEntry]    = useState(null);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -142,13 +145,23 @@ export default function WatchList() {
       if (!active) return;
       setEntries(data);
       setBookmarkedIds(new Set(data.filter(e => e.bookmark).map(e => e.id)));
-      // sync tab/unrated/type from params on focus
+      // sync tab/unrated/type/datePreset from params on focus
       setTab(String(params.tab || 'all'));
       setUnrated(params.unrated === 'true');
       setChips(params.type ? [String(params.type)] : []);
+      if (params.datePreset === 'last30') {
+        const today = new Date();
+        const start = new Date(Date.now() - 30 * 864e5);
+        setDateRange({
+          start: `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`,
+          end:   `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`,
+        });
+      } else {
+        setDateRange({ start: null, end: null });
+      }
     });
     return () => { active = false; };
-  }, [params.tab, params.unrated, params.type]));
+  }, [params.tab, params.unrated, params.type, params.datePreset]));
 
   function toggleBookmark(id) {
     setBookmarkedIds(prev => {
@@ -173,6 +186,35 @@ export default function WatchList() {
     if (language) list = list.filter(e => e.lang === language);
     if (selectedGenres.length) list = list.filter(e => selectedGenres.some(g => (e.genre || []).includes(g)));
     if (unrated) list = list.filter(e => e.status === 'watched' && !e.rating);
+    // Rating range — only applied when range is narrowed from the default 0-10
+    if (ratingRange[0] > 0 || ratingRange[1] < 10) {
+      list = list.filter(e => {
+        const r = e.rating || 0;
+        return r >= ratingRange[0] && r <= ratingRange[1];
+      });
+    }
+    // Date range — only for watched and watching; watchplan/bookmarks pass through
+    // Platform filter
+    if (platform) {
+      const KNOWN = ['Netflix', 'Crunchyroll', 'Amazon Prime', 'Hotstar', 'Apple TV', 'Theater'];
+      if (platform === 'Others') {
+        list = list.filter(e => e.watch_platform && !KNOWN.includes(e.watch_platform));
+      } else {
+        list = list.filter(e => e.watch_platform === platform);
+      }
+    }
+    if (dateRange.start || dateRange.end) {
+      const startMs = dateRange.start ? new Date(dateRange.start + 'T00:00:00').getTime() : 0;
+      const endMs   = dateRange.end   ? new Date(dateRange.end   + 'T23:59:59').getTime() : Infinity;
+      list = list.filter(e => {
+        if (e.status !== 'watched' && e.status !== 'watching') return true;
+        const t = e.watch_end_date
+          ? new Date(e.watch_end_date + 'T12:00:00').getTime()
+          : parseActivityDate(e);
+        if (!t) return false;
+        return t >= startMs && t <= endMs;
+      });
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(e =>
@@ -197,6 +239,9 @@ export default function WatchList() {
   const activeFilterCount = [
     ...chips, language ? 1 : 0, ...selectedGenres,
     unrated ? 1 : 0, (showPaused && tab === 'watching') ? 1 : 0,
+    (ratingRange[0] > 0 || ratingRange[1] < 10) ? 1 : 0,
+    platform ? 1 : 0,
+    (dateRange.start || dateRange.end) ? 1 : 0,
   ].filter(Boolean).length;
 
   function switchTab(id) {
@@ -322,10 +367,16 @@ export default function WatchList() {
         onLanguage={setLanguage}
         selectedGenres={selectedGenres}
         onToggleGenre={g => setSelectedGenres(p => p.includes(g) ? p.filter(x => x !== g) : [...p, g])}
-        onClearAll={() => { setChips([]); setLanguage(''); setSelectedGenres([]); setShowPaused(false); setUnrated(false); }}
+        onClearAll={() => { setChips([]); setLanguage(''); setSelectedGenres([]); setShowPaused(false); setUnrated(false); setRatingRange([0, 10]); setPlatform(''); setDateRange({ start: null, end: null }); }}
         genres={genresFilter}
         unrated={unrated}
         onToggleUnrated={setUnrated}
+        ratingRange={ratingRange}
+        onRatingRange={setRatingRange}
+        platform={platform}
+        onPlatform={setPlatform}
+        dateRange={dateRange}
+        onDateRange={setDateRange}
       />
 
       {ratingEntry && (
