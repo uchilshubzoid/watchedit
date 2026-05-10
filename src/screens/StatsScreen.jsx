@@ -693,6 +693,13 @@ export default function StatsScreen() {
     : null;
   const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
 
+  const activeDays = new Set(
+    filtered.map(e => {
+      const t = parseActivityDate(e);
+      return t ? localDateStr(t) : null;
+    }).filter(Boolean)
+  ).size;
+
   const catStats = TYPE_LIST.map(type => {
     const es      = filteredForType(type);
     const ratedEs = es.filter(e => e.rating);
@@ -823,9 +830,9 @@ export default function StatsScreen() {
                 <Text style={styles.statSub}>/ 10</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statNum}>0</Text>
-                <Text style={styles.statLabel}>Day Streak</Text>
-                <Text style={styles.statSub}>Keep rolling</Text>
+                <Text style={styles.statNum}>{activeDays}</Text>
+                <Text style={styles.statLabel}>Active Days</Text>
+                <Text style={styles.statSub}>days with content</Text>
               </View>
             </View>
 
@@ -955,7 +962,7 @@ export default function StatsScreen() {
                       <Line x1={PAD_L} y1={py(v)} x2={svgWidth - PAD_R} y2={py(v)}
                         stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
                       <SvgText x={PAD_L - 4} y={py(v) + 4} textAnchor="end"
-                        fill={T.textMuted} fontSize="9" fontFamily={T.fontMono}>{v}</SvgText>
+                        fill={T.textMuted} fontSize="11" fontFamily={T.fontMono}>{v}</SvgText>
                     </G>
                   ))}
 
@@ -980,7 +987,7 @@ export default function StatsScreen() {
                         x={isLast ? svgWidth - PAD_R : (i === 0 ? PAD_L : cx(i))}
                         y={SVG_H - 6}
                         textAnchor={isLast ? 'end' : (i === 0 ? 'start' : 'middle')}
-                        fill={T.textMuted} fontSize="9" fontFamily={T.fontMono}>
+                        fill={T.textMuted} fontSize="11" fontFamily={T.fontMono}>
                         {p.label}
                       </SvgText>
                     );
@@ -1125,7 +1132,7 @@ const styles = StyleSheet.create({
   catMiniCard: { flex: 1, backgroundColor: T.elevated, borderRadius: 12, padding: 10, alignItems: 'center', gap: 2 },
   catMiniNum:  { fontFamily: T.fontDisplay, fontSize: 18, lineHeight: 22 },
   catMiniLabel:{ color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, textAlign: 'center' },
-  catMiniSub:  { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10, textAlign: 'center' },
+  catMiniSub:  { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, textAlign: 'center' },
 
   catExpandToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 2 },
   catExpandText:   { color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 12 },
@@ -1158,8 +1165,8 @@ const styles = StyleSheet.create({
   chartRetryBtn:    { paddingVertical: 6, paddingHorizontal: 14, backgroundColor: T.elevated, borderRadius: 12 },
   chartRetryText:   { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 12 },
   chartHintRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  chartScrollHint: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 0.6, opacity: 0.5 },
-  chartZoomCta:   { color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 0.6, textDecorationLine: 'underline' },
+  chartScrollHint: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 0.4, opacity: 0.7 },
+  chartZoomCta:   { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 0.4, textDecorationLine: 'underline' },
   chartHeader:   { gap: 4 },
   chartLabel:    { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
   chartBig:      { color: T.amber, fontFamily: T.fontDisplay, fontSize: 28, lineHeight: 34, marginTop: 4 },

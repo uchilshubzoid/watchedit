@@ -415,7 +415,7 @@ export default function LogItSearch({ onClose }) {
                       {r.global_rating ? <Text style={styles.globalRating}>★ {r.global_rating}</Text> : null}
                     </View>
                   </View>
-                  <Pressable onPress={() => setPreviewItem(r)} style={styles.infoBtn} hitSlop={8}>
+                  <Pressable onPress={() => setPreviewItem(r)} style={styles.infoBtn} hitSlop={10}>
                     <Text style={styles.infoBtnText}>ⓘ</Text>
                   </Pressable>
                 </View>
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   resultTop: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12 },
   resultTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
-  metaSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  metaSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
   globalRating: { color: T.amberSoft, fontFamily: T.fontMono, fontWeight: '600', fontSize: 11 },
   badge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   badgeText: { fontFamily: T.fontMono, fontSize: 11, fontWeight: '700' },

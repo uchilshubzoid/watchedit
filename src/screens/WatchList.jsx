@@ -95,7 +95,7 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
             </Text>
             <Pressable
               onPress={() => onBookmark(e.id)}
-              hitSlop={8}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
               style={styles.bookmarkBtn}
             >
               <Ionicons
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   tabRow: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', marginTop: 4, flexShrink: 0, flexGrow: 0 },
   tabsContainer: { paddingHorizontal: 16, gap: 4 },
   tab: { paddingHorizontal: 10, paddingVertical: 10, position: 'relative' },
-  tabText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 13, whiteSpace: 'nowrap' },
+  tabText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14, whiteSpace: 'nowrap' },
   tabTextActive: { color: T.amber, fontFamily: T.fontTitle },
   tabUnderline: { position: 'absolute', bottom: 0, left: 10, right: 10, height: 2, backgroundColor: T.amber, borderRadius: 2 },
   chipRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 6 },
@@ -382,12 +382,12 @@ const styles = StyleSheet.create({
   cardTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 15, lineHeight: 20 },
   cardDate: { color: T.textPrimary, fontFamily: T.fontBodyMedium, fontSize: 12 },
   rewatch: { color: T.amberSoft },
-  cardSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  cardSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
   progressText: { fontFamily: T.fontMono, fontWeight: '600' },
   cardRight: { alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 15 },
   ratingEmpty: { color: T.textMuted },
-  bookmarkBtn: { marginTop: 6 },
+  bookmarkBtn: { marginTop: 6, padding: 8 },
   rateNudge: {
     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)',
     paddingVertical: 8, paddingHorizontal: 18, alignItems: 'flex-end',

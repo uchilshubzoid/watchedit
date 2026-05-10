@@ -17,6 +17,6 @@ export default function TypePill({ type }) {
 }
 
 const styles = StyleSheet.create({
-  pill: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start' },
-  text: { fontFamily: T.fontTitleMedium, fontSize: 10 },
+  pill: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
+  text: { fontFamily: T.fontTitleMedium, fontSize: 11 },
 });

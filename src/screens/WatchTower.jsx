@@ -10,18 +10,6 @@ import { getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
 import { consumePendingToast } from '../utils/toastBridge';
 
-const STREAK_COPY = {
-  2: ['On a roll 🎬', '2 days in a row'],
-  3: ['Building momentum ⚡', '3 days straight!'],
-  4: ['4 days running 🔥', 'Remember to stretch'],
-  7: ['A whole week! 🏆', 'Incredible dedication'],
-  14: ["Two weeks straight 👀", "We're not judging"],
-};
-function getStreakCopy(n) {
-  const keys = Object.keys(STREAK_COPY).map(Number).sort((a, b) => b - a);
-  const k = keys.find(k => n >= k);
-  return k ? STREAK_COPY[k] : null;
-}
 function formatDateWithYear(dateStr) {
   if (!dateStr) return '';
   if (/\d{4}/.test(dateStr)) return dateStr;
@@ -51,9 +39,8 @@ function getActivityDate(e) {
 }
 
 export default function WatchTower() {
-  const [entries,        setEntries]        = useState([]);
-  const [streakDismissed,setStreakDismissed] = useState(false);
-  const [toastContent,   setToastContent]   = useState(null);
+  const [entries,      setEntries]      = useState([]);
+  const [toastContent, setToastContent] = useState(null);
   const [carouselOpen,   setCarouselOpen]   = useState(false);
   const toastAnim    = useRef(new Animated.Value(0)).current;
   const toastAnimRef = useRef(null);
@@ -129,8 +116,14 @@ export default function WatchTower() {
   const recent       = [...watched].sort((a, b) => getActivityDate(b) - getActivityDate(a)).slice(0, 3);
   const flaggedCount = watched.filter(e => !e.rating).length;
 
-  const STREAK   = 0;
-  const streakCopy = getStreakCopy(STREAK);
+  const activeDays = new Set(
+    countedEntries.map(e => {
+      const t = getActivityDate(e);
+      if (!t) return null;
+      const d = new Date(t);
+      return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+    }).filter(Boolean)
+  ).size;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -149,7 +142,7 @@ export default function WatchTower() {
           <View style={styles.card}>
 
             {/* Headline: centered number + watch time pinned to right */}
-            <Pressable onPress={() => router.push('/(tabs)/watchlist')}>
+            <Pressable onPress={() => router.push('/stats')}>
               <View>
                 <Text style={styles.statsNum}>{totalCount}</Text>
                 {totalHours > 0 && (
@@ -224,17 +217,14 @@ export default function WatchTower() {
           </View>
         )}
 
-        {/* Streak banner */}
-        {STREAK >= 2 && !streakDismissed && streakCopy && (
+        {/* Active days banner */}
+        {activeDays > 0 && (
           <View style={styles.streak}>
-            <Text style={{ fontSize: 24 }}>🔥</Text>
+            <Text style={{ fontSize: 24 }}>📅</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.streakHead}>{streakCopy[0]}</Text>
-              <Text style={styles.streakSub}>{streakCopy[1]} · <Text style={styles.streakNum}>{STREAK} day streak</Text></Text>
+              <Text style={styles.streakHead}>{activeDays} active {activeDays === 1 ? 'day' : 'days'}</Text>
+              <Text style={styles.streakSub}>{isRecent ? 'last 30 days' : 'all time'} · days you logged content</Text>
             </View>
-            <Pressable onPress={() => setStreakDismissed(true)} style={{ padding: 4 }}>
-              <Text style={{ color: T.textMuted, fontSize: 14 }}>✕</Text>
-            </Pressable>
           </View>
         )}
 
@@ -398,7 +388,7 @@ const styles = StyleSheet.create({
   statsNum: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 84, lineHeight: 84, textAlign: 'center' },
   watchTimeBlock: { position: 'absolute', right: 0, bottom: 0 },
   watchTimeNum: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 22, lineHeight: 26 },
-  watchTimeLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, marginTop: 2 },
+  watchTimeLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 12, marginTop: 2 },
   titlesRow: { textAlign: 'center', marginTop: 6 },
   titlesLabel: { color: T.textPrimary, fontFamily: T.fontBodyMedium, fontSize: 15 },
   titlesSubLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
@@ -430,7 +420,7 @@ const styles = StyleSheet.create({
   pausedPillText: { color: T.paused, fontFamily: T.fontTitleMedium, fontSize: 10 },
   watchTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 16, lineHeight: 21 },
   watchEp: { color: T.amber, fontFamily: T.fontMono, fontWeight: '700', fontSize: 13 },
-  watchDate: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, marginTop: 2 },
+  watchDate: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 12, marginTop: 2 },
   watchMoreCard: { width: 100, height: 180, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 16, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center' },
   watchMoreCount: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 26 },
   watchMoreLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
@@ -441,7 +431,7 @@ const styles = StyleSheet.create({
   div: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 14 },
   recentRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   recentTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14, flex: 1 },
-  recentDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  recentDate: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 16 },
   // Welcome card (empty state)
   welcomeCard: {
@@ -486,7 +476,6 @@ const styles = StyleSheet.create({
     fontFamily: T.fontTitleMedium,
     fontSize: 12,
     textDecorationLine: 'underline',
-    opacity: 0.7,
   },
 
   // Hint strip
@@ -509,8 +498,8 @@ const styles = StyleSheet.create({
   hintStripSub: {
     color: T.textMuted,
     fontFamily: T.fontBody,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
   },
 
   toast: {

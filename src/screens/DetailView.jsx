@@ -784,7 +784,7 @@ export default function DetailView() {
                             )}
                           </View>
                           {!isEditing && (
-                            <Pressable onPress={() => { setEditingNoteEp(ep.n); setNoteInput(ep.notes || ''); }} style={styles.noteBtn}>
+                            <Pressable onPress={() => { setEditingNoteEp(ep.n); setNoteInput(ep.notes || ''); }} style={styles.noteBtn} hitSlop={8}>
                               <Text style={styles.noteBtnText}>{ep.notes ? 'Edit note' : '+ Note'}</Text>
                             </Pressable>
                           )}
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   planRatingNudge: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, fontStyle: 'italic', lineHeight: 20 },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   editThoughtsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
-  editThoughtsText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11 },
+  editThoughtsText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 13 },
   thoughtsRow: { flexDirection: 'row', gap: 20, alignItems: 'flex-start', justifyContent: 'space-between' },
   thoughtsYourRating: { flexShrink: 0 },
   thoughtsGlobal: { flexShrink: 0, minWidth: 0, gap: 4, alignItems: 'flex-end' },
@@ -1086,10 +1086,10 @@ const styles = StyleSheet.create({
   epLabel: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 13 },
   epLabelNext: { color: T.amberSoft, fontFamily: T.fontTitle },
   epLabelMuted: { color: T.textMuted },
-  epUpNext: { color: T.amber, fontFamily: T.fontMono, fontSize: 10 },
-  epNotes: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, marginTop: 2 },
-  noteBtn: { padding: 2 },
-  noteBtnText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, opacity: 0.7 },
+  epUpNext: { color: T.amber, fontFamily: T.fontMono, fontSize: 11 },
+  epNotes: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
+  noteBtn: { padding: 8 },
+  noteBtnText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, opacity: 0.7 },
   noteInput: { backgroundColor: T.bgPrimary, borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)', borderRadius: 10, padding: 8, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 12, minHeight: 50 },
   noteActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   noteCancelText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, padding: 4 },
