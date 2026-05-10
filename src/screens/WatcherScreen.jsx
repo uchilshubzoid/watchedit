@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { ConfirmModal } from '../components/BlockingPopup';
 import {
   getEntries, clearEntries,
@@ -28,16 +28,20 @@ export default function WatcherScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    Promise.all([getEntries(), getTitleLanguagePref()]).then(([data, pref]) => {
+    Promise.all([
+      getEntries(),
+      getTitleLanguagePref(),
+      AsyncStorage.getItem('watchedit_watcher_name'),
+    ]).then(([data, pref, storedName]) => {
       if (!active) return;
       setEntries(data);
       setTitleLang(pref || 'en');
+      if (storedName) { setName(storedName); setTempName(storedName); }
     });
     return () => { active = false; };
   }, []));
 
   const watched = entries.filter(e => e.status === 'watched');
-  const recs    = entries.filter(e => e.recommend).slice(0, 4);
 
   let totalMins = 0;
   watched.forEach(e => {
@@ -58,19 +62,16 @@ export default function WatcherScreen() {
     await setTitleLanguagePref(pref);
   }
 
+  async function handleSave() {
+    await AsyncStorage.setItem('watchedit_watcher_name', tempName);
+    setName(tempName);
+    setEditMode(false);
+  }
+
   async function handleClearData() {
     await clearEntries();
     setEntries([]);
     setClearModal(false);
-  }
-
-  async function handleResetOnboarding() {
-    await AsyncStorage.multiRemove([
-      'watchedit_onboarding_done',
-      'watchedit_watcher_name',
-      'watchedit_auth_mode',
-    ]);
-    Alert.alert('Done', 'Onboarding reset. Restart the app to go through it again.');
   }
 
   return (
@@ -99,7 +100,7 @@ export default function WatcherScreen() {
                 <Pressable style={styles.cancelBtn} onPress={() => setEditMode(false)}>
                   <Text style={styles.cancelText}>Cancel</Text>
                 </Pressable>
-                <Pressable style={styles.saveBtn} onPress={() => { setName(tempName); setEditMode(false); }}>
+                <Pressable style={styles.saveBtn} onPress={handleSave}>
                   <Text style={styles.saveText}>Save</Text>
                 </Pressable>
               </View>
@@ -121,26 +122,19 @@ export default function WatcherScreen() {
           ))}
         </View>
 
-        {/* My Recommendations */}
-        {recs.length > 0 && (
-          <View>
-            <Text style={styles.sectionLabel}>My Recommendations</Text>
-            <View style={styles.recCard}>
-              {recs.map((e, i) => (
-                <View key={e.id} style={[styles.recRow, i < recs.length - 1 && styles.recDivider]}>
-                  <View style={styles.recPoster}>
-                    <Text style={styles.recInitials}>{e.title.slice(0, 2).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.recTitle} numberOfLines={1}>{e.title}</Text>
-                    <Text style={styles.recType}>{e.type}</Text>
-                  </View>
-                  {e.rating && <Text style={styles.recRating}>★ {e.rating}</Text>}
-                </View>
-              ))}
-            </View>
+        {/* My Recommendations CTA */}
+        <Pressable onPress={() => router.push('/recommendations')} style={styles.recCta}>
+          <Text style={styles.recCtaIcon}>👍</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.recCtaLabel}>My Recommendations</Text>
+            <Text style={styles.recCtaSub}>
+              {entries.filter(e => e.recommend).length > 0
+                ? `${entries.filter(e => e.recommend).length} title${entries.filter(e => e.recommend).length === 1 ? '' : 's'} you'd recommend`
+                : 'Titles you'd pass along to friends'}
+            </Text>
           </View>
-        )}
+          <Text style={styles.recCtaArrow}>›</Text>
+        </Pressable>
 
         {/* Manage */}
         <View>
@@ -210,11 +204,6 @@ export default function WatcherScreen() {
           <Text style={styles.clearBtnText}>Clear all data</Text>
         </Pressable>
 
-        {/* DEV: reset onboarding */}
-        <Pressable onPress={handleResetOnboarding} style={styles.devBtn}>
-          <Text style={styles.devBtnText}>⚙️ Reset onboarding (dev)</Text>
-        </Pressable>
-
         {/* Log out */}
         <Pressable onPress={() => setLogoutModal(true)} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Log Out</Text>
@@ -265,17 +254,14 @@ const styles = StyleSheet.create({
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   stagePill: { backgroundColor: 'rgba(239,159,39,0.1)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
   stagePillText: { color: T.amberSoft, fontFamily: T.fontMono, fontSize: 11 },
-  recCard: { backgroundColor: T.surface, borderRadius: 18, overflow: 'hidden' },
-  recRow: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12 },
-  recDivider: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  recPoster: {
-    width: 36, height: 50, borderRadius: 8,
-    backgroundColor: T.amberDeep, alignItems: 'center', justifyContent: 'center',
+  recCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: T.surface, borderRadius: 18, padding: 14,
   },
-  recInitials: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 10 },
-  recTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14 },
-  recType: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, marginTop: 2 },
-  recRating: { color: T.amber, fontFamily: T.fontMono, fontWeight: '700', fontSize: 13 },
+  recCtaIcon: { fontSize: 20 },
+  recCtaLabel: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 14 },
+  recCtaSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
+  recCtaArrow: { color: T.textMuted, fontSize: 20, fontFamily: T.fontBody },
   manageCard: { backgroundColor: T.surface, borderRadius: 18, overflow: 'hidden' },
   manageRow: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 14 },
   manageRowBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
@@ -294,8 +280,6 @@ const styles = StyleSheet.create({
     borderRadius: 18, paddingVertical: 12, alignItems: 'center', backgroundColor: T.elevated,
   },
   clearBtnText: { color: 'rgba(196,122,122,0.7)', fontFamily: T.fontMono, fontWeight: '600', fontSize: 12, letterSpacing: 0.4 },
-  devBtn: { borderRadius: 18, paddingVertical: 12, alignItems: 'center', backgroundColor: T.elevated, opacity: 0.6 },
-  devBtnText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 0.4 },
   logoutBtn: { backgroundColor: T.surface, borderRadius: 18, paddingVertical: 14, alignItems: 'center' },
   logoutText: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 14 },
 });

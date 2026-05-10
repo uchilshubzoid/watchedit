@@ -102,7 +102,7 @@ const pmStyles = StyleSheet.create({
 
 // ─── Watch date picker ───────────────────────────────────────────────────────
 
-function WatchDatePicker({ label, value, onChange }) {
+function WatchDatePicker({ label, value, onChange, optional = false }) {
   const todayISO = localISODate();
   const effective = value || todayISO;
 
@@ -143,9 +143,11 @@ function WatchDatePicker({ label, value, onChange }) {
 
   const canGoNext = new Date(viewYear, viewMonth + 1, 1) <= today;
 
-  const displayDate = effective === todayISO
-    ? 'today'
-    : new Date(effective + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const displayDate = !value && optional
+    ? 'not set'
+    : (effective === todayISO
+      ? 'today'
+      : new Date(effective + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
 
   return (
     <>
@@ -153,7 +155,7 @@ function WatchDatePicker({ label, value, onChange }) {
         <Ionicons name="calendar-outline" size={14} color={T.amber} />
         <Text style={dpStyles.triggerLabel}>{label}</Text>
         <View style={dpStyles.triggerRight}>
-          <Text style={[dpStyles.triggerDate, effective === todayISO && dpStyles.triggerDateToday]}>
+          <Text style={[dpStyles.triggerDate, (!value && optional) ? dpStyles.triggerDateUnset : (effective === todayISO && dpStyles.triggerDateToday)]}>
             {displayDate}
           </Text>
           <Ionicons name="chevron-down-outline" size={12} color={T.textMuted} />
@@ -232,6 +234,7 @@ const dpStyles = StyleSheet.create({
   triggerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   triggerDate: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
   triggerDateToday: { color: T.amber },
+  triggerDateUnset: { color: T.textMuted, opacity: 0.5, fontStyle: 'italic' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' },
   calSheet: {
     width: SCREEN_W - 40, backgroundColor: T.surface, borderRadius: 20, padding: 16,
@@ -529,7 +532,7 @@ export default function LogItDetails() {
         malRating: show?.global_rating || null,
         ratingSource: show?.source || null,
         watch_sessions: [], episode_notes: {},
-        watch_start_date: isCurrent ? (watchStartDate || todayISO) : null,
+        watch_start_date: isCurrent ? (watchStartDate || todayISO) : (watchStartDate || null),
         watch_end_date: watchStatus === 'watched' ? watchEndDate : null,
         logged_at: new Date().toISOString(),
         epRuntime: resolvedRuntime, runtime: movieRuntimeValue || null,
@@ -800,11 +803,27 @@ export default function LogItDetails() {
               <Text style={styles.sectionLabel}>
                 {watchStatus === 'watched' ? 'When Did You Watch It?' : 'When Did You Start?'}
               </Text>
-              <WatchDatePicker
-                label={watchStatus === 'watched' ? 'Finished' : 'Started watching'}
-                value={watchStatus === 'watched' ? watchEndDate : (watchStartDate || todayISO)}
-                onChange={watchStatus === 'watched' ? setWatchEndDate : setWatchStartDate}
-              />
+              {watchStatus === 'watched' ? (
+                <>
+                  <WatchDatePicker
+                    label="Started (optional)"
+                    value={watchStartDate}
+                    onChange={setWatchStartDate}
+                    optional
+                  />
+                  <WatchDatePicker
+                    label="Finished"
+                    value={watchEndDate}
+                    onChange={setWatchEndDate}
+                  />
+                </>
+              ) : (
+                <WatchDatePicker
+                  label="Started watching"
+                  value={watchStartDate || todayISO}
+                  onChange={setWatchStartDate}
+                />
+              )}
             </View>
           )}
 
