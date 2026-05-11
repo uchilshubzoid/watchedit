@@ -106,14 +106,16 @@ See spec v2.3 changelog for full detail. Key decisions:
 ### Stage 2.8 — EAS Build Config + App Assets ✅ Complete (as of May 2026)
 - **EAS project linked:** `app.json` updated with `extra.eas.projectId`, `owner: "uchilshubzoids-organization"`, and EAS-generated slug. Project registered on Expo Application Services.
 - **App icons updated:** `assets/icon.png` (1024×1024, Play Store / Expo Go), `assets/adaptive-icon.png` (1024×1024 foreground, transparent bg, Android adaptive), `assets/splash.png` — all replaced with final branded assets.
+- **Splash screen:** `resizeMode: "cover"` in `app.json` — fills full screen on device.
+- **API keys in build:** `eas.json` `preview` profile has an `env` block with `EXPO_PUBLIC_TMDB_TOKEN`, `EXPO_PUBLIC_OMDB_API_KEY`, `EXPO_PUBLIC_MAL_CLIENT_ID` — keys are bundled into the APK at build time.
+- **`eas.json` is git-ignored:** added to `.gitignore` and untracked via `git rm --cached`. File lives locally and is read by EAS CLI at build time but never pushed to GitHub. Production profile env keys to be added before Play Store AAB build.
 - **Build commands:**
   - APK (sideload / device testing): `eas build --platform android --profile preview`
   - AAB (Play Store submission): `eas build --platform android --profile production`
-  - Both profiles configured in `eas.json`
 - **Play Store:** Developer account created; verification in progress. Package name: `com.watchedit.app`. First submission pending account approval.
 
 ### What's NOT built yet (do these next in order)
-1. **Play Store submission** — account verification in progress; submit AAB + store listing once approved
+1. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
 
 ---
 
