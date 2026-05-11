@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "WatchedIt",
-    "slug": "watchedit",
+    "slug": "watchedit-zqag-nsflpxfyysbweu8p",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,7 +23,9 @@
       },
       "package": "com.watchedit.app",
       "versionCode": 1,
-      "permissions": ["android.permission.VIBRATE"],
+      "permissions": [
+        "android.permission.VIBRATE"
+      ],
       "edgeToEdgeLayoutEnabled": true
     },
     "plugins": [
@@ -37,6 +39,13 @@
         }
       ]
     ],
-    "scheme": "watchedit"
+    "scheme": "watchedit",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a44fa3d4-d847-4c8a-9d18-76121b05b701"
+      }
+    },
+    "owner": "uchilshubzoids-organization"
   }
 }

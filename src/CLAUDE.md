@@ -101,9 +101,19 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **WatcherScreen overhaul:** Profile header — avatar (52px) + name + pencil edit icon in a horizontal `profileIdentity` row; row centered via `alignSelf: 'center'` inside a column `profileSection`. Auth badge ("Guest" / "Google") below the row, also centered. Name TextInput: `returnKeyType="done"` + `onSubmitEditing={handleSave}` — no keyboard dismiss needed. App Preferences section removed. Data & Connections: Export + Import from Other Source only (both "Soon" pill). "Manage Tags & Categories" → `router.push('/manage-tags')` with amber-tint icon (`rgba(239,159,39,0.12)`).
 - **ManageTagsScreen:** `app/manage-tags.jsx` + `src/screens/ManageTagsScreen.jsx`. Two tabs (Categories / Genre Tags). Category rename updates all `entry.type` fields via `saveEntries`. Delete blocked with error banner if titles use it ("rename instead" framing). Max 5 enforced on add. Genre delete uses `ConfirmModal` with count-aware copy; on confirm strips genre from all `entry.genre` arrays.
 - **Categories system in storage.js:** `getCategories()`, `saveCategories()`, `DEFAULT_CATEGORIES = ['Anime', 'TV Show', 'Movie']` exported. Key: `watchedit_categories`. LogItDetails loads categories in `init()` alongside other entry data; content type selector uses `typeChips` / `typeChip` style (flexWrap: 'wrap') instead of `flex: 1` segmented buttons to handle 3–5 items. `cats.includes(ct) ? ct : firstCat` fallback for API-suggested type on new entries.
+- **WatchTower hero card watch time:** `watchTimeBlock` uses `top: 0, bottom: 0, justifyContent: 'center'` (absolute) to vertically center the watch time against the big amber number. `watchTimeNum` color changed from `T.textPrimary` to `T.textMuted` to match the sub-label.
+
+### Stage 2.8 — EAS Build Config + App Assets ✅ Complete (as of May 2026)
+- **EAS project linked:** `app.json` updated with `extra.eas.projectId`, `owner: "uchilshubzoids-organization"`, and EAS-generated slug. Project registered on Expo Application Services.
+- **App icons updated:** `assets/icon.png` (1024×1024, Play Store / Expo Go), `assets/adaptive-icon.png` (1024×1024 foreground, transparent bg, Android adaptive), `assets/splash.png` — all replaced with final branded assets.
+- **Build commands:**
+  - APK (sideload / device testing): `eas build --platform android --profile preview`
+  - AAB (Play Store submission): `eas build --platform android --profile production`
+  - Both profiles configured in `eas.json`
+- **Play Store:** Developer account created; verification in progress. Package name: `com.watchedit.app`. First submission pending account approval.
 
 ### What's NOT built yet (do these next in order)
-1. **Play Store prep** — app signing, store listing, screenshots
+1. **Play Store submission** — account verification in progress; submit AAB + store listing once approved
 
 ---
 
