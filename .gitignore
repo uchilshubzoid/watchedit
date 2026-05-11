@@ -32,6 +32,9 @@ dist/
 *.jks
 *.keystore
 
+# EAS config contains API keys — never commit
+eas.json
+
 # EAS local builds
 android/
 ios/
