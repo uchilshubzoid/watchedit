@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   editRow: { gap: 8, width: '100%' },
   nameInput: {
     backgroundColor: T.elevated, borderRadius: 12, padding: 10,
-    color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14, textAlign: 'center',
+    color: T.textPrimary, fontFamily: T.fontFun, fontSize: 14, textAlign: 'center',
   },
   editBtns: { flexDirection: 'row', gap: 8 },
   cancelBtn: { flex: 1, backgroundColor: T.elevated, borderRadius: 14, padding: 9, alignItems: 'center' },
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 8 },
   statBox: { flex: 1, backgroundColor: T.surface, borderRadius: 14, padding: 12, alignItems: 'center' },
   statVal: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 20, lineHeight: 26 },
-  statLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 10, marginTop: 4 },
+  statLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 10, marginTop: 4 },
 
   sectionLabel: {
     color: T.textMuted, fontFamily: T.fontMono, fontSize: 10,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   recCtaLabel: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 14 },
-  recCtaSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
+  recCtaSub: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, marginTop: 2 },
 
   manageCard: { backgroundColor: T.surface, borderRadius: 18, overflow: 'hidden' },
   manageRow: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 14 },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   },
   manageIconLocked: { opacity: 0.5 },
   manageLabel: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 13 },
-  manageSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11, marginTop: 2 },
+  manageSub: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11, marginTop: 2 },
 
   comingSoonPill: {
     backgroundColor: T.elevated, borderRadius: 10,

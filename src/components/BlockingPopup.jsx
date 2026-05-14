@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     lineHeight: 25, marginBottom: 10, textAlign: 'center',
   },
   message: {
-    color: T.textMuted, fontFamily: T.fontBody, fontSize: 13,
+    color: T.textMuted, fontFamily: T.fontFun, fontSize: 13,
     lineHeight: 21, marginBottom: 24, textAlign: 'center',
   },
   ctaBtn: {
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     borderRadius: 4, alignSelf: 'center', marginBottom: 20,
   },
   confirmTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 18, marginBottom: 8 },
-  confirmMsg: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, marginBottom: 24 },
+  confirmMsg: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13, marginBottom: 24 },
   confirmRow: { flexDirection: 'row', gap: 10 },
   cancelBtn: {
     flex: 1, paddingVertical: 14, backgroundColor: T.elevated,

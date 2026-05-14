@@ -11,10 +11,12 @@
     "build:aab": "eas build --platform android --profile production"
   },
   "dependencies": {
+    "@expo-google-fonts/fredoka": "^0.4.1",
     "@expo-google-fonts/inconsolata": "^0.2.3",
     "@expo-google-fonts/nunito": "^0.2.3",
     "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo-google-fonts/poppins": "^0.2.3",
+    "@expo-google-fonts/varela-round": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.1.2",
     "@react-native-async-storage/async-storage": "2.2.0",

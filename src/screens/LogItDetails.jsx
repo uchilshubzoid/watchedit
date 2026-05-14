@@ -99,7 +99,7 @@ const pmStyles = StyleSheet.create({
   imageWrap: { width: SCREEN_W, height: SCREEN_W * 1.5 },
   image: { width: '100%', height: '100%' },
   closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 22, padding: 9 },
-  zoomHint: { position: 'absolute', bottom: 40, color: 'rgba(255,255,255,0.35)', fontFamily: T.fontBody, fontSize: 12 },
+  zoomHint: { position: 'absolute', bottom: 40, color: 'rgba(255,255,255,0.35)', fontFamily: T.fontFun, fontSize: 12 },
 });
 
 // ─── Watch date picker ───────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ const dpStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: T.elevated, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
   },
-  triggerLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, flex: 1 },
+  triggerLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13, flex: 1 },
   triggerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   triggerDate: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
   triggerDateToday: { color: T.amber },
@@ -286,7 +286,7 @@ function EpisodePicker({ total, ongoing, value, onChange }) {
 }
 const epStyles = StyleSheet.create({
   wrap: { gap: 10 },
-  label: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  label: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   btn: { width: 38, height: 38, borderRadius: 10, backgroundColor: T.elevated, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: 'transparent' },
   btnFilled: { backgroundColor: 'rgba(239,159,39,0.15)' },
@@ -320,10 +320,10 @@ const wtStyles = StyleSheet.create({
   wrap: { backgroundColor: T.elevated, borderRadius: 12, padding: 12, gap: 6 },
   label: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  muted: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  muted: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
   op: { color: T.textMuted, fontSize: 12 },
   total: { color: T.amber, fontFamily: T.fontMono, fontWeight: '700', fontSize: 15 },
-  est: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 10 },
+  est: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 10 },
 });
 
 function Field({ label, hint, error, children }) {
@@ -342,8 +342,8 @@ const fStyles = StyleSheet.create({
   wrap: { gap: 8 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
-  hint: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
-  error: { color: T.dropped, fontFamily: T.fontBody, fontSize: 11 },
+  hint: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11 },
+  error: { color: T.dropped, fontFamily: T.fontFun, fontSize: 11 },
 });
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -950,7 +950,7 @@ export default function LogItDetails() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bgPrimary },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bgPrimary },
-  loadingText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 14 },
+  loadingText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 14 },
 
   stickyHeader: {
     flexDirection: 'row', alignItems: 'center',
@@ -977,7 +977,7 @@ const styles = StyleSheet.create({
   },
   titleDropdownItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12 },
   titleDropdownDivider: { borderBottomWidth: 1, borderBottomColor: T.elevated },
-  titleDropdownText: { color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14 },
+  titleDropdownText: { color: T.textPrimary, fontFamily: T.fontFun, fontSize: 14 },
   titleDropdownActive: { color: T.amber, fontFamily: T.fontTitle },
   altLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 10 },
 
@@ -985,8 +985,8 @@ const styles = StyleSheet.create({
   card: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 16, gap: 14 },
   metaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
   metaLine1: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 13 },
-  metaLine2: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
-  metaLine2Muted: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13, fontStyle: 'italic' },
+  metaLine2: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13 },
+  metaLine2Muted: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13, fontStyle: 'italic' },
   genreRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   genreChip: { backgroundColor: T.elevated, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 9 },
   genreChipRemovable: { backgroundColor: 'rgba(239,159,39,0.12)' },
@@ -1005,7 +1005,7 @@ const styles = StyleSheet.create({
   langChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   langChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: T.elevated },
   langChipActive: { backgroundColor: T.amber },
-  langChipText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
+  langChipText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13 },
   langChipTextActive: { color: T.bgPrimary },
   textInput: { backgroundColor: T.elevated, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14 },
   genreInputRow: { flexDirection: 'row', gap: 8 },
@@ -1013,19 +1013,19 @@ const styles = StyleSheet.create({
   addTagBtnText: { color: T.bgPrimary, fontFamily: T.fontTitle, fontSize: 12 },
   epRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   ongoingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-  ongoingLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  ongoingLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
   estTime: { color: T.amberSoft, fontFamily: T.fontMono, fontSize: 11 },
   sectionLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase' },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionHint: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, opacity: 0.7 },
+  sectionHint: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, opacity: 0.7 },
   statusRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   statusBtn: { flex: 1, minWidth: 90, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, backgroundColor: T.elevated, alignItems: 'center' },
   statusBtnActive: { backgroundColor: T.amber },
   statusBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 12 },
   statusBtnTextActive: { color: T.bgPrimary },
-  epProgress: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  epProgress: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
   textarea: { backgroundColor: T.elevated, borderRadius: 12, padding: 12, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14, minHeight: 80 },
-  reactionNudge: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, fontStyle: 'italic', marginTop: 4 },
+  reactionNudge: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, fontStyle: 'italic', marginTop: 4 },
 
   // Flag CTAs — clear visual states without toggles
   flagsLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },

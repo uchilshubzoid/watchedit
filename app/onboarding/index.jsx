@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   sub: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   labelBody: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 12,
   },
   input: {

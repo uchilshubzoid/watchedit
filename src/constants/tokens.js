@@ -33,6 +33,7 @@ export const T = {
   fontBody:         'Nunito-Regular',      // 400w — body text
   fontBodyMedium:   'Nunito-Medium',      // 500w
   fontMono:         'Inconsolata-Regular', // mono — labels, stats, dates
+  fontFun:          'Fredoka-Regular',     // subtext — callouts, episode counts
 
   // Border radii
   radiusCard:   16,

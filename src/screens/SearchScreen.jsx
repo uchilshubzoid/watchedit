@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14 },
   clearX: { color: T.textMuted, fontSize: 18 },
   hint: { alignItems: 'center', marginTop: 48 },
-  hintText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
+  hintText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13 },
   list: { padding: 16, paddingTop: 0, gap: 8 },
   card: {
     backgroundColor: T.surface, borderRadius: T.radiusCard,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   title: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 14, flex: 1 },
   rewatch: { color: T.amberSoft, fontSize: 12 },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  lang: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  lang: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11 },
   ep: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
   rating: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 16 },
 });

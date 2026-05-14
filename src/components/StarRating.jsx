@@ -103,8 +103,8 @@ const styles = StyleSheet.create({
   starWrap:  { flex: 1, paddingVertical: 4, alignItems: 'center' },
   valueRow:  { flexDirection: 'row', alignItems: 'baseline' },
   valueNum:  { color: T.amber, fontFamily: T.fontDisplay, fontSize: 32, lineHeight: 38 },
-  valueDenom:{ color: T.textMuted, fontFamily: T.fontBody, fontSize: 14 },
+  valueDenom:{ color: T.textMuted, fontFamily: T.fontFun, fontSize: 14 },
   clearBtn:  { marginLeft: 8 },
-  clearText: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
-  hint:      { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  clearText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11 },
+  hint:      { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
 });

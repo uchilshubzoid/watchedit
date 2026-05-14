@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 40, gap: 0 },
 
   hint: {
-    color: T.textMuted, fontFamily: T.fontBody, fontSize: 12,
+    color: T.textMuted, fontFamily: T.fontFun, fontSize: 12,
     lineHeight: 18, marginBottom: 4,
   },
 
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   errorText: {
-    flex: 1, color: T.dropped, fontFamily: T.fontBody, fontSize: 13, lineHeight: 18,
+    flex: 1, color: T.dropped, fontFamily: T.fontFun, fontSize: 13, lineHeight: 18,
   },
 
   card: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   addCatText: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 14 },
   maxReached: {
-    color: T.textMuted, fontFamily: T.fontBody, fontSize: 12,
+    color: T.textMuted, fontFamily: T.fontFun, fontSize: 12,
     textAlign: 'center', paddingVertical: 8,
   },
 
@@ -413,5 +413,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', gap: 8, paddingVertical: 48,
   },
   emptyText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 15, marginTop: 4 },
-  emptySub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 13 },
+  emptySub: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13 },
 });

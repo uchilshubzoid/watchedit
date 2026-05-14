@@ -114,6 +114,22 @@ See spec v2.3 changelog for full detail. Key decisions:
   - AAB (Play Store submission): `eas build --platform android --profile production`
 - **Play Store:** Developer account created; verification in progress. Package name: `com.watchedit.app`. First submission pending account approval.
 
+### Stage 2.9 — Font System Expansion + UX Bug Fixes ✅ Complete (as of May 2026)
+- **Fredoka font system:** Added `Fredoka_400Regular` from `@expo-google-fonts/fredoka`. Registered as `'Fredoka-Regular'` in `app/_layout.jsx`. New design token `T.fontFun = 'Fredoka-Regular'` added to `src/constants/tokens.js`. Used for subtexts, labels, and secondary copy across all screens (not titles, CTAs, or numbers — those stay Nunito; not dates/mono — those stay Inconsolata). Varela Round was trialled for numbers then rolled back; all number styles remain Nunito.
+- **WatchList date bug fix:** `dateLine()` helper in WatchList now shows `finishedDate` for watched entries (not `e.date` which is the log date). Ongoing/watching shows `lastWatchedDate`; dropped/paused show `lastWatchedDate`. `e.date` (logged date) is never surfaced on title cards.
+- **TypePill on WatchList cards:** Each WatchList title card now shows a `<TypePill>` chip instead of plain text for content type. Progress line sits inline next to the pill in a `cardSubRow` flex row with `gap: 6`.
+- **Ongoing shows null fix:** `progressLine()` in WatchList now handles `null` total — renders `"X eps watched"` (not `"X of null eps watched"`) when `e.total` is falsy and the show is not marked `ongoing`. Ongoing shows render `"X eps · Ongoing"`.
+- **WatchTower "View all →" CTA:** Currently Watching section header now shows a "View all →" pressable that routes to `/(tabs)/watchlist` with `params: { tab: 'watching' }`, matching the existing "Recently Watched" pattern.
+- **Splash screen resizeMode fix:** `app.json` `splash.resizeMode` changed from `"cover"` to `"contain"` — centers the text-only splash image correctly instead of filling/cropping it.
+- **WatchList swipe navigation:** `PanResponder` added to WatchList for horizontal swipe between tabs. Threshold: `|dx| > 50` to trigger, with `onMoveShouldSetPanResponder` gating at `|dx| > 12 && |dx| > |dy| * 2` (strongly horizontal). Stale closure avoided via `tabRef.current = tab` updated every render; `animateSwitchRef.current` function ref also updated every render.
+- **WatchList swipe animation:** Tab switches animate with crossfade + slide. Exit: content slides to `±40px` and fades to `opacity 0` over 140ms. Enter: content enters from `∓40px` and fades to `opacity 1` over 180ms. Uses `Animated.Value` (slideAnim, fadeAnim) with `useNativeDriver: true`. FlatList wrapped in `<Animated.View>` that holds the pan handlers.
+- **LogIt bottom sheet padding:** `sheet` style in LogItSearch has `paddingBottom: 15` for breathing room at the bottom of the sheet.
+- **FilterSheet polish:**
+  - `navSectionLabel.fontSize` and `paneTitle.fontSize` raised from 9 → 11.
+  - `navItem.marginBottom` raised from 2 → 5 for breathing room between categories.
+  - `navLabelActive` no longer sets `fontFamily: T.fontTitleMedium` — only sets `color: T.amber`. This fixes font switching (Fredoka → Nunito-SemiBold) on select/deselect.
+  - Unrated toggle wrapped in a `View` with conditional amber outline: `borderWidth: 1.5, borderColor: 'transparent'` normally; `borderColor: 'rgba(239,159,39,0.55)'` when toggle is off (`!unrated`).
+
 ### What's NOT built yet (do these next in order)
 1. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
 
@@ -235,10 +251,13 @@ T.dropped     = "#C47A7A"
 T.fontDisplay     = 'Nunito-ExtraBold'    // 800w — headings, numbers, CTAs
 T.fontTitle       = 'Nunito-Bold'          // 700w — card titles
 T.fontTitleMedium = 'Nunito-SemiBold'     // 600w
-T.fontBody        = 'Nunito-Regular'       // 400w — body
+T.fontBody        = 'Nunito-Regular'       // 400w — body, text inputs, date pickers
 T.fontBodyMedium  = 'Nunito-Medium'       // 500w
 T.fontMono        = 'Inconsolata-Regular'  // mono — labels, stats, dates
+T.fontFun         = 'Fredoka-Regular'      // 400w — subtexts, labels, secondary copy
 ```
+
+**`fontFun` usage rule:** Use `T.fontFun` (Fredoka) for non-interactive secondary copy — descriptions, sub-labels, hints, empty state copy, toast body text. Keep `T.fontBody` / `T.fontBodyMedium` for text inputs, date pickers, and any multi-line editable areas. Keep `T.fontMono` for dates and technical mono labels. Keep Nunito for titles, numbers, and CTAs.
 
 ### Rules
 - Dark mode only
@@ -575,3 +594,9 @@ npm run build:aab
 - **ManageTagsScreen** — `app/manage-tags.jsx` re-exports `ManageTagsScreen`. Uses `getCategories` / `saveCategories` / `DEFAULT_CATEGORIES` from storage (not local copies). Category rename calls `saveEntries(updatedEntries)` to update all matching `entry.type` fields atomically. Delete is blocked with an error banner (not a modal) if any entries use that category — error copy frames it as "rename instead." Genre delete uses `ConfirmModal` with count-aware body copy; on confirm strips the genre from all `entry.genre` arrays via `saveEntries`. Both tabs share the same `entries` state loaded in a single `useFocusEffect`.
 - **WatcherScreen profile layout** — `profileSection` is a column with `alignItems: 'center'`. Within it, `profileIdentity` is a horizontal row (`flexDirection: 'row'`, `alignSelf: 'center'`) containing the avatar, name text, and pencil icon — it hugs its content and is centered as a unit. Auth badge sits below with `alignSelf: 'center'`. In edit mode, `editRow` has `width: '100%'` so the TextInput and buttons expand to fill the card width. Name TextInput has `returnKeyType="done"` and `onSubmitEditing={handleSave}` — both keyboard submit and the Save CTA call `handleSave` directly without needing to dismiss the keyboard first.
 - **FilterSheet categories note** — FilterSheet still uses the hardcoded `CATEGORIES` array for its left nav (Sort, Category, Rating, Watch Date, Platform, Language, Genre). This is a UI navigation list, not the user-configurable content categories. Do not conflate the two. The user-configurable categories (from `getCategories()`) are used only in LogItDetails and ManageTagsScreen.
+- **`fontFun` vs `fontBody`** — use `T.fontFun` (Fredoka) for secondary copy, subtexts, labels, hints, and empty state text. Never use it on text inputs, date pickers, or multi-line editable TextInput areas — those must stay `T.fontBody` (Nunito-Regular) to avoid visual weight mismatches in editable fields.
+- **WatchList `tabRef` pattern** — `PanResponder` is created once in a `useRef` so its callbacks capture stale state. Solve with `tabRef.current = tab` (updated every render) and `animateSwitchRef.current = fn` (function ref updated every render). Pan handlers read `tabRef.current` and call `animateSwitchRef.current(...)` — never the raw state variable directly.
+- **WatchList swipe vs scroll coexistence** — `onMoveShouldSetPanResponder` returns `true` only when `Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2`. This ensures vertical scroll goes to FlatList and horizontal swipe goes to the PanResponder. Do not relax this threshold — it will break vertical scroll.
+- **FilterSheet unrated toggle outline** — the native `Switch` component cannot conditionally show a border. Wrap it in a `View` with `borderWidth: 1.5, borderColor: 'transparent'` by default and `borderColor: 'rgba(239,159,39,0.55)'` when `!unrated`. Do not attempt to style the Switch itself.
+- **WatchList `dateLine`** — `e.date` (the log/add date) must never appear on title cards. `dateLine()` uses: `finishedDate` for watched, `lastWatchedDate` for watching/paused/dropped. If neither is set, return empty string.
+- **WatchList `progressLine`** — for entries where `e.total` is null/falsy and `!e.ongoing`, render `"${e.ep} eps watched"` (no denominator). Only render `"X of Y eps watched"` when both `e.ep` and `e.total` are truthy.

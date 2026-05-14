@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, Text, TextInput, FlatList, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { View, Text, TextInput, FlatList, ScrollView, Pressable, StyleSheet, PanResponder, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -53,19 +53,19 @@ function typeAccentColor(e) {
 function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
   const dateLine = (() => {
     if (e.status === 'watchplan') return 'Yet to watch';
-    if (e.dropped)  return `Dropped on ${e.date}`;
-    if (e.paused)   return `Paused on ${e.lastWatchedDate || e.date}`;
-    if (e.status === 'watching') return e.lastWatchedDate ? `Last watched ${e.lastWatchedDate}` : e.date;
+    if (e.dropped)  return `Dropped on ${e.lastWatchedDate || ''}`;
+    if (e.paused)   return `Paused on ${e.lastWatchedDate || ''}`;
+    if (e.status === 'watching') return e.lastWatchedDate ? `Last watched ${e.lastWatchedDate}` : '';
     if (e.status === 'watched') {
-      const d = e.finishedDate || e.date || '';
+      const d = e.finishedDate || '';
       return d && !/\d{4}/.test(d) ? `${d}, ${new Date().getFullYear()}` : d;
     }
-    return e.finishedDate || e.date;
+    return e.finishedDate || '';
   })();
 
   const progressLine = (() => {
     if (e.dropped || e.paused || e.status === 'watching') {
-      return e.ongoing ? `${e.ep} eps · Ongoing` : `${e.ep} of ${e.total} eps watched`;
+      return e.ongoing ? `${e.ep} eps · Ongoing` : e.total ? `${e.ep} of ${e.total} eps watched` : `${e.ep} eps watched`;
     }
     if (e.status === 'watched') {
       if (e.type === 'Movie') return e.watchTime || null;
@@ -85,9 +85,10 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
             <Text style={styles.cardDate} numberOfLines={1}>
               {dateLine}{e.rewatch ? <Text style={styles.rewatch}> ↺</Text> : null}
             </Text>
-            <Text style={styles.cardSub} numberOfLines={1}>
-              {e.type}{progressLine ? <Text style={styles.progressText}> · {progressLine}</Text> : null}
-            </Text>
+            <View style={styles.cardSubRow}>
+              <TypePill type={e.type} />
+              {progressLine ? <Text style={styles.progressText} numberOfLines={1}>{progressLine}</Text> : null}
+            </View>
           </View>
           <View style={styles.cardRight}>
             <Text style={[styles.ratingNum, !e.rating && styles.ratingEmpty]}>
@@ -248,6 +249,47 @@ export default function WatchList() {
     setTab(id); setChips([]); setLanguage(''); setSelectedGenres([]);
   }
 
+  const TAB_IDS = TABS.map(t => t.id);
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(1)).current;
+
+  // Updated every render so PanResponder callbacks always have fresh switchTab
+  const animateSwitchRef = useRef(null);
+  animateSwitchRef.current = (id, dx) => {
+    const exitTo    = dx < 0 ? -40 :  40;
+    const enterFrom = dx < 0 ?  40 : -40;
+    Animated.parallel([
+      Animated.timing(slideAnim, { toValue: exitTo, duration: 140, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 0,      duration: 140, useNativeDriver: true }),
+    ]).start(() => {
+      switchTab(id);
+      slideAnim.setValue(enterFrom);
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    });
+  };
+
+  const swipeResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2,
+      onPanResponderRelease: (_, gs) => {
+        if (Math.abs(gs.dx) < 50) return;
+        const idx = TAB_IDS.indexOf(tabRef.current);
+        if (gs.dx < 0 && idx < TAB_IDS.length - 1) {
+          animateSwitchRef.current(TAB_IDS[idx + 1], gs.dx);
+        } else if (gs.dx > 0 && idx > 0) {
+          animateSwitchRef.current(TAB_IDS[idx - 1], gs.dx);
+        }
+      },
+    })
+  ).current;
+
   async function handleRateSave(updated) {
     setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
     await updateEntry(updated);
@@ -329,29 +371,34 @@ export default function WatchList() {
         </Text>
       </View>
 
-      {/* List */}
-      <FlatList
-        data={results}
-        style={{ flex: 1 }}
-        keyExtractor={e => String(e.id)}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item: e }) => (
-          <WatchCard
-            e={e}
-            isBookmarked={bookmarkedIds.has(e.id)}
-            onBookmark={toggleBookmark}
-            onRate={setRatingEntry}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name={EMPTY_STATES[tab]?.icon} size={28} color={T.textMuted} style={{ opacity: 0.6 }} />
-            <Text style={styles.emptyTitle}>{EMPTY_STATES[tab]?.title}</Text>
-            <Text style={styles.emptySubtext}>{EMPTY_STATES[tab]?.sub}</Text>
-          </View>
-        }
-      />
+      {/* List — swipe left/right to change tabs */}
+      <Animated.View
+        style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}
+        {...swipeResponder.panHandlers}
+      >
+        <FlatList
+          data={results}
+          style={{ flex: 1 }}
+          keyExtractor={e => String(e.id)}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item: e }) => (
+            <WatchCard
+              e={e}
+              isBookmarked={bookmarkedIds.has(e.id)}
+              onBookmark={toggleBookmark}
+              onRate={setRatingEntry}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name={EMPTY_STATES[tab]?.icon} size={28} color={T.textMuted} style={{ opacity: 0.6 }} />
+              <Text style={styles.emptyTitle}>{EMPTY_STATES[tab]?.title}</Text>
+              <Text style={styles.emptySubtext}>{EMPTY_STATES[tab]?.sub}</Text>
+            </View>
+          }
+        />
+      </Animated.View>
 
       <FilterSheet
         show={filterOpen}
@@ -433,8 +480,8 @@ const styles = StyleSheet.create({
   cardTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 15, lineHeight: 20 },
   cardDate: { color: T.textPrimary, fontFamily: T.fontBodyMedium, fontSize: 12 },
   rewatch: { color: T.amberSoft },
-  cardSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
-  progressText: { fontFamily: T.fontMono, fontWeight: '600' },
+  cardSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
+  progressText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
   cardRight: { alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 15 },
   ratingEmpty: { color: T.textMuted },
@@ -446,5 +493,5 @@ const styles = StyleSheet.create({
   rateNudgeText: { color: T.amber, fontFamily: T.fontTitle, fontSize: 11, backgroundColor: 'rgba(239,159,39,0.12)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   empty: { paddingVertical: 60, alignItems: 'center', paddingHorizontal: 32, gap: 8 },
   emptyTitle:   { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 15, textAlign: 'center' },
-  emptySubtext: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  emptySubtext: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, textAlign: 'center', lineHeight: 18 },
 });

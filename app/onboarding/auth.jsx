@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   avatarInitial: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 12, lineHeight: 14 },
   chipName:    { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
-  chipConfirm: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  chipConfirm: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
 
   // Hero
   hero: { alignItems: 'center', gap: 10 },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   sub: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   // Divider
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: T.elevated },
-  dividerLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  dividerLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
 
   // Guest button
   guestBtn: {
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
 
   // Disclaimer
   disclaimer: {
-    color: T.textMuted, fontFamily: T.fontBody,
+    color: T.textMuted, fontFamily: T.fontFun,
     fontSize: 10, textAlign: 'center', lineHeight: 16, opacity: 0.7,
   },
 });

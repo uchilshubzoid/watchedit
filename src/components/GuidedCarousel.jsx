@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   slideSub: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 22,
@@ -317,7 +317,7 @@ const m = StyleSheet.create({
   },
   realLogoText: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 14, letterSpacing: -0.3 },
   realLogoDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: T.amberDeep, marginTop: 1 },
-  orLabel:      { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  orLabel:      { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11 },
   // Real FAB — matches LogItFAB exactly (scaled ~65%)
   realFab: {
     width: 36,
@@ -353,7 +353,7 @@ const m = StyleSheet.create({
     paddingVertical: 8,
   },
   searchIcon:       { color: T.textMuted, fontSize: 14 },
-  searchPlaceholder: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  searchPlaceholder: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
   row:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   rowDiv: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
   poster: {
@@ -363,7 +363,7 @@ const m = StyleSheet.create({
   },
   posterLetter: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 13 },
   rowTitle:     { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 12 },
-  rowMeta:      { color: T.textMuted, fontFamily: T.fontBody, fontSize: 10 },
+  rowMeta:      { color: T.textMuted, fontFamily: T.fontFun, fontSize: 10 },
   logBtn: {
     backgroundColor: T.amber, borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 4,
@@ -377,7 +377,7 @@ const m = StyleSheet.create({
     borderRadius: 10, backgroundColor: T.elevated,
   },
   tabChipActive:    { backgroundColor: T.amber },
-  tabChipText:      { color: T.textMuted, fontFamily: T.fontBody, fontSize: 9 },
+  tabChipText:      { color: T.textMuted, fontFamily: T.fontFun, fontSize: 9 },
   tabChipTextActive: { color: T.bgPrimary, fontFamily: T.fontTitle, fontSize: 9 },
   statusBadge:      { fontFamily: T.fontMono, fontSize: 9, flexShrink: 0 },
 
@@ -390,14 +390,14 @@ const m = StyleSheet.create({
   periodText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 0.8 },
   statsMono:  { color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 1.4 },
   statsNum:   { color: T.amber, fontFamily: T.fontDisplay, fontSize: 52, lineHeight: 56 },
-  statsTime:  { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12 },
+  statsTime:  { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
   catRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   catPill: {
     backgroundColor: T.elevated, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 5,
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  catLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 10 },
+  catLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 10 },
   catCount:  { color: T.amber, fontFamily: T.fontMono, fontSize: 10 },
   // Matches WatchTower statsLink exactly
   statsCtaText: {

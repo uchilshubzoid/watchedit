@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     gap: 5, paddingHorizontal: 20, paddingBottom: 10,
   },
   listHint: {
-    color: T.textMuted, fontFamily: T.fontBodyMedium, fontSize: 13,
+    color: T.textMuted, fontFamily: T.fontFun, fontSize: 13,
     textAlign: 'center', opacity: 0.8,
   },
   empty: {
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 16, textAlign: 'center' },
   emptySub: {
-    color: T.textMuted, fontFamily: T.fontBody, fontSize: 13,
+    color: T.textMuted, fontFamily: T.fontFun, fontSize: 13,
     textAlign: 'center', lineHeight: 20,
   },
   list: { paddingHorizontal: 16, gap: 8, paddingBottom: 40 },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   cardText: { flex: 1, minWidth: 0, gap: 4 },
   cardTitle: { color: T.amberDeep, fontFamily: T.fontTitle, fontSize: 15, lineHeight: 20 },
   pillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardReaction: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, fontStyle: 'italic' },
+  cardReaction: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, fontStyle: 'italic' },
   cardRight: { alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, alignSelf: 'stretch' },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 15 },
   removeBtn: { padding: 4, marginTop: 'auto' },

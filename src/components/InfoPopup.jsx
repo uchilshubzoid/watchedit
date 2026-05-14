@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   },
   message: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 22,

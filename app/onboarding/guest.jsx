@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
 
   sub: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 2,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 13,
     lineHeight: 19,
   },

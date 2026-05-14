@@ -266,7 +266,12 @@ export default function WatchTower() {
         {/* Currently Watching */}
         {watching.length > 0 && (
           <View>
-            <Text style={styles.sectionTitle}>Currently Watching</Text>
+            <View style={styles.recentHeader}>
+              <Text style={styles.sectionTitle}>Currently Watching</Text>
+              <Pressable onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { tab: 'watching' } })}>
+                <Text style={styles.viewAll}>View all →</Text>
+              </Pressable>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 12, paddingRight: 16 }}>
               {watching.slice(0, 8).map(e => (
@@ -425,7 +430,7 @@ const styles = StyleSheet.create({
   watchTimeNum: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 22, lineHeight: 26 },
   watchTimeLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 12, marginTop: 2 },
   titlesRow: { textAlign: 'center', marginTop: 6 },
-  titlesLabel: { color: T.textPrimary, fontFamily: T.fontBodyMedium, fontSize: 15 },
+  titlesLabel: { color: T.textPrimary, fontFamily: T.fontFun, fontSize: 15 },
   titlesSubLabel: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
   segBar: { flexDirection: 'row', height: 14 },
   segBarSegment: { height: 14 },
@@ -444,7 +449,7 @@ const styles = StyleSheet.create({
   nudgeLink: { color: T.amber, fontFamily: T.fontTitle, fontSize: 12 },
   streak: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(239,159,39,0.1)', borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)', borderRadius: 16, padding: 12 },
   streakHead: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 14 },
-  streakSub: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 12, marginTop: 2 },
+  streakSub: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, marginTop: 2 },
   streakNum: { color: T.amberSoft, fontFamily: T.fontMono, fontWeight: '600' },
   sectionTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 17, letterSpacing: -0.1, marginBottom: 12 },
   watchCard: { width: 284, height: 138, backgroundColor: T.surface, borderRadius: 16, flexDirection: 'row' },
@@ -454,11 +459,11 @@ const styles = StyleSheet.create({
   pausedPill: { backgroundColor: 'rgba(139,163,196,0.15)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   pausedPillText: { color: T.paused, fontFamily: T.fontTitleMedium, fontSize: 10 },
   watchTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 16, lineHeight: 21 },
-  watchEp: { color: T.amber, fontFamily: T.fontMono, fontWeight: '700', fontSize: 13 },
+  watchEp: { color: T.amber, fontFamily: T.fontFun, fontSize: 13 },
   watchDate: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 12, marginTop: 2 },
   watchMoreCard: { width: 100, height: 180, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 16, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center' },
   watchMoreCount: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 26 },
-  watchMoreLabel: { color: T.textMuted, fontFamily: T.fontBody, fontSize: 11 },
+  watchMoreLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11 },
   watchMoreLink: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 11, marginTop: 4 },
   recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   viewAll: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 12 },
@@ -488,7 +493,7 @@ const styles = StyleSheet.create({
   },
   welcomeSub: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
@@ -532,7 +537,7 @@ const styles = StyleSheet.create({
   },
   hintStripSub: {
     color: T.textMuted,
-    fontFamily: T.fontBody,
+    fontFamily: T.fontFun,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -545,7 +550,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 10, elevation: 20,
   },
   toastTitle:       { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
-  toastBody:        { color: T.textMuted,  fontFamily: T.fontBody,  fontSize: 12, marginTop: 1 },
+  toastBody:        { color: T.textMuted,  fontFamily: T.fontFun,  fontSize: 12, marginTop: 1 },
   toastSub:         { color: T.textMuted,  fontFamily: T.fontMono,  fontSize: 10, marginTop: 3, opacity: 0.7 },
   toastDismiss:     { position: 'absolute', top: 10, right: 12, padding: 4, zIndex: 2, elevation: 2 },
   toastDismissText: { color: T.textMuted, fontSize: 14 },
