@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Pressable, StyleSheet, Modal, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LogItSearch from '../../src/screens/LogItSearch';
@@ -62,14 +63,26 @@ export default function TabLayout() {
           name="index"
           options={{
             title: 'Watch Tower',
-            tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <MaterialCommunityIcons
+                name="castle"
+                size={24}
+                color={focused ? T.amber : T.textMuted}
+              />
+            ),
           }}
         />
         <Tabs.Screen
           name="watchlist"
           options={{
             title: 'Watch List',
-            tabBarIcon: ({ focused }) => <TabIcon name="list" focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <MaterialCommunityIcons
+                name={focused ? 'script-text' : 'script-text-outline'}
+                size={24}
+                color={focused ? T.amber : T.textMuted}
+              />
+            ),
           }}
         />
         <Tabs.Screen
@@ -83,7 +96,13 @@ export default function TabLayout() {
           name="search"
           options={{
             title: 'Search',
-            tabBarIcon: ({ focused }) => <TabIcon name="search" focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <MaterialCommunityIcons
+                name="telescope"
+                size={24}
+                color={focused ? T.amber : T.textMuted}
+              />
+            ),
           }}
         />
         <Tabs.Screen

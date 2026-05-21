@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v2.6
-*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system. EAS build config, final app assets, Play Store account setup. API keys in EAS preview env, eas.json git-ignored, Play Store submission imminent. Fredoka font system (fontFun token), WatchList date bug fix, TypePill on WatchList cards, ongoing shows null fix, WatchTower "View all" CTA on Currently Watching, splash resizeMode contain, WatchList swipe navigation + animation, LogIt sheet bottom padding, FilterSheet font/spacing/toggle polish.*
+# WatchedIt — Full Product Spec v2.10
+*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system. EAS build config, final app assets, Play Store account setup. API keys in EAS preview env, eas.json git-ignored, Play Store submission imminent. Fredoka font system (fontFun token), WatchList date bug fix, TypePill on WatchList cards, ongoing shows null fix, WatchTower "View all" CTA on Currently Watching, splash resizeMode contain, WatchList swipe navigation + animation, LogIt sheet bottom padding, FilterSheet font/spacing/toggle polish. Search screen web mode (dual-mode search: WatchLog + web API), nav icon refresh (castle/script/telescope).*
 
 ---
 
@@ -149,6 +149,14 @@ Right edge gradient border on WatchList cards. Amber at top-right corner, fades 
 
 **Bottom nav (5 tabs):**
 Watch Tower · WatchList · **+** (amber gradient circle, elevated, −20px lift) · Search · Watcher
+
+**Tab bar icons (MaterialCommunityIcons unless noted):**
+| Tab | Icon | State |
+|---|---|---|
+| Watch Tower | `castle` | color: amber (focused) / muted (unfocused) |
+| Watch List | `script-text` / `script-text-outline` | filled when focused |
+| Search | `telescope` | color: amber (focused) / muted (unfocused) |
+| Watcher | `person` / `person-outline` (Ionicons) | filled when focused |
 
 **Expo Router route map:**
 ```
@@ -694,9 +702,38 @@ Global ratings from linked sources.
 
 ## 12. Screen: Search
 
-Real-time search across WatchList entries.
-Matches: title · genre · language · type.
-Same card style as WatchList.
+Two modes toggled by an inline CTA below the search bar.
+
+### WatchLog mode (default)
+Real-time search across WatchList entries. Matches: title · genre · language · type. Same card style as WatchList. Tap → Detail View.
+
+Toggle CTA: `"Searching your WatchLog · Search the web instead →"`
+
+### Web mode
+Searches MAL → TMDB → OMDB using the same `searchTitles()` infrastructure as Log It Step 1. Auto-triggers if a query is already typed when the user switches modes.
+
+Toggle CTA: `"← Searching the web · switch to WatchLog"`
+
+**Controls (same as Log It Step 1):**
+- Source toggles: MAL · TMDB · OMDB (only active after a search runs)
+- Type filter chips: All · Movie · TV Show · Anime (shown only when results exist; wrapped in `<View>` to constrain height in the flex column layout)
+- Info button (ⓘ): opens `SearchPreviewModal` (auto-close timer, hold to pause, expand poster) — identical to Log It
+
+**Result ordering — two sections:**
+
+1. **IN YOUR WATCHLOG** — API results whose title matches an entry already in the user's WatchLog (`r.inLog === true`). Rendered as exact WatchList cards: left color status bar, date line, TypePill + progress line, rating, bookmark toggle, "Rate it ★" nudge for unrated Watched entries. Sorted by Most Recent Activity (same as WatchList All tab). Tap → Detail View.
+
+2. **WEB RESULTS** (or **MORE FROM THE WEB** when in-log results also exist) — API results not in the WatchLog. Rendered as LogIt result cards: `+ Watch Plan` and `WatchedIt →` CTAs plus ⓘ preview button. Same card layout and behavior as Log It Step 1.
+
+**`WatchedIt →` CTA:** Navigates to Log It Step 2 (`/logit/details`) with the same params as Log It. On submit, `router.back()` returns to Search screen. Search screen reads `consumePendingToast()` in `useFocusEffect` and shows the success toast here (not on WatchTower).
+
+**`+ Watch Plan` CTA:** Instant-add identical to Log It. Card transforms inline to `✓ Added to Watch Plan  View →`.
+
+**No results:** Shows the niche callout ("Woah you've gone niche! 🎭") with "Add Manually" button — same as Log It.
+
+**Toast:** Amber-bordered slide-up toast, identical to WatchTower. 10s auto-dismiss, ✕ dismiss button. Reads from `toastBridge` singleton on `useFocusEffect`. Shown here instead of WatchTower when the user logs via the Search screen's web mode.
+
+**Search bar icon:** `Ionicons search-outline` (replaces emoji 🔍).
 
 ---
 
@@ -1160,6 +1197,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | **2** | React Native + Expo migration. Android-first app shell. Expo Router. AsyncStorage persistence. MAL + TMDB + OMDB search. Revised Log It flow. Core screens/components migrated from web reference. | ✅ Complete |
 | **2.1** | Onboarding flow (3-screen stack, two-phase bootstrap, welcome card, GuidedCarousel, first-log toast). Screen transition polish. | ✅ Complete |
 | **2.8** | EAS build config. Final app icons + splash. Play Store developer account created (verification in progress). APK and AAB build profiles configured. | ✅ Complete |
+| **2.10** | Search screen web mode. Dual-mode search: WatchLog (existing) + web API (MAL/TMDB/OMDB). In-log results shown as WatchList cards at top; new results shown as LogIt cards. Toast shown on Search screen after submit. Nav icon refresh: Watch Tower → `castle`, WatchList → `script-text`, Search → `telescope` (all MaterialCommunityIcons). | ✅ Complete |
 | **3** | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. Play Store listing live. | 🔲 |
 | **4** | Social/friends. Share extension. Shareable stats card. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
 
@@ -1169,6 +1207,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 
 | Version | Changes |
 |---|---|
+| 2.10 | **Search screen web mode + nav icon refresh.** **Search web mode:** `SearchScreen` now has two modes toggled by an inline CTA below the search bar. WatchLog mode (default): live search across entries — unchanged. Web mode: calls `searchTitles()` (MAL + TMDB + OMDB) on submit; auto-triggers when switching modes with an existing query. Results split into two sections: (1) `IN YOUR WATCHLOG` — matched entries rendered as WatchList cards (left status bar, date line, TypePill, rating, bookmark, Rate it nudge), sorted by Most Recent Activity, tap → DetailView; (2) `WEB RESULTS` / `MORE FROM THE WEB` — unmatched API results rendered as LogIt result cards with `+ Watch Plan`, `WatchedIt →`, and ⓘ preview modal (same `SearchPreviewModal` as LogItSearch). `WatchedIt →` navigates to `/logit/details`; on submit `router.back()` returns to SearchScreen which reads `consumePendingToast()` and shows the toast here. Toast system identical to WatchTower (10s auto-dismiss, ✕ button, amber border). Filter chip ScrollView wrapped in `<View>` (same pattern as LogItSearch) to prevent Android flex-column height expansion. Section labels bumped from mono 11px → `T.fontTitle` 13px. **Search bar icon:** emoji 🔍 replaced with `Ionicons search-outline`. **Nav icon refresh:** Watch Tower `home` → `castle` (MaterialCommunityIcons); WatchList `list` → `script-text` / `script-text-outline` (MaterialCommunityIcons, filled/outline on focus); Search `search` → `telescope` (MaterialCommunityIcons). Watcher unchanged (`person` / `person-outline`, Ionicons). |
 | 2.6 | **Font system expansion + UX bug fixes.** **Fredoka font (`fontFun`):** `@expo-google-fonts/fredoka` installed; `Fredoka_400Regular` registered in `app/_layout.jsx` as `'Fredoka-Regular'`; new token `T.fontFun` added to `tokens.js`. Used for subtexts, hints, labels, and secondary copy across all screens. Nunito retained for titles/numbers/CTAs; Inconsolata retained for dates/mono. Text inputs and date pickers retain Nunito (`fontBody`). **WatchList date fix:** title cards now surface `finishedDate` for watched entries and `lastWatchedDate` for watching/dropped/paused — `e.date` (the log/add date) is never shown on cards. **TypePill on WatchList cards:** content-type display replaced from plain text to `<TypePill>` chip inline with the progress line (`cardSubRow`, `flexDirection: 'row'`, `gap: 6`). **Ongoing shows null fix:** `progressLine()` now renders `"X eps watched"` when `e.total` is falsy (not `"X of null eps watched"`); only shows denominator when both ep and total are set. **WatchTower "View all →" CTA:** Currently Watching section header now has a pressable that navigates to `/(tabs)/watchlist` with `params: { tab: 'watching' }`, consistent with the Recently Watched pattern. **Splash resizeMode fix:** `app.json` `splash.resizeMode` changed from `"cover"` to `"contain"` so the text-only centered image displays without cropping. **WatchList swipe navigation:** `PanResponder` on the FlatList wrapper enables left/right swipe to advance tabs (threshold: `|dx| > 50`, gate: `|dx| > 12 && |dx| > |dy| * 2`); stale closure solved with `tabRef.current = tab` and `animateSwitchRef.current` function refs updated every render. **WatchList swipe animation:** crossfade + slide on tab switch; exit: 140ms slide ±40px + fade to 0; enter: 180ms slide from ∓40px + fade to 1; `useNativeDriver: true`. **LogIt sheet padding:** `sheet.paddingBottom` raised to 15px. **FilterSheet polish:** `navSectionLabel.fontSize` and `paneTitle.fontSize` raised 9→11px; `navItem.marginBottom` raised 2→5px; `navLabelActive` no longer overrides `fontFamily` (was switching to Nunito-SemiBold on select — now color-only); unrated toggle wrapped in `View` with `borderWidth: 1.5` amber outline (`rgba(239,159,39,0.55)`) when toggle is off. |
 | 2.5 | **Build config hardened.** `eas.json` `preview` profile: `env` block added with `EXPO_PUBLIC_TMDB_TOKEN`, `EXPO_PUBLIC_OMDB_API_KEY`, `EXPO_PUBLIC_MAL_CLIENT_ID` — keys bundled into APK at EAS build time. `eas.json` added to `.gitignore` and untracked from git (`git rm --cached`) — file is local-only, never pushed to GitHub. `app.json` splash `resizeMode` confirmed as `"cover"` (fills full screen). Play Store developer account verification in progress; first AAB submission imminent. |
 | 2.4 | **EAS build + asset polish.** `app.json` updated with EAS `projectId` (`a44fa3d4-d847-4c8a-9d18-76121b05b701`), `owner` (`uchilshubzoids-organization`), and EAS-generated slug. Final `icon.png`, `adaptive-icon.png`, and `splash.png` replaced with branded assets. Build profiles confirmed: `preview` → APK (sideload/testing), `production` → AAB (Play Store). Play Store developer account created; verification in progress. **WatchTower hero card:** watch time block vertically centered against the big number (`top: 0, bottom: 0, justifyContent: center` on absolute block); watch time number color dimmed to `T.textMuted` to match the "watch time" sub-label. |
