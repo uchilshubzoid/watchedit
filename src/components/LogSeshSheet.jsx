@@ -243,7 +243,7 @@ export default function LogSeshSheet({ entry, onClose, onUpdate, markAll = false
             {isComplete && (
               <View style={styles.completeBox}>
                 <Text style={styles.completeTitle}>
-                  {markAllOngoing ? "That's a wrap! Rate it 🎬" : 'You finished it! Rate it 😄'}
+                  Like Jon Snow, your watch has ended. Yay or Nay, what's your say?
                 </Text>
                 <Text style={styles.completeSub}>
                   {markAllOngoing

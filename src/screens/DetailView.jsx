@@ -713,7 +713,7 @@ export default function DetailView() {
                       {logWillComplete && (
                         <View style={styles.logCompleteBox}>
                           <Text style={styles.logCompleteTitle}>
-                            {entry.ongoing ? "That's a wrap! Rate it 🎬" : "You finished it! Rate it 😄"}
+                            Like Jon Snow, your watch has ended. Yay or Nay, what's your say?
                           </Text>
                           <View style={styles.logStarWrap}>
                             <StarRating value={logRating} onChange={setLogRating} />
