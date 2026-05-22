@@ -27,6 +27,10 @@ function daysAgoStr(e) {
 
 function getActivityDate(e) {
   if (e.watch_end_date) return new Date(e.watch_end_date + 'T12:00:00').getTime();
+  // Watching entry with no sessions yet: attribute to user-set start date
+  if (e.status === 'watching' && !(e.watch_sessions?.length) && e.watch_start_date) {
+    return new Date(e.watch_start_date + 'T12:00:00').getTime();
+  }
   const dateStr = (e.status === 'watched' ? e.finishedDate : e.lastWatchedDate) || e.date || '';
   if (!dateStr) return 0;
   try {

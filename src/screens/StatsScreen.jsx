@@ -27,6 +27,10 @@ function localDateStr(ts) {
 
 function parseActivityDate(entry) {
   if (entry.watch_end_date) return new Date(entry.watch_end_date + 'T12:00:00').getTime();
+  // Watching entry with no sessions yet: attribute to user-set start date
+  if (entry.status === 'watching' && !(entry.watch_sessions?.length) && entry.watch_start_date) {
+    return new Date(entry.watch_start_date + 'T12:00:00').getTime();
+  }
   const dateStr = (entry.status === 'watched' ? entry.finishedDate : entry.lastWatchedDate) || entry.date || '';
   if (!dateStr) return 0;
   try {
@@ -693,10 +697,34 @@ export default function StatsScreen() {
     : null;
   const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
 
+  // Compute period bounds once so session dates can be checked against the same window
+  const periodStart = (() => {
+    if (timeFilter === 'All Time') return 0;
+    if (timeFilter === 'Custom' && customStart) return new Date(customStart + 'T00:00:00').getTime();
+    const d = new Date(); d.setDate(d.getDate() - ((timeFilter === '7 Days' ? 7 : 30) - 1)); d.setHours(0,0,0,0);
+    return d.getTime();
+  })();
+  const periodEnd = timeFilter === 'Custom' && customEnd
+    ? new Date(customEnd + 'T23:59:59').getTime()
+    : Date.now();
+
+  function sessionInPeriod(s) {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= periodStart && t <= periodEnd;
+  }
+
   const activeDays = new Set(
-    filtered.map(e => {
+    filtered.flatMap(e => {
+      const dates = [];
       const t = parseActivityDate(e);
-      return t ? localDateStr(t) : null;
+      if (t) dates.push(localDateStr(t));
+      // Each logged session on a distinct day within the period counts as an active day
+      (e.watch_sessions || []).filter(sessionInPeriod).forEach(s => {
+        const st = new Date(s.date + 'T12:00:00').getTime();
+        dates.push(localDateStr(st));
+      });
+      return dates;
     }).filter(Boolean)
   ).size;
 

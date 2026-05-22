@@ -171,27 +171,31 @@ export default function DetailView() {
 
   const DEETS_WATCHED = hasSessions
     ? [
-        { icon: 'checkmark-circle-outline', label: 'Finished', date: entry.finishedDate || entry.date },
+        { icon: 'checkmark-circle-outline', label: 'Finished', date: finishedDisplayDate },
         ...rewatchDeets,
         ...sessionDeets,
-        { icon: 'play-circle-outline', label: 'Started Watching', date: firstSesh?.date_display || entry.date },
+        { icon: 'play-circle-outline', label: 'Started Watching', date: watchStartDisplayDate || firstSesh?.date_display || entry.date },
       ]
     : [
-        { icon: 'checkmark-circle-outline', label: 'Finished', date: entry.finishedDate || entry.date },
+        { icon: 'checkmark-circle-outline', label: 'Finished', date: finishedDisplayDate },
         ...rewatchDeets,
+        ...(watchStartDisplayDate ? [{ icon: 'play-circle-outline', label: 'Started Watching', date: watchStartDisplayDate }] : []),
       ];
 
   const DEETS_WATCHING = hasSessions
-    ? [...sessionDeets, { icon: 'play-circle-outline', label: 'Started Watching', date: entry.date }]
-    : [{ icon: 'play-circle-outline', label: 'Started Watching', date: entry.date }];
+    ? [...sessionDeets, { icon: 'play-circle-outline', label: 'Started Watching', date: watchingDeetsStartDate }]
+    : [{ icon: 'play-circle-outline', label: 'Started Watching', date: watchingDeetsStartDate }];
 
   const DEETS_DROPPED = hasSessions
     ? [
         { icon: 'close-circle-outline', label: 'Dropped', date: entry.date },
         ...sessionDeets,
-        { icon: 'play-circle-outline', label: 'Started Watching', date: firstSesh?.date_display || entry.date },
+        { icon: 'play-circle-outline', label: 'Started Watching', date: watchStartDisplayDate || firstSesh?.date_display || entry.date },
       ]
-    : [{ icon: 'close-circle-outline', label: 'Dropped', date: entry.date }];
+    : [
+        { icon: 'close-circle-outline', label: 'Dropped', date: entry.date },
+        ...(watchStartDisplayDate ? [{ icon: 'play-circle-outline', label: 'Started Watching', date: watchStartDisplayDate }] : []),
+      ];
 
   const DEETS_PLAN = [{ icon: 'time-outline', label: 'Added to Watch Plan', date: entry.date }];
 
@@ -222,9 +226,20 @@ export default function DetailView() {
   const watchedEndDate   = entry.watch_end_date ? isoToDisplay(entry.watch_end_date) : (entry.finishedDate || endDate);
   const watchedHasDateRange = !!(watchedStartDate && watchedEndDate);
 
-  // For currently watching: start = when they added the title (entry.date), not the first sesh date
-  const watchingStart   = entry.date;
+  // For currently watching: prefer user-set watch_start_date over the add date
+  const watchingStart   = entry.watch_start_date ? fmtDateShort(entry.watch_start_date) : entry.date;
   const watchingSameDay = watchingStart === endDate;
+
+  // Canonical display dates for the Watch Log timeline
+  const finishedDisplayDate    = entry.watch_end_date
+    ? isoToDisplay(entry.watch_end_date)
+    : (entry.finishedDate || entry.date);
+  const watchStartDisplayDate  = entry.watch_start_date
+    ? isoToDisplay(entry.watch_start_date)
+    : null;
+  const watchingDeetsStartDate = entry.watch_start_date
+    ? isoToDisplay(entry.watch_start_date)
+    : entry.date;
 
   const watchSectionLabel = isWatching ? 'Watching Since' : isDropped ? 'Watching Period' : isPlan ? 'Added On' : 'When I Watched It';
 
