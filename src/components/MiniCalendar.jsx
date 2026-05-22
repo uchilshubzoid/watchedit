@@ -35,6 +35,8 @@ export default function MiniCalendar({ value, max, min, onChange }) {
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
   function selectDay(d) {
     const c  = new Date(viewYear, viewMonth, d);
@@ -84,31 +86,35 @@ export default function MiniCalendar({ value, max, min, onChange }) {
       </View>
 
       <View style={styles.grid}>
-        {cells.map((d, i) =>
-          d === null ? (
-            <View key={`e${i}`} style={styles.cell} />
-          ) : (
-            <Pressable
-              key={d}
-              onPress={() => selectDay(d)}
-              disabled={isFuture(d) || isPast(d)}
-              style={[
-                styles.cell,
-                isSelected(d) && styles.selectedCell,
-                isToday(d) && !isSelected(d) && styles.todayCell,
-              ]}
-            >
-              <Text style={[
-                styles.dayNum,
-                isSelected(d) && styles.selectedNum,
-                isToday(d) && !isSelected(d) && styles.todayNum,
-                (isFuture(d) || isPast(d)) && styles.futureNum,
-              ]}>
-                {d}
-              </Text>
-            </Pressable>
-          )
-        )}
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.week}>
+            {week.map((d, ci) =>
+              d === null ? (
+                <View key={`e${wi * 7 + ci}`} style={styles.cell} />
+              ) : (
+                <Pressable
+                  key={d}
+                  onPress={() => selectDay(d)}
+                  disabled={isFuture(d) || isPast(d)}
+                  style={[
+                    styles.cell,
+                    isSelected(d) && styles.selectedCell,
+                    isToday(d) && !isSelected(d) && styles.todayCell,
+                  ]}
+                >
+                  <Text style={[
+                    styles.dayNum,
+                    isSelected(d) && styles.selectedNum,
+                    isToday(d) && !isSelected(d) && styles.todayNum,
+                    (isFuture(d) || isPast(d)) && styles.futureNum,
+                  ]}>
+                    {d}
+                  </Text>
+                </Pressable>
+              )
+            )}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -126,8 +132,9 @@ const styles = StyleSheet.create({
   monthLabel: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
   daysRow: { flexDirection: 'row', marginBottom: 6 },
   dayLabel: { flex: 1, textAlign: 'center', color: T.textMuted, fontFamily: T.fontMono, fontSize: 9, letterSpacing: 0.8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  grid: { flexDirection: 'column' },
+  week: { flexDirection: 'row' },
+  cell: { flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   selectedCell: { backgroundColor: T.amber },
   todayCell: { backgroundColor: 'rgba(239,159,39,0.15)' },
   dayNum: { color: T.textPrimary, fontFamily: T.fontBody, fontSize: 13 },
