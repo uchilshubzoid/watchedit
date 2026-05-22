@@ -16,13 +16,22 @@ function formatDateWithYear(dateStr) {
   return `${dateStr}, ${new Date().getFullYear()}`;
 }
 
+// Display-only: "last watched" uses lastWatchedDate / date, NOT watch_start_date
+// (watch_start_date is for stats attribution, not for "when did you last watch")
 function daysAgoStr(e) {
-  const ms = getActivityDate(e);
-  if (!ms) return e.lastWatchedDate || '';
-  const days = Math.floor((Date.now() - ms) / 864e5);
-  if (days === 0) return 'today';
-  if (days === 1) return 'yesterday';
-  return `${days}d ago`;
+  const dateStr = e.lastWatchedDate || e.date || '';
+  if (!dateStr) return '';
+  try {
+    const withYear = !dateStr.includes(',')
+      ? `${dateStr}, ${new Date().getFullYear()} 12:00:00`
+      : dateStr;
+    const ms = new Date(withYear).getTime();
+    if (isNaN(ms)) return dateStr;
+    const days = Math.floor((Date.now() - ms) / 864e5);
+    if (days === 0) return 'today';
+    if (days === 1) return 'yesterday';
+    return `${days}d ago`;
+  } catch { return dateStr; }
 }
 
 function getActivityDate(e) {
@@ -151,7 +160,9 @@ export default function WatchTower() {
 
   // UI-only subsets — not used in stats above
   const watched      = entries.filter(e => e.status === 'watched');
-  const watching     = entries.filter(e => e.status === 'watching' && !e.paused && !e.dropped);
+  const watching     = entries
+    .filter(e => e.status === 'watching' && !e.paused && !e.dropped)
+    .sort((a, b) => getActivityDate(b) - getActivityDate(a));
   const recent       = [...watched].sort((a, b) => getActivityDate(b) - getActivityDate(a)).slice(0, 3);
   const flaggedCount = watched.filter(e => !e.rating).length;
 
