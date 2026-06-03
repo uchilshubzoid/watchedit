@@ -27,9 +27,17 @@ const EMPTY_STATES = {
 };
 
 function parseActivityDate(entry) {
+  if (entry.status === 'watching') {
+    // Use ISO session/start dates — avoids display-string parsing failures on Android/Hermes
+    if (entry.watch_sessions?.length) {
+      const last = entry.watch_sessions[entry.watch_sessions.length - 1];
+      if (last?.date) return new Date(last.date + 'T12:00:00').getTime();
+    }
+    if (entry.watch_start_date) return new Date(entry.watch_start_date + 'T12:00:00').getTime();
+  }
   let dateStr = '';
-  if (entry.status === 'watched')   dateStr = entry.finishedDate || '';
-  else if (entry.status === 'watching') dateStr = entry.lastWatchedDate || '';
+  if (entry.status === 'watched')    dateStr = entry.finishedDate || '';
+  else if (entry.status === 'watching')  dateStr = entry.lastWatchedDate || entry.date || '';
   else if (entry.status === 'watchplan') dateStr = entry.date || '';
   if (!dateStr) return 0;
   if (dateStr === 'Today') return Date.now();
@@ -299,7 +307,7 @@ export default function WatchList() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Search bar */}
       <View style={styles.searchBar}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search-outline" size={16} color={T.textMuted} />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -445,7 +453,6 @@ const styles = StyleSheet.create({
     backgroundColor: T.surface, margin: 16, marginBottom: 0,
     borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10,
   },
-  searchIcon: { fontSize: 15 },
   searchInput: { flex: 1, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 13 },
   clearX: { color: T.textMuted, fontSize: 18 },
   tabRow: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', marginTop: 4, flexShrink: 0, flexGrow: 0 },

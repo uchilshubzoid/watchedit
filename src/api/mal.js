@@ -7,9 +7,17 @@ export async function searchMAL(query) {
   if (!MAL_CLIENT_ID) throw new Error('EXPO_PUBLIC_MAL_CLIENT_ID not set');
 
   const url = `${MAL_BASE}/anime?q=${encodeURIComponent(query.trim())}&limit=8&fields=${FIELDS}`;
-  const res = await fetch(url, {
-    headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { 'X-MAL-CLIENT-ID': MAL_CLIENT_ID },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) throw new Error(`MAL API ${res.status}`);
 

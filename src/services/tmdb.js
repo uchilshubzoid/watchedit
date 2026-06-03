@@ -84,7 +84,14 @@ async function tmdbFetch(path, params = {}) {
   const url = new URL(`${TMDB_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const res = await fetch(url.toString(), { headers: authHeaders() });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  let res;
+  try {
+    res = await fetch(url.toString(), { headers: authHeaders(), signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`TMDB API ${res.status} on ${path}`);
   return res.json();
 }

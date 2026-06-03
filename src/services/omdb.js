@@ -54,7 +54,14 @@ async function omdbFetch(params = {}) {
   url.searchParams.set("apikey", OMDB_API_KEY);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const res = await fetch(url.toString());
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  let res;
+  try {
+    res = await fetch(url.toString(), { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`OMDB API ${res.status}`);
 
   const json = await res.json();

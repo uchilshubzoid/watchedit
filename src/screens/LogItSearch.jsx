@@ -8,6 +8,7 @@ import { searchTitles } from '../api';
 import { getEntries, addEntry, getTitleLanguagePref } from '../db/storage';
 import { getPreferredTitle } from '../utils/titleUtils';
 import { highResPosterUrl } from '../utils/posterUtils';
+import { Ionicons } from '@expo/vector-icons';
 import { T } from '../constants/tokens';
 
 const PREVIEW_DURATION = 10000;
@@ -274,7 +275,7 @@ export default function LogItSearch({ onClose }) {
 
       <View style={styles.searchWrap}>
         <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search-outline" size={16} color={T.textMuted} />
           <TextInput
             ref={inputRef}
             value={query}
@@ -367,6 +368,14 @@ export default function LogItSearch({ onClose }) {
                   <Text style={styles.emptySub}>No results found online... add manually to log?</Text>
                   <Pressable onPress={goManual} style={styles.manualBtn}>
                     <Text style={styles.manualBtnText}>Add Manually</Text>
+                  </Pressable>
+                </View>
+              )}
+              {filteredResults.length > 0 && !singleRewatch && (
+                <View style={styles.notFindingBar}>
+                  <Text style={styles.notFindingText}>Not finding it?</Text>
+                  <Pressable onPress={goManual} hitSlop={8}>
+                    <Text style={styles.notFindingCta}>Add manually →</Text>
                   </Pressable>
                 </View>
               )}
@@ -477,7 +486,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: T.elevated, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11,
   },
-  searchIcon: { fontSize: 16 },
   searchInput: { flex: 1, color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 15 },
   clearX: { color: T.textMuted, fontSize: 16 },
   searchBtn: { backgroundColor: T.amber, borderRadius: 16, paddingVertical: 13, alignItems: 'center' },
@@ -501,6 +509,9 @@ const styles = StyleSheet.create({
   typeBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 13 },
   typeBtnTextActive: { color: T.amber },
   resultList: { paddingHorizontal: 20, gap: 10, paddingBottom: 60 },
+  notFindingBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 2, marginBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  notFindingText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13 },
+  notFindingCta: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 13 },
   emptyBox: { backgroundColor: T.elevated, borderRadius: 16, padding: 18, alignItems: 'center', gap: 8 },
   emptyTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 15 },
   emptySub: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13, textAlign: 'center', lineHeight: 20 },

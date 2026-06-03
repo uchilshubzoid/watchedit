@@ -117,6 +117,14 @@ function WatchDatePicker({ label, value, onChange, optional = false }) {
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
 
+  // Build explicit week rows — avoids Android flexWrap rounding that collapses to 6 columns
+  const calCells = [];
+  for (let i = 0; i < firstDay; i++) calCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+  while (calCells.length % 7 !== 0) calCells.push(null);
+  const calWeeks = [];
+  for (let i = 0; i < calCells.length; i += 7) calWeeks.push(calCells.slice(i, i + 7));
+
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
     else setViewMonth(m => m - 1);
@@ -185,33 +193,35 @@ function WatchDatePicker({ label, value, onChange, optional = false }) {
               ))}
             </View>
 
-            {/* Day grid */}
+            {/* Day grid — explicit week rows prevent Android flexWrap collapsing to 6 columns */}
             <View style={dpStyles.dayGrid}>
-              {Array.from({ length: firstDay }).map((_, i) => (
-                <View key={`b${i}`} style={dpStyles.dayCell} />
+              {calWeeks.map((week, wi) => (
+                <View key={wi} style={dpStyles.weekRow}>
+                  {week.map((day, ci) => {
+                    if (day === null) return <View key={`e${wi * 7 + ci}`} style={dpStyles.dayCell} />;
+                    const disabled = isDayDisabled(day);
+                    const iso = isoForDay(day);
+                    const selected = iso === effective;
+                    const isToday = iso === todayISO;
+                    return (
+                      <Pressable
+                        key={day}
+                        onPress={() => !disabled && selectDay(day)}
+                        style={[dpStyles.dayCell, selected && dpStyles.dayCellSelected, !selected && isToday && dpStyles.dayCellToday]}
+                      >
+                        <Text style={[
+                          dpStyles.dayText,
+                          selected && dpStyles.dayTextSelected,
+                          !selected && isToday && dpStyles.dayTextToday,
+                          disabled && dpStyles.dayTextDisabled,
+                        ]}>
+                          {day}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               ))}
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                const disabled = isDayDisabled(day);
-                const iso = isoForDay(day);
-                const selected = iso === effective;
-                const isToday = iso === todayISO;
-                return (
-                  <Pressable
-                    key={day}
-                    onPress={() => !disabled && selectDay(day)}
-                    style={[dpStyles.dayCell, selected && dpStyles.dayCellSelected, !selected && isToday && dpStyles.dayCellToday]}
-                  >
-                    <Text style={[
-                      dpStyles.dayText,
-                      selected && dpStyles.dayTextSelected,
-                      !selected && isToday && dpStyles.dayTextToday,
-                      disabled && dpStyles.dayTextDisabled,
-                    ]}>
-                      {day}
-                    </Text>
-                  </Pressable>
-                );
-              })}
             </View>
 
             {/* Today shortcut */}
@@ -246,11 +256,12 @@ const dpStyles = StyleSheet.create({
   navBtn: { padding: 4 },
   monthTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 15 },
   dayHeaderRow: { flexDirection: 'row', marginBottom: 6 },
-  dayHeader: { width: CAL_CELL, textAlign: 'center', color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
-  dayGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayCell: { width: CAL_CELL, height: CAL_CELL, justifyContent: 'center', alignItems: 'center' },
-  dayCellSelected: { backgroundColor: T.amber, borderRadius: CAL_CELL / 2 },
-  dayCellToday: { borderWidth: 1.5, borderColor: T.amber, borderRadius: CAL_CELL / 2 },
+  dayHeader: { flex: 1, textAlign: 'center', color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
+  dayGrid: { flexDirection: 'column' },
+  weekRow: { flexDirection: 'row' },
+  dayCell: { flex: 1, aspectRatio: 1, justifyContent: 'center', alignItems: 'center' },
+  dayCellSelected: { backgroundColor: T.amber, borderRadius: 999 },
+  dayCellToday: { borderWidth: 1.5, borderColor: T.amber, borderRadius: 999 },
   dayText: { color: T.textPrimary, fontFamily: T.fontBody, fontSize: 13 },
   dayTextSelected: { color: T.bgPrimary, fontFamily: T.fontTitle },
   dayTextToday: { color: T.amber },
@@ -383,6 +394,8 @@ export default function LogItDetails() {
   const [ratingPopup,   setRatingPopup]   = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [showTitleDropdown, setShowTitleDropdown] = useState(false);
+  const [epCountEditOpen, setEpCountEditOpen] = useState(false);
+  const [rtEditOpen, setRtEditOpen] = useState(false);
 
   const todayISO = localISODate();
   const [watchStartDate,  setWatchStartDate]  = useState('');
@@ -643,9 +656,9 @@ export default function LogItDetails() {
             <View style={styles.metaRow}>
               <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
                 <Text style={styles.metaLine1}>{headerLine1}</Text>
-                {headerLine2
+                {isMovie && headerLine2
                   ? <Text style={styles.metaLine2}>{headerLine2}</Text>
-                  : <Text style={styles.metaLine2Muted}>Tap Edit to add episodes/runtime details</Text>
+                  : null
                 }
                 <View style={styles.genreRow}>
                   {genre.length > 0
@@ -655,7 +668,8 @@ export default function LogItDetails() {
                 </View>
               </View>
               <Pressable onPress={() => setDetailsExpanded(v => !v)} style={styles.editBtn}>
-                <Text style={styles.editBtnText}>{detailsExpanded ? 'Done ✓' : '✏️ Edit'}</Text>
+                <Ionicons name={detailsExpanded ? 'checkmark' : 'create-outline'} size={13} color={T.textPrimary} />
+                <Text style={styles.editBtnText}>{detailsExpanded ? 'Done' : 'Edit'}</Text>
               </Pressable>
             </View>
 
@@ -716,50 +730,6 @@ export default function LogItDetails() {
                     </View>
                   </Field>
 
-                  {isTV && (
-                    <>
-                      <Field label="Episodes">
-                        <View style={styles.epRow}>
-                          <TextInput
-                            value={episodeCount} onChangeText={setEpisodeCount}
-                            placeholder={ongoing ? 'Unknown' : 'Total episodes'}
-                            keyboardType="number-pad" editable={!ongoing}
-                            style={[styles.textInput, { flex: 1, opacity: ongoing ? 0.5 : 1 }]}
-                          />
-                          <View style={styles.ongoingRow}>
-                            <Text style={styles.ongoingLabel}>Ongoing</Text>
-                            <Switch value={ongoing} onValueChange={setOngoing}
-                              trackColor={{ false: T.elevated, true: T.amber }}
-                              thumbColor={T.textPrimary}
-                            />
-                          </View>
-                        </View>
-                      </Field>
-                      <Field label="Episode Runtime">
-                        <View style={styles.segmented}>
-                          {[{ label: '24 min', val: 24 }, { label: '45 min', val: 45 }].map(opt => (
-                            <Pressable key={opt.val}
-                              onPress={() => { setEpRuntime(opt.val); setRuntimeMode('preset'); }}
-                              style={[styles.segBtn, runtimeMode === 'preset' && epRuntime === opt.val && styles.segBtnActive]}>
-                              <Text style={[styles.segBtnText, runtimeMode === 'preset' && epRuntime === opt.val && styles.segBtnTextActive]}>{opt.label}</Text>
-                            </Pressable>
-                          ))}
-                          <Pressable onPress={() => setRuntimeMode('custom')}
-                            style={[styles.segBtn, runtimeMode === 'custom' && styles.segBtnActive]}>
-                            <Text style={[styles.segBtnText, runtimeMode === 'custom' && styles.segBtnTextActive]}>Custom</Text>
-                          </Pressable>
-                        </View>
-                        {runtimeMode === 'custom' && (
-                          <TextInput value={customRuntime} onChangeText={setCustomRuntime}
-                            placeholder="Minutes per episode" keyboardType="number-pad" style={styles.textInput} />
-                        )}
-                        {estimatedTotalMins
-                          ? <Text style={styles.estTime}>~{Math.floor(estimatedTotalMins/60)}h {estimatedTotalMins%60}m total</Text>
-                          : null}
-                      </Field>
-                    </>
-                  )}
-
                   {isMovie && (
                     <Field label="Runtime" hint="Optional">
                       <TextInput value={movieRuntime} onChangeText={setMovieRuntime}
@@ -787,35 +757,159 @@ export default function LogItDetails() {
             </View>
           </View>
 
-          {/* ── Episode progress (Watching + TV/Anime only) ── */}
-          {!isPlan && isCurrent && isTV && (
-            <View style={styles.card}>
-              <Text style={styles.sectionLabel}>Episode Progress</Text>
-              {!ongoing && totalEpisodes && totalEpisodes <= 50 ? (
-                <>
-                  <EpisodePicker total={totalEpisodes} ongoing={ongoing} value={epWatched} onChange={v => setEpWatched(v)} />
-                  <Field label="Or type episode number:">
-                    <TextInput value={epWatched > 0 ? String(epWatched) : ''} onChangeText={t => setEpWatched(parseInt(t, 10) || 0)}
-                      placeholder="Episode number" keyboardType="number-pad" style={styles.textInput} />
-                  </Field>
-                </>
-              ) : (
-                <>
-                  <Field label="Watched up to episode:">
-                    <TextInput value={epWatched > 0 ? String(epWatched) : ''} onChangeText={t => setEpWatched(parseInt(t, 10) || 0)}
-                      placeholder="Episode number" keyboardType="number-pad" style={styles.textInput} />
-                  </Field>
-                  {epWatched > 0 && (
-                    <Text style={styles.epProgress}>
-                      {ongoing ? `${epWatched} eps watched · Ongoing` : `${epWatched}${totalEpisodes ? ` of ${totalEpisodes}` : ''} episodes`}
+          {/* ── Episodes (TV/Anime, non-plan) ── */}
+          {!isPlan && isTV && (() => {
+            const watchEps = isCurrent ? epWatched : (totalEpisodes || 0);
+            const watchMins = watchEps > 0 && resolvedRuntime ? watchEps * resolvedRuntime : null;
+            const watchTimeStr = watchMins
+              ? `~${Math.floor(watchMins / 60) > 0 ? `${Math.floor(watchMins / 60)}h ` : ''}${watchMins % 60}m`
+              : null;
+            return (
+              <View style={styles.card}>
+                <Text style={styles.sectionLabel}>Episodes</Text>
+
+                {/* Episode count row */}
+                <View style={styles.episodeRow}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.episodeRowLabel}>Total episodes</Text>
+                    <Text style={styles.episodeRowValue}>
+                      {ongoing ? 'Ongoing · unknown' : (totalEpisodes ? `${totalEpisodes} episodes` : 'Not set')}
                     </Text>
-                  )}
-                </>
-              )}
-              <WatchTimeDisplay epRuntime={epRuntime} episodeCount={episodeCount} isCurrent={isCurrent}
-                epWatched={epWatched} runtimeMode={runtimeMode} customRuntime={customRuntime} />
-            </View>
-          )}
+                  </View>
+                  <Pressable onPress={() => setEpCountEditOpen(v => !v)} style={styles.editBtn}>
+                    <Ionicons name={epCountEditOpen ? 'checkmark' : 'create-outline'} size={13} color={T.textPrimary} />
+                    <Text style={styles.editBtnText}>{epCountEditOpen ? 'Done' : 'Edit'}</Text>
+                  </Pressable>
+                </View>
+
+                {epCountEditOpen && (
+                  <View style={styles.inlineEditPanel}>
+                    <View style={styles.epRow}>
+                      <TextInput
+                        value={episodeCount}
+                        onChangeText={setEpisodeCount}
+                        placeholder={ongoing ? 'Unknown' : 'Total episodes'}
+                        placeholderTextColor={T.textMuted}
+                        keyboardType="number-pad"
+                        editable={!ongoing}
+                        style={[styles.textInput, styles.textInputCompact, { flex: 1, opacity: ongoing ? 0.5 : 1 }]}
+                      />
+                      <View style={styles.ongoingRow}>
+                        <Text style={styles.ongoingLabel}>Still ongoing?</Text>
+                        <Switch
+                          value={ongoing}
+                          onValueChange={setOngoing}
+                          trackColor={{ false: T.elevated, true: T.amber }}
+                          thumbColor={T.textPrimary}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Runtime row */}
+                <View style={styles.episodeRow}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.episodeRowLabel}>Episode runtime</Text>
+                    <Text style={styles.episodeRowValue}>
+                      {resolvedRuntime ? `${resolvedRuntime} min/ep` : 'Not set'}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => setRtEditOpen(v => !v)} style={styles.editBtn}>
+                    <Ionicons name={rtEditOpen ? 'checkmark' : 'create-outline'} size={13} color={T.textPrimary} />
+                    <Text style={styles.editBtnText}>{rtEditOpen ? 'Done' : 'Edit'}</Text>
+                  </Pressable>
+                </View>
+
+                {rtEditOpen && (
+                  <View style={styles.inlineEditPanel}>
+                    <View style={styles.segmented}>
+                      {[{ label: '24 min', val: 24 }, { label: '45 min', val: 45 }].map(opt => (
+                        <Pressable
+                          key={opt.val}
+                          onPress={() => { setEpRuntime(opt.val); setRuntimeMode('preset'); }}
+                          style={[styles.segBtn, runtimeMode === 'preset' && epRuntime === opt.val && styles.segBtnActive]}
+                        >
+                          <Text style={[styles.segBtnText, runtimeMode === 'preset' && epRuntime === opt.val && styles.segBtnTextActive]}>
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                      <Pressable
+                        onPress={() => setRuntimeMode('custom')}
+                        style={[styles.segBtn, runtimeMode === 'custom' && styles.segBtnActive]}
+                      >
+                        <Text style={[styles.segBtnText, runtimeMode === 'custom' && styles.segBtnTextActive]}>
+                          Custom
+                        </Text>
+                      </Pressable>
+                    </View>
+                    {runtimeMode === 'custom' && (
+                      <TextInput
+                        value={customRuntime}
+                        onChangeText={setCustomRuntime}
+                        placeholder="Minutes per episode"
+                        placeholderTextColor={T.textMuted}
+                        keyboardType="number-pad"
+                        style={[styles.textInput, styles.textInputCompact]}
+                      />
+                    )}
+                  </View>
+                )}
+
+                {/* Derived watch time */}
+                {watchTimeStr && (
+                  <>
+                    <View style={styles.divider} />
+                    <Text style={styles.derivedWatchTime}>
+                      {isCurrent ? `watched so far ${watchTimeStr}` : `estimated watch time ${watchTimeStr}`}
+                    </Text>
+                  </>
+                )}
+
+                {/* Watched up to (Watching only) */}
+                {isCurrent && (
+                  <>
+                    <View style={styles.divider} />
+                    <Text style={styles.sectionLabel}>Watched Up To</Text>
+                    {!ongoing && totalEpisodes && totalEpisodes <= 50 ? (
+                      <>
+                        <EpisodePicker total={totalEpisodes} ongoing={ongoing} value={epWatched} onChange={v => setEpWatched(v)} />
+                        <Field label="Or type episode number:">
+                          <TextInput
+                            value={epWatched > 0 ? String(epWatched) : ''}
+                            onChangeText={t => setEpWatched(parseInt(t, 10) || 0)}
+                            placeholder="Episode number"
+                            placeholderTextColor={T.textMuted}
+                            keyboardType="number-pad"
+                            style={[styles.textInput, styles.textInputCompact]}
+                          />
+                        </Field>
+                      </>
+                    ) : (
+                      <>
+                        <Field label="Watched up to episode:">
+                          <TextInput
+                            value={epWatched > 0 ? String(epWatched) : ''}
+                            onChangeText={t => setEpWatched(parseInt(t, 10) || 0)}
+                            placeholder="Episode number"
+                            placeholderTextColor={T.textMuted}
+                            keyboardType="number-pad"
+                            style={[styles.textInput, styles.textInputCompact]}
+                          />
+                        </Field>
+                        {epWatched > 0 && (
+                          <Text style={styles.epProgress}>
+                            {ongoing ? `${epWatched} eps watched · Ongoing` : `${epWatched}${totalEpisodes ? ` of ${totalEpisodes}` : ''} episodes`}
+                          </Text>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </View>
+            );
+          })()}
 
           {/* ── Watch Date ── */}
           {!isPlan && (
@@ -991,7 +1085,7 @@ const styles = StyleSheet.create({
   genreChip: { backgroundColor: T.elevated, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 9 },
   genreChipRemovable: { backgroundColor: 'rgba(239,159,39,0.12)' },
   genreChipText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 13 },
-  editBtn: { backgroundColor: T.elevated, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 10, flexShrink: 0 },
+  editBtn: { backgroundColor: T.elevated, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   editBtnText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 12 },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
   typeChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1008,6 +1102,7 @@ const styles = StyleSheet.create({
   langChipText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 13 },
   langChipTextActive: { color: T.bgPrimary },
   textInput: { backgroundColor: T.elevated, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14 },
+  textInputCompact: { paddingVertical: 12, fontSize: 13 },
   genreInputRow: { flexDirection: 'row', gap: 8 },
   addTagBtn: { backgroundColor: T.amber, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center' },
   addTagBtnText: { color: T.bgPrimary, fontFamily: T.fontTitle, fontSize: 12 },
@@ -1024,6 +1119,11 @@ const styles = StyleSheet.create({
   statusBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 12 },
   statusBtnTextActive: { color: T.bgPrimary },
   epProgress: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
+  episodeRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  episodeRowLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
+  episodeRowValue: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 14 },
+  inlineEditPanel: { gap: 10 },
+  derivedWatchTime: { color: T.amberSoft, fontFamily: T.fontFun, fontSize: 13 },
   textarea: { backgroundColor: T.elevated, borderRadius: 12, padding: 12, color: T.textPrimary, fontFamily: T.fontBody, fontSize: 14, minHeight: 80 },
   reactionNudge: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, fontStyle: 'italic', marginTop: 4 },
 

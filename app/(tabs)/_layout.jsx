@@ -62,7 +62,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Watch Tower',
+            title: 'Tower',
             tabBarIcon: ({ focused }) => (
               <MaterialCommunityIcons
                 name="castle"

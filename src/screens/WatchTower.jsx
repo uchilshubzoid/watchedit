@@ -36,9 +36,13 @@ function daysAgoStr(e) {
 
 function getActivityDate(e) {
   if (e.watch_end_date) return new Date(e.watch_end_date + 'T12:00:00').getTime();
-  // Watching entry with no sessions yet: attribute to user-set start date
-  if (e.status === 'watching' && !(e.watch_sessions?.length) && e.watch_start_date) {
-    return new Date(e.watch_start_date + 'T12:00:00').getTime();
+  if (e.status === 'watching') {
+    // Use most recent session's ISO date — always reliably parseable on Android/Hermes
+    if (e.watch_sessions?.length) {
+      const last = e.watch_sessions[e.watch_sessions.length - 1];
+      if (last?.date) return new Date(last.date + 'T12:00:00').getTime();
+    }
+    if (e.watch_start_date) return new Date(e.watch_start_date + 'T12:00:00').getTime();
   }
   const dateStr = (e.status === 'watched' ? e.finishedDate : e.lastWatchedDate) || e.date || '';
   if (!dateStr) return 0;
@@ -49,6 +53,25 @@ function getActivityDate(e) {
     const parsed = new Date(withYear);
     return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
   } catch { return 0; }
+}
+
+// Returns episodes of a watching entry that fall within [fromMs, toMs].
+// Initial episodes (logged at watch_start_date) + per-session deltas (at session.date).
+function getWatchingEpsInPeriod(entry, fromMs, toMs) {
+  const sessions = entry.watch_sessions || [];
+  const sessionDelta = sessions.reduce((sum, s) => sum + Math.max(0, (s.ep_to - s.ep_from) + 1), 0);
+  const initialEp = Math.max(0, (entry.ep || 0) - sessionDelta);
+  let eps = 0;
+  if (initialEp > 0 && entry.watch_start_date) {
+    const ms = new Date(entry.watch_start_date + 'T12:00:00').getTime();
+    if (ms >= fromMs && ms <= toMs) eps += initialEp;
+  }
+  for (const s of sessions) {
+    if (!s.date) continue;
+    const ms = new Date(s.date + 'T12:00:00').getTime();
+    if (ms >= fromMs && ms <= toMs) eps += Math.max(0, (s.ep_to - s.ep_from) + 1);
+  }
+  return eps;
 }
 
 export default function WatchTower() {
@@ -137,7 +160,12 @@ export default function WatchTower() {
 
   let totalMins = 0;
   countedEntries.forEach(e => {
-    if (e.watchTime) {
+    if (e.status === 'watching' && isRecent) {
+      // Count only episodes watched within the last-30-days window, attributed by session date
+      const eps = getWatchingEpsInPeriod(e, thirtyAgo, Date.now());
+      const rt = e.epRuntime || (e.type === 'Anime' ? 24 : 45);
+      totalMins += eps * rt;
+    } else if (e.watchTime) {
       const h = e.watchTime.match(/(\d+)h/);
       const m = e.watchTime.match(/(\d+)m/);
       totalMins += (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
@@ -153,8 +181,13 @@ export default function WatchTower() {
   ].map(def => ({
     ...def,
     count: countedEntries.filter(e => e.type === def.type).length,
-    eps:   def.showEps
-      ? countedEntries.filter(e => e.type === def.type).reduce((s, e) => s + (e.ep || 0), 0)
+    eps: def.showEps
+      ? countedEntries.filter(e => e.type === def.type).reduce((s, e) => {
+          if (e.status === 'watching' && isRecent) {
+            return s + getWatchingEpsInPeriod(e, thirtyAgo, Date.now());
+          }
+          return s + (e.ep || 0);
+        }, 0)
       : null,
   })).filter(t => t.count > 0);
 
@@ -289,7 +322,7 @@ export default function WatchTower() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 12, paddingRight: 16 }}>
-              {watching.slice(0, 8).map(e => (
+              {watching.slice(0, 6).map(e => (
                 <Pressable key={e.id} onPress={() => router.push(`/detail/${e.id}`)} style={styles.watchCard}>
                   <View style={styles.watchPosterWrap}>
                     <Poster title={e.title} size={79} url={e.poster_url} />
@@ -313,9 +346,9 @@ export default function WatchTower() {
                   </View>
                 </Pressable>
               ))}
-              {watching.length > 8 && (
-                <Pressable onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { tab: 'watching' } })} style={styles.watchMoreCard}>
-                  <Text style={styles.watchMoreCount}>+{watching.length - 8}</Text>
+              {watching.length > 6 && (
+                <Pressable onPress={() => router.push({ pathname: '/(tabs)/watchlist', params: { tab: 'watching' } })} style={styles.watchViewAllCard}>
+                  <Text style={styles.watchMoreCount}>+{watching.length - 6}</Text>
                   <Text style={styles.watchMoreLabel}>more</Text>
                   <Text style={styles.watchMoreLink}>View all →</Text>
                 </Pressable>
@@ -466,8 +499,8 @@ const styles = StyleSheet.create({
   streakHead: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 14 },
   streakSub: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, marginTop: 2 },
   streakNum: { color: T.amberSoft, fontFamily: T.fontMono, fontWeight: '600' },
-  sectionTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 17, letterSpacing: -0.1, marginBottom: 12 },
-  watchCard: { width: 284, height: 138, backgroundColor: T.surface, borderRadius: 16, flexDirection: 'row' },
+  sectionTitle: { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 17, letterSpacing: -0.1 },
+  watchCard: { width: 284, minHeight: 138, backgroundColor: T.surface, borderRadius: 16, flexDirection: 'row' },
   watchPosterWrap: { padding: 14, paddingRight: 0, justifyContent: 'center' },
   watchContent: { flex: 1, paddingTop: 14, paddingBottom: 14, paddingLeft: 12, paddingRight: 14, justifyContent: 'space-between' },
   watchPills: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -476,7 +509,7 @@ const styles = StyleSheet.create({
   watchTitle: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 16, lineHeight: 21 },
   watchEp: { color: T.amber, fontFamily: T.fontFun, fontSize: 13 },
   watchDate: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 12, marginTop: 2 },
-  watchMoreCard: { width: 100, height: 180, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 16, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center' },
+  watchViewAllCard: { width: 120, minHeight: 138, backgroundColor: 'rgba(239,159,39,0.06)', borderWidth: 1.5, borderColor: 'rgba(239,159,39,0.18)', borderRadius: 16, padding: 14, gap: 4, alignItems: 'center', justifyContent: 'center' },
   watchMoreCount: { color: T.amber, fontFamily: T.fontDisplay, fontSize: 26 },
   watchMoreLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11 },
   watchMoreLink: { color: T.amber, fontFamily: T.fontTitleMedium, fontSize: 11, marginTop: 4 },
