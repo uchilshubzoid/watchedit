@@ -326,7 +326,7 @@ export default function DetailView() {
   }
 
   async function handleContinueWatching() {
-    const updated = { ...entry, dropped: false, status: 'watching', lastWatchedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
+    const updated = { ...entry, dropped: false, status: 'watching', lastWatchedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), watch_start_date: localISODate() };
     await handleUpdate(updated);
     setModal(null);
   }

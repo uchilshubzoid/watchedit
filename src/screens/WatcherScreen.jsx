@@ -88,7 +88,11 @@ export default function WatcherScreen() {
       if (backupPending === 'true' && isLinked && storedToken) {
         backupToDrive(storedToken)
           .then(now => { if (active) setLastSync(now); })
-          .catch(() => {}); // still offline or in-progress — flag stays for next focus
+          .catch(err => {
+            // Still offline or BACKUP_IN_PROGRESS: flag stays set, will retry next focus.
+            // AUTH_EXPIRED means the token is unrecoverable — surface the re-link popup.
+            if (err?.message === 'AUTH_EXPIRED' && active) setAuthErrorPopup(true);
+          });
       }
     });
     return () => { active = false; };

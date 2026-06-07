@@ -531,6 +531,7 @@ export default function LogItDetails() {
         title: currentTitle, type: contentType, lang: language, genre,
         rating, reaction, recommend, bookmark, status: watchStatus,
         ep: isCurrent ? epWatched : existing.ep, total: totalEpisodes, ongoing,
+        epRuntime: resolvedRuntime, runtime: movieRuntimeValue || null,
         watchTime: watchStatus === 'watched'
           ? (isTV ? (estimatedTotalMins ? `~${Math.floor(estimatedTotalMins/60)}h ${estimatedTotalMins%60}m` : null) : movieWatchTimeStr)
           : epWatchedRuntime,

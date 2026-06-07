@@ -47,7 +47,7 @@ function dateTag() {
 
 async function writeAndShare(content, filename, mimeType) {
   const file = new File(Paths.cache, filename);
-  file.write(content);
+  await file.write(content);
   await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: 'Save or share your WatchedIt export' });
 }
 

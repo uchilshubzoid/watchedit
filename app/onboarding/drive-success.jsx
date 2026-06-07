@@ -44,15 +44,14 @@ export default function OnboardingDriveSuccess() {
 
   async function handleWrongAccount() {
     setRelinkError('');
-    await AsyncStorage.removeItem('watchedit_auth_mode');
-    await AsyncStorage.removeItem('watchedit_drive_account');
-    await AsyncStorage.removeItem('watchedit_drive_token');
     setRelinking(true);
     try {
       await signOutGoogle();
       const result = await signInWithGoogle({ forceAccountPicker: true });
       if (!result) return;
 
+      // Only overwrite keys after a successful sign-in — keeps existing
+      // Drive connection intact if the user cancels the account picker
       await AsyncStorage.setItem('watchedit_auth_mode', 'google');
       await AsyncStorage.setItem('watchedit_drive_account', result.email);
       await AsyncStorage.setItem('watchedit_drive_token', result.accessToken);

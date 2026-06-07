@@ -240,7 +240,7 @@ export async function exportEntriesHtml(entries, { tab, chips, language, selecte
   const datetime = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const filename = `watchedit-list-${datetime}.html`;
   const htmlFile = new File(Paths.cache, filename);
-  htmlFile.write(html);
+  await htmlFile.write(html);
 
   await Sharing.shareAsync(htmlFile.uri, {
     mimeType: 'text/html',

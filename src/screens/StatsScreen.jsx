@@ -818,7 +818,7 @@ export default function StatsScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {TIME_FILTERS.map(f => (
             <Pressable key={f}
-              onPress={() => { setTimeFilter(f); if (f === 'Custom') setShowPicker(true); }}
+              onPress={() => { if (f === 'Custom') { setShowPicker(true); } else setTimeFilter(f); }}
               style={[styles.filterPill, timeFilter === f && styles.filterPillActive]}>
               <Text style={[styles.filterPillText, timeFilter === f && styles.filterPillTextActive]}>
                 {f === 'Custom' ? customLabel : f}
@@ -1112,7 +1112,7 @@ export default function StatsScreen() {
         visible={showPicker}
         start={customStart}
         end={customEnd}
-        onConfirm={(s, e) => { setCustomStart(s); setCustomEnd(e); setShowPicker(false); }}
+        onConfirm={(s, e) => { setCustomStart(s); setCustomEnd(e); setTimeFilter('Custom'); setShowPicker(false); }}
         onClose={() => setShowPicker(false)}
       />
     </SafeAreaView>
