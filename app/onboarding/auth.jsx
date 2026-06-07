@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AntDesign } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { T } from '../../src/constants/tokens';
-import InfoPopup from '../../src/components/InfoPopup';
 import BackButton from '../../src/components/BackButton';
 import { useFadeBack } from '../../src/hooks/useFadeBack';
 
@@ -33,8 +32,7 @@ function ProgressDots({ current, total }) {
 }
 
 export default function OnboardingAuth() {
-  const [watcherName,   setWatcherName]   = useState('');
-  const [popupVisible,  setPopupVisible]  = useState(false);
+  const [watcherName, setWatcherName] = useState('');
   const { opacity, goBack } = useFadeBack();
 
   useEffect(() => {
@@ -43,13 +41,13 @@ export default function OnboardingAuth() {
     });
   }, []);
 
-  async function handleGuest() {
+  async function handlePhoneOnly() {
     await AsyncStorage.setItem('watchedit_auth_mode', 'guest');
     router.push('/onboarding/guest');
   }
 
-  function handleGoogle() {
-    setPopupVisible(true);
+  function handleDrive() {
+    router.push('/onboarding/drive-success');
   }
 
   const initial = watcherName ? watcherName[0].toUpperCase() : '?';
@@ -59,9 +57,7 @@ export default function OnboardingAuth() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.inner}>
 
-        <ProgressDots current={1} total={3} />
-
-        {/* Back */}
+        <ProgressDots current={2} total={4} />
         <BackButton style={styles.backBtn} onPress={goBack} />
 
         {/* Name confirmation chip */}
@@ -80,53 +76,55 @@ export default function OnboardingAuth() {
 
         {/* Headline */}
         <View style={styles.hero}>
-          <Text style={styles.headline}>Where should your{'\n'}WatchLog live?</Text>
-          <Text style={styles.sub}>
-            Sign in to keep it safe and access it on any device.
-          </Text>
+          <Text style={styles.headline}>Your data.{'\n'}Always yours.</Text>
+          <Text style={styles.sub}>Choose where your WatchLog lives.</Text>
         </View>
 
-        {/* Auth options */}
-        <View style={styles.authBlock}>
+        {/* Option cards */}
+        <View style={styles.optionList}>
 
-          {/* Google */}
+          {/* Google Drive */}
           <Pressable
-            onPress={handleGoogle}
-            style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.8 }]}
+            onPress={handleDrive}
+            style={({ pressed }) => [styles.optionCard, styles.optionCardAmber, pressed && { opacity: 0.85 }]}
           >
-            <AntDesign name="google" size={20} color={T.textPrimary} />
-            <Text style={styles.googleBtnText}>Sign in with Google</Text>
+            <View style={styles.optionIconWrap}>
+              <Ionicons name="cloud-outline" size={24} color={T.amber} />
+            </View>
+            <View style={styles.optionContent}>
+              <View style={styles.optionTitleRow}>
+                <Text style={styles.optionTitle}>Sync to Google Drive</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>Recommended</Text>
+                </View>
+              </View>
+              <Text style={styles.optionBody}>
+                Backed up to your personal Google Drive. You own the file.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={T.amber} style={{ opacity: 0.6 }} />
           </Pressable>
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerLabel}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Guest */}
+          {/* Phone only */}
           <Pressable
-            onPress={handleGuest}
-            style={({ pressed }) => [styles.guestBtn, pressed && { opacity: 0.7 }]}
+            onPress={handlePhoneOnly}
+            style={({ pressed }) => [styles.optionCard, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.guestBtnText}>Continue as guest</Text>
+            <View style={[styles.optionIconWrap, styles.optionIconWrapDim]}>
+              <Ionicons name="phone-portrait-outline" size={24} color={T.textMuted} />
+            </View>
+            <View style={styles.optionContent}>
+              <Text style={[styles.optionTitle, styles.optionTitleDim]}>Keep it on this phone</Text>
+              <Text style={styles.optionBody}>
+                Lives on this device only. Works great, no account needed.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={T.textMuted} style={{ opacity: 0.4 }} />
           </Pressable>
 
-          <Text style={styles.disclaimer}>
-            Guest mode: your WatchLog stays on this device only.{'\n'}
-            You can sign in anytime from the Watcher screen.
-          </Text>
         </View>
 
       </View>
-
-      <InfoPopup
-        visible={popupVisible}
-        title="Coming soon"
-        message="Google sign-in is coming in Stage 3."
-        onClose={() => setPopupVisible(false)}
-      />
     </SafeAreaView>
     </Animated.View>
   );
@@ -140,10 +138,9 @@ const styles = StyleSheet.create({
     paddingTop: 82,
     paddingBottom: 24,
     justifyContent: 'flex-start',
-    gap: 32,
+    gap: 28,
   },
 
-  // Progress dots — pill style
   dots: {
     flexDirection: 'row',
     gap: 6,
@@ -158,7 +155,6 @@ const styles = StyleSheet.create({
 
   backBtn: { position: 'absolute', top: 18, left: 12 },
 
-  // Confirmation chip
   chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,49 +173,74 @@ const styles = StyleSheet.create({
   chipName:    { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 13 },
   chipConfirm: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
 
-  // Hero
   hero: { alignItems: 'center', gap: 10 },
   headline: {
     color: T.textPrimary,
     fontFamily: T.fontDisplay,
-    fontSize: 26,
+    fontSize: 30,
     textAlign: 'center',
-    lineHeight: 34,
+    lineHeight: 38,
   },
   sub: {
     color: T.textMuted,
     fontFamily: T.fontFun,
     fontSize: 15,
     textAlign: 'center',
-    lineHeight: 22,
   },
 
-  // Auth block
-  authBlock: { gap: 14 },
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-    backgroundColor: 'rgba(239,159,39,0.07)',
-    borderWidth: 1, borderColor: 'rgba(239,159,39,0.3)',
-    borderRadius: T.radiusButton, paddingVertical: 14,
+  optionList: { gap: 12 },
+
+  optionCard: {
+    backgroundColor: T.surface,
+    borderRadius: T.radiusCard,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.05)',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
-  googleBtnText: { color: T.textPrimary, fontFamily: T.fontTitle, fontSize: 14 },
-
-  // Divider
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: T.elevated },
-  dividerLabel: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
-
-  // Guest button
-  guestBtn: {
-    borderWidth: 1, borderColor: 'rgba(239,159,39,0.2)',
-    backgroundColor: 'rgba(239,159,39,0.04)',
-    borderRadius: T.radiusButton, paddingVertical: 14, alignItems: 'center',
+  optionCardAmber: {
+    borderColor: 'rgba(239,159,39,0.35)',
+    backgroundColor: 'rgba(239,159,39,0.06)',
   },
-  guestBtnText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
 
-  // Disclaimer
-  disclaimer: {
-    color: T.textMuted, fontFamily: T.fontFun,
-    fontSize: 10, textAlign: 'center', lineHeight: 16, opacity: 0.7,
+  optionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239,159,39,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionIconWrapDim: {
+    backgroundColor: T.elevated,
+  },
+
+  optionContent: { flex: 1, gap: 4 },
+  optionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  optionTitle: {
+    color: T.textPrimary,
+    fontFamily: T.fontTitle,
+    fontSize: 15,
+  },
+  optionTitleDim: { color: T.textMuted },
+  optionBody: {
+    color: T.textMuted,
+    fontFamily: T.fontFun,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  badge: {
+    backgroundColor: 'rgba(239,159,39,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    color: T.amber,
+    fontFamily: T.fontTitleMedium,
+    fontSize: 10,
   },
 });

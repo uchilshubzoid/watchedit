@@ -13,8 +13,10 @@ export default function OnboardingLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="about" />
       <Stack.Screen name="auth" />
       <Stack.Screen name="guest" />
+      <Stack.Screen name="drive-success" />
     </Stack>
   );
 }

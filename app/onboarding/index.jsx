@@ -37,7 +37,7 @@ export default function OnboardingName() {
     if (!trimmed) return;
     Keyboard.dismiss();
     await AsyncStorage.setItem('watchedit_watcher_name', trimmed);
-    router.push('/onboarding/auth');
+    router.push('/onboarding/about');
   }
 
   const canContinue = name.trim().length > 0;
@@ -47,13 +47,14 @@ export default function OnboardingName() {
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <View style={styles.inner}>
 
-          <ProgressDots current={0} total={3} />
+          <ProgressDots current={0} total={4} />
 
           <View style={styles.hero}>
             <Text style={styles.emoji}>🎬</Text>
-            <Text style={styles.headline}>Before we begin —</Text>
+            <Text style={styles.eyebrow}>BEFORE WE BEGIN —</Text>
+            <Text style={styles.headline}>Every WatchLog{'\n'}needs a name.</Text>
             <Text style={styles.sub}>
-              Every WatchLog needs a name on it. What's yours?
+              What do we call you?
             </Text>
           </View>
 
@@ -90,7 +91,7 @@ export default function OnboardingName() {
               end={{ x: 1, y: 0 }}
               style={styles.cta}
             >
-              <Text style={styles.ctaText}>That's me →</Text>
+              <Text style={styles.ctaText}>Yep, that's me →</Text>
             </LinearGradient>
           </Pressable>
 
@@ -124,13 +125,21 @@ const styles = StyleSheet.create({
   dotDim:    { width: 24, backgroundColor: T.elevated },
 
   // Hero
-  hero: { alignItems: 'center', gap: 10 },
+  hero: { alignItems: 'center', gap: 8 },
   emoji: { fontSize: 44, lineHeight: 52 },
+  eyebrow: {
+    color: T.textMuted,
+    fontFamily: T.fontMono,
+    fontSize: 12,
+    letterSpacing: 1.0,
+    textAlign: 'center',
+  },
   headline: {
     color: T.textPrimary,
     fontFamily: T.fontDisplay,
-    fontSize: 26,
+    fontSize: 30,
     textAlign: 'center',
+    lineHeight: 38,
   },
   sub: {
     color: T.textMuted,

@@ -29,18 +29,7 @@ function ProgressDots({ current, total }) {
   );
 }
 
-const INFO_ROWS = [
-  {
-    icon: 'checkmark-circle-outline',
-    text: 'Full app access — Log It, WatchList, Stats. Everything.',
-  },
-  {
-    icon: 'sync-outline',
-    text: 'Upgrade anytime — head to Watcher → Connect Google Drive.',
-  },
-];
-
-export default function OnboardingGuest() {
+export default function OnboardingDriveSuccess() {
   const [watcherName, setWatcherName] = useState('');
 
   useEffect(() => {
@@ -50,6 +39,7 @@ export default function OnboardingGuest() {
   }, []);
 
   async function handleContinue() {
+    await AsyncStorage.setItem('watchedit_auth_mode', 'drive');
     await AsyncStorage.setItem('watchedit_onboarding_done', 'true');
     router.replace('/(tabs)');
   }
@@ -62,33 +52,43 @@ export default function OnboardingGuest() {
 
         {/* Headline */}
         <View style={styles.hero}>
-          <Text style={styles.headline}>
-            Sounds good
-            {watcherName ? `, ${watcherName}` : ''}.
-          </Text>
-          <Text style={styles.sub}>Your WatchLog lives on this phone.</Text>
-        </View>
-
-        {/* Warning box */}
-        <View style={styles.warningBox}>
-          <Ionicons name="warning-outline" size={18} color={T.dropped} style={{ marginTop: 1 }} />
-          <Text style={styles.warningText}>
-            If you uninstall the app, your WatchLog goes with it. Back up your data
-            from the Watcher screen anytime.
+          <View style={styles.successIconWrap}>
+            <Ionicons name="cloud-done-outline" size={36} color={T.amber} />
+          </View>
+          <Text style={styles.headline}>Drive connected.</Text>
+          <Text style={styles.sub}>
+            Your WatchLog will sync to your Google Drive automatically.
           </Text>
         </View>
 
-        {/* Info rows */}
+        {/* Drive link pill */}
+        <View style={styles.drivePill}>
+          <Ionicons name="logo-google" size={18} color={T.textMuted} />
+          <View style={styles.drivePillText}>
+            <Text style={styles.drivePillLabel}>CONNECTED AS</Text>
+            <Text style={styles.drivePillEmail}>
+              {watcherName ? watcherName.toLowerCase().replace(/\s/g, '') + '@gmail.com' : 'you@gmail.com'}
+            </Text>
+          </View>
+          <View style={styles.connectedBadge}>
+            <Text style={styles.connectedBadgeText}>✓ Linked</Text>
+          </View>
+        </View>
+
+        {/* Info row */}
         <View style={styles.infoCard}>
-          {INFO_ROWS.map((row, i) => (
-            <View
-              key={i}
-              style={[styles.infoRow, i > 0 && styles.infoRowDivider]}
-            >
-              <Ionicons name={row.icon} size={18} color={T.textMuted} />
-              <Text style={styles.infoText}>{row.text}</Text>
-            </View>
-          ))}
+          <View style={styles.infoRow}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={T.textMuted} />
+            <Text style={styles.infoText}>
+              Your data is yours — stored in your own Drive, readable anytime.
+            </Text>
+          </View>
+          <View style={[styles.infoRow, styles.infoRowDivider]}>
+            <Ionicons name="sync-outline" size={18} color={T.textMuted} />
+            <Text style={styles.infoText}>
+              WatchedIt never stores your data on our servers. It goes straight to your Drive.
+            </Text>
+          </View>
         </View>
 
         {/* CTAs */}
@@ -103,12 +103,12 @@ export default function OnboardingGuest() {
               end={{ x: 1, y: 0 }}
               style={styles.cta}
             >
-              <Text style={styles.ctaText}>Start my WatchLog →</Text>
+              <Text style={styles.ctaText}>Let's go →</Text>
             </LinearGradient>
           </Pressable>
 
-          <Pressable onPress={() => router.back()} style={styles.backLink} hitSlop={10}>
-            <Text style={styles.backLinkText}>← Actually, let me connect Drive instead</Text>
+          <Pressable onPress={() => router.back()} style={styles.wrongLink} hitSlop={10}>
+            <Text style={styles.wrongLinkText}>Wrong account? → go back</Text>
           </Pressable>
         </View>
 
@@ -140,36 +140,62 @@ const styles = StyleSheet.create({
   dotActive: { width: 36, backgroundColor: T.amber },
   dotDim:    { width: 24, backgroundColor: T.elevated },
 
-  hero: { gap: 8 },
+  hero: { alignItems: 'center', gap: 12 },
+  successIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: 'rgba(239,159,39,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headline: {
     color: T.textPrimary,
     fontFamily: T.fontDisplay,
     fontSize: 30,
-    lineHeight: 38,
+    textAlign: 'center',
   },
   sub: {
     color: T.textMuted,
     fontFamily: T.fontFun,
     fontSize: 15,
+    textAlign: 'center',
     lineHeight: 22,
+    maxWidth: 280,
   },
 
-  warningBox: {
+  drivePill: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(196,122,122,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(196,122,122,0.3)',
+    backgroundColor: T.surface,
     borderRadius: T.radiusCard,
+    borderWidth: 1,
+    borderColor: 'rgba(239,159,39,0.2)',
     padding: 14,
   },
-  warningText: {
-    flex: 1,
-    color: T.dropped,
-    fontFamily: T.fontFun,
-    fontSize: 13,
-    lineHeight: 19,
+  drivePillText: { flex: 1, gap: 2 },
+  drivePillLabel: {
+    color: T.textMuted,
+    fontFamily: T.fontMono,
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  drivePillEmail: {
+    color: T.textPrimary,
+    fontFamily: T.fontTitle,
+    fontSize: 14,
+  },
+  connectedBadge: {
+    backgroundColor: 'rgba(239,159,39,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  connectedBadgeText: {
+    color: T.amber,
+    fontFamily: T.fontTitleMedium,
+    fontSize: 11,
   },
 
   infoCard: {
@@ -201,8 +227,8 @@ const styles = StyleSheet.create({
   cta: { paddingVertical: 15, alignItems: 'center', borderRadius: T.radiusButton },
   ctaText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 15 },
 
-  backLink: { paddingVertical: 4 },
-  backLinkText: {
+  wrongLink: { paddingVertical: 4 },
+  wrongLinkText: {
     color: T.textMuted,
     fontFamily: T.fontTitleMedium,
     fontSize: 12,

@@ -312,6 +312,18 @@ export default function WatcherScreen() {
           </View>
         </View>
 
+        {/* Dev — replay onboarding */}
+        <Pressable
+          onPress={async () => {
+            await AsyncStorage.removeItem('watchedit_onboarding_done');
+            router.replace('/onboarding');
+          }}
+          style={styles.replayBtn}
+        >
+          <Ionicons name="refresh-outline" size={14} color={T.textMuted} style={{ opacity: 0.5 }} />
+          <Text style={styles.replayText}>Replay onboarding</Text>
+        </Pressable>
+
         {/* Log out */}
         <Pressable onPress={() => setLogoutModal(true)} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Log Out</Text>
@@ -456,6 +468,12 @@ const styles = StyleSheet.create({
   langBtnActive: { backgroundColor: T.amber },
   langBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 12 },
   langBtnTextActive: { color: T.bgPrimary },
+
+  replayBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, opacity: 0.5,
+  },
+  replayText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
 
   logoutBtn: { backgroundColor: T.surface, borderRadius: 18, paddingVertical: 14, alignItems: 'center' },
   logoutText: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 14 },
