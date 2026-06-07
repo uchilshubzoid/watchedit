@@ -68,7 +68,9 @@ export default function WatcherScreen() {
       AsyncStorage.getItem('watchedit_drive_account'),
       AsyncStorage.getItem('watchedit_last_sync'),
       AsyncStorage.getItem('watchedit_drive_auth_error'),
-    ]).then(([data, pref, storedName, storedAuth, storedAccount, storedSync, authErr]) => {
+      AsyncStorage.getItem('watchedit_backup_pending'),
+      AsyncStorage.getItem('watchedit_drive_token'),
+    ]).then(([data, pref, storedName, storedAuth, storedAccount, storedSync, authErr, backupPending, storedToken]) => {
       if (!active) return;
       setEntries(data);
       setTitleLang(pref || 'en');
@@ -79,6 +81,14 @@ export default function WatcherScreen() {
       if (authErr === 'true') {
         AsyncStorage.removeItem('watchedit_drive_auth_error');
         setAuthErrorPopup(true);
+        return; // auth needs re-linking — don't attempt retry with a bad token
+      }
+      // Retry any backup that failed while offline — silently, no UI state changes
+      const isLinked = storedAuth === 'drive' || storedAuth === 'google';
+      if (backupPending === 'true' && isLinked && storedToken) {
+        backupToDrive(storedToken)
+          .then(now => { if (active) setLastSync(now); })
+          .catch(() => {}); // still offline or in-progress — flag stays for next focus
       }
     });
     return () => { active = false; };
@@ -264,18 +274,22 @@ export default function WatcherScreen() {
       if (err.message === 'AUTH_EXPIRED') {
         setAuthMode('guest');
         setAuthErrorPopup(true);
-      } else {
+      } else if (err.message !== 'BACKUP_IN_PROGRESS') {
         showToast('Sync failed — check your connection', true);
       }
+      // BACKUP_IN_PROGRESS: a background retry is already running — reset UI silently
     }
   }
 
   async function handleDriveUnlink() {
     await signOutGoogle();
-    await AsyncStorage.setItem('watchedit_auth_mode', 'guest');
-    await AsyncStorage.removeItem('watchedit_drive_account');
-    await AsyncStorage.removeItem('watchedit_drive_token');
-    await AsyncStorage.removeItem('watchedit_last_sync');
+    await Promise.all([
+      AsyncStorage.setItem('watchedit_auth_mode', 'guest'),
+      AsyncStorage.removeItem('watchedit_drive_account'),
+      AsyncStorage.removeItem('watchedit_drive_token'),
+      AsyncStorage.removeItem('watchedit_last_sync'),
+      AsyncStorage.removeItem('watchedit_backup_pending'),
+    ]);
     setAuthMode('guest');
     setDriveAccount('');
     setLastSync(null);

@@ -7,7 +7,8 @@ const DRIVE_FILES_BASE  = 'https://www.googleapis.com/drive/v3/files';
 const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3/files';
 const BOUNDARY          = 'watchedit_backup_boundary';
 
-let backupTimer = null;
+let backupTimer  = null;
+let isBackingUp  = false;
 
 // ─── Token refresh ────────────────────────────────────────────────────────────
 
@@ -70,28 +71,35 @@ function buildMultipart(metadata, content) {
 // ─── Public: backup entries to Drive ─────────────────────────────────────────
 
 export async function backupToDrive(token) {
-  const entries = await getEntries();
-  const content = JSON.stringify(entries);
+  if (isBackingUp) throw new Error('BACKUP_IN_PROGRESS');
+  isBackingUp = true;
+  try {
+    const entries = await getEntries();
+    const content = JSON.stringify(entries);
 
-  const existing = await findBackupFile(token);
+    const existing = await findBackupFile(token);
 
-  const url    = existing
-    ? `${DRIVE_UPLOAD_BASE}/${existing.id}?uploadType=multipart`
-    : `${DRIVE_UPLOAD_BASE}?uploadType=multipart`;
-  const method   = existing ? 'PATCH' : 'POST';
-  const metadata = existing ? {} : { name: BACKUP_FILENAME, parents: ['appDataFolder'] };
+    const url    = existing
+      ? `${DRIVE_UPLOAD_BASE}/${existing.id}?uploadType=multipart`
+      : `${DRIVE_UPLOAD_BASE}?uploadType=multipart`;
+    const method   = existing ? 'PATCH' : 'POST';
+    const metadata = existing ? {} : { name: BACKUP_FILENAME, parents: ['appDataFolder'] };
 
-  const res = await driveFetch(url, {
-    method,
-    headers: { 'Content-Type': `multipart/related; boundary=${BOUNDARY}` },
-    body: buildMultipart(metadata, content),
-  }, token);
+    const res = await driveFetch(url, {
+      method,
+      headers: { 'Content-Type': `multipart/related; boundary=${BOUNDARY}` },
+      body: buildMultipart(metadata, content),
+    }, token);
 
-  if (!res.ok) throw new Error(`Drive backup failed: ${res.status}`);
+    if (!res.ok) throw new Error(`Drive backup failed: ${res.status}`);
 
-  const now = new Date().toISOString();
-  await AsyncStorage.setItem('watchedit_last_sync', now);
-  return now;
+    const now = new Date().toISOString();
+    await AsyncStorage.setItem('watchedit_last_sync', now);
+    await AsyncStorage.removeItem('watchedit_backup_pending');
+    return now;
+  } finally {
+    isBackingUp = false;
+  }
 }
 
 // ─── Public: restore entries from Drive ──────────────────────────────────────
@@ -145,6 +153,7 @@ export function scheduleDriveBackup() {
         AsyncStorage.getItem('watchedit_drive_token'),
       ]);
       if (authMode !== 'google' || !token) return;
+      await AsyncStorage.setItem('watchedit_backup_pending', 'true');
       await backupToDrive(token);
     } catch (err) {
       if (err.message === 'AUTH_EXPIRED') {
