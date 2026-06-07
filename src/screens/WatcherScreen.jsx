@@ -13,6 +13,7 @@ import {
 } from '../db/storage';
 import { exportJSON, exportCSV } from '../utils/exportData';
 import { getGoogleAuthErrorMessage, signInWithGoogle, signOutGoogle } from '../hooks/useGoogleAuth';
+import { backupToDrive, restoreFromDrive, applyRestore, scheduleDriveBackup } from '../services/driveSync';
 import { T } from '../constants/tokens';
 
 function getInitials(name = '') {
@@ -50,6 +51,13 @@ export default function WatcherScreen() {
   const [importPopupMsg, setImportPopupMsg] = useState('');
   const pendingImport = useRef(null);
 
+  // Drive restore prompt (shown after inline link when local data exists)
+  const [restorePopup,  setRestorePopup]  = useState(false);
+  const [restoreData,   setRestoreData]   = useState(null); // { entries, count }
+
+  // Auth error popup (token expired during auto-backup)
+  const [authErrorPopup, setAuthErrorPopup] = useState(false);
+
   useFocusEffect(useCallback(() => {
     let active = true;
     Promise.all([
@@ -59,7 +67,8 @@ export default function WatcherScreen() {
       AsyncStorage.getItem('watchedit_auth_mode'),
       AsyncStorage.getItem('watchedit_drive_account'),
       AsyncStorage.getItem('watchedit_last_sync'),
-    ]).then(([data, pref, storedName, storedAuth, storedAccount, storedSync]) => {
+      AsyncStorage.getItem('watchedit_drive_auth_error'),
+    ]).then(([data, pref, storedName, storedAuth, storedAccount, storedSync, authErr]) => {
       if (!active) return;
       setEntries(data);
       setTitleLang(pref || 'en');
@@ -67,6 +76,10 @@ export default function WatcherScreen() {
       setAuthMode(storedAuth || 'guest');
       setDriveAccount(storedAccount || '');
       setLastSync(storedSync || null);
+      if (authErr === 'true') {
+        AsyncStorage.removeItem('watchedit_drive_auth_error');
+        setAuthErrorPopup(true);
+      }
     });
     return () => { active = false; };
   }, []));
@@ -149,6 +162,7 @@ export default function WatcherScreen() {
     try {
       if (mode === 'replace') {
         await saveEntries(imported);
+        scheduleDriveBackup();
         setEntries(imported);
         showToast(`Replaced — ${imported.length} ${imported.length === 1 ? 'entry' : 'entries'} imported`);
       } else {
@@ -156,6 +170,7 @@ export default function WatcherScreen() {
         const existingIds = new Set(existing.map(e => e.id));
         const toAdd = imported.filter(e => !existingIds.has(e.id));
         await saveEntries([...existing, ...toAdd]);
+        scheduleDriveBackup();
         setEntries([...existing, ...toAdd]);
         showToast(`Merged — ${toAdd.length} new ${toAdd.length === 1 ? 'entry' : 'entries'} added`);
       }
@@ -179,13 +194,33 @@ export default function WatcherScreen() {
       await AsyncStorage.setItem('watchedit_auth_mode', 'google');
       await AsyncStorage.setItem('watchedit_drive_account', result.email);
       await AsyncStorage.setItem('watchedit_drive_token', result.accessToken);
-      const now = new Date().toISOString();
-      await AsyncStorage.setItem('watchedit_last_sync', now);
+      await AsyncStorage.setItem('watchedit_last_sync', new Date().toISOString());
+
       setAuthMode('google');
       setDriveAccount(result.email);
-      setLastSync(now);
       driveRowAnim.setValue(0);
       Animated.timing(driveRowAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+
+      // Check Drive for an existing backup
+      try {
+        const backup = await restoreFromDrive(result.accessToken);
+        if (backup) {
+          const local = await getEntries();
+          if (local.length === 0) {
+            await applyRestore(backup.entries, 'replace');
+            setEntries(backup.entries);
+            showToast(`WatchLog restored — ${backup.entries.length} ${backup.entries.length === 1 ? 'entry' : 'entries'} loaded`);
+          } else {
+            setRestoreData({ entries: backup.entries, count: backup.entries.length });
+            setRestorePopup(true);
+          }
+        }
+      } catch {
+        // Backup check failure is non-blocking
+      }
+
+      const sync = await AsyncStorage.getItem('watchedit_last_sync');
+      setLastSync(sync);
     } catch (error) {
       const msg = getGoogleAuthErrorMessage(error);
       if (msg) showToast(msg, true);
@@ -194,17 +229,45 @@ export default function WatcherScreen() {
     }
   }
 
+  async function handleRestoreConfirm(mode) {
+    setRestorePopup(false);
+    if (!restoreData) return;
+    try {
+      const merged = await applyRestore(restoreData.entries, mode);
+      setEntries(merged);
+      const added = mode === 'merge'
+        ? merged.length - (await getEntries()).length  // already saved, but show diff
+        : restoreData.count;
+      showToast(
+        mode === 'merge'
+          ? `Merged — ${restoreData.count} Drive ${restoreData.count === 1 ? 'entry' : 'entries'} added`
+          : `Replaced — ${restoreData.count} ${restoreData.count === 1 ? 'entry' : 'entries'} loaded from Drive`
+      );
+    } catch {
+      showToast('Restore failed — try again', true);
+    }
+    setRestoreData(null);
+  }
+
   async function handleSyncNow() {
     if (syncState !== 'idle') return;
     setSyncState('syncing');
-    // Stub: real Drive upload will replace this timeout
-    await new Promise(r => setTimeout(r, 2000));
-    const now = new Date().toISOString();
-    await AsyncStorage.setItem('watchedit_last_sync', now);
-    setLastSync(now);
-    setSyncState('done');
-    if (syncDoneTimer.current) clearTimeout(syncDoneTimer.current);
-    syncDoneTimer.current = setTimeout(() => setSyncState('idle'), 2500);
+    try {
+      const token = await AsyncStorage.getItem('watchedit_drive_token');
+      const now   = await backupToDrive(token);
+      setLastSync(now);
+      setSyncState('done');
+      if (syncDoneTimer.current) clearTimeout(syncDoneTimer.current);
+      syncDoneTimer.current = setTimeout(() => setSyncState('idle'), 2500);
+    } catch (err) {
+      setSyncState('idle');
+      if (err.message === 'AUTH_EXPIRED') {
+        setAuthMode('guest');
+        setAuthErrorPopup(true);
+      } else {
+        showToast('Sync failed — check your connection', true);
+      }
+    }
   }
 
   async function handleDriveUnlink() {
@@ -546,6 +609,27 @@ export default function WatcherScreen() {
         secondaryCta="Unlink"
         onSecondary={handleDriveUnlink}
         secondaryDanger
+      />
+
+      {/* Drive restore prompt — shown when linking with existing local data */}
+      <InfoPopup
+        visible={restorePopup}
+        title="Found a Drive backup"
+        message={`Your Drive has a backup with ${restoreData?.count ?? 0} ${restoreData?.count === 1 ? 'entry' : 'entries'}. You also have titles on this device.\n\nMerge adds Drive entries that aren't already here. Replace discards local data and loads the Drive backup.`}
+        cta="Merge both"
+        onClose={() => handleRestoreConfirm('merge')}
+        secondaryCta="Replace with backup"
+        onSecondary={() => handleRestoreConfirm('replace')}
+        secondaryDanger
+      />
+
+      {/* Auth expired — shown when auto-backup fails due to token expiry */}
+      <InfoPopup
+        visible={authErrorPopup}
+        title="Drive connection expired"
+        message="Your Google session has expired. Re-link your account to keep backing up automatically."
+        cta="Re-link account"
+        onClose={() => { setAuthErrorPopup(false); handleLinkDrive(); }}
       />
     </SafeAreaView>
   );

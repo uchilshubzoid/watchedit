@@ -13,6 +13,7 @@ import LogSeshSheet from '../components/LogSeshSheet';
 import MiniCalendar from '../components/MiniCalendar';
 import StarRating from '../components/StarRating';
 import { getEntry, updateEntry, deleteEntry, getEntries } from '../db/storage';
+import { scheduleDriveBackup } from '../services/driveSync';
 import { T } from '../constants/tokens';
 import { highResPosterUrl } from '../utils/posterUtils';
 import { shareEntry } from '../utils/shareEntry';
@@ -257,6 +258,7 @@ export default function DetailView() {
     setEntry(updated);
     await updateEntry(updated);
     DeviceEventEmitter.emit('entryUpdated');
+    scheduleDriveBackup();
   }
 
   async function handleLogSesh() {
@@ -318,6 +320,7 @@ export default function DetailView() {
 
   async function handleDelete() {
     await deleteEntry(entry.id);
+    scheduleDriveBackup();
     setModal(null);
     router.back();
   }

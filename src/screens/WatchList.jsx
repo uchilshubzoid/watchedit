@@ -9,6 +9,7 @@ import FilterSheet from '../components/FilterSheet';
 import RatingSheet from '../components/RatingSheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEntries, updateEntry } from '../db/storage';
+import { scheduleDriveBackup } from '../services/driveSync';
 import { shareEntry } from '../utils/shareEntry';
 import { exportEntriesHtml } from '../utils/exportHtml';
 import { T } from '../constants/tokens';
@@ -194,7 +195,7 @@ export default function WatchList() {
       return next;
     });
     const entry = entries.find(e => e.id === id);
-    if (entry) updateEntry({ ...entry, bookmark: !entry.bookmark });
+    if (entry) { updateEntry({ ...entry, bookmark: !entry.bookmark }); scheduleDriveBackup(); }
   }
 
   function filtered() {
@@ -316,6 +317,7 @@ export default function WatchList() {
   async function handleRateSave(updated) {
     setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
     await updateEntry(updated);
+    scheduleDriveBackup();
   }
 
   function enterSelectionMode(id) {

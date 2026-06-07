@@ -16,6 +16,7 @@ import { addEntry, getEntry, updateEntry, getEntries, getCategories } from '../d
 import { T } from '../constants/tokens';
 import { highResPosterUrl } from '../utils/posterUtils';
 import { setPendingToast } from '../utils/toastBridge';
+import { scheduleDriveBackup } from '../services/driveSync';
 
 const SCREEN_W = Dimensions.get('window').width;
 const LANG_CHIPS = ['Japanese', 'English', 'Korean', 'Hindi', 'Tamil', 'Spanish', 'French', 'Mandarin', 'Arabic', 'Italian'];
@@ -539,6 +540,7 @@ export default function LogItDetails() {
         watch_end_date: watchStatus === 'watched' ? watchEndDate : existing.watch_end_date,
         watch_platform: watchPlatform === 'Others' ? (customPlatform.trim() || null) : (watchPlatform || null),
       });
+      scheduleDriveBackup();
     } else {
       const existing = await getEntries();
       const isFirstLog = existing.length === 0;
@@ -570,6 +572,7 @@ export default function LogItDetails() {
         epRuntime: resolvedRuntime, runtime: movieRuntimeValue || null,
         watch_platform: watchPlatform === 'Others' ? (customPlatform.trim() || null) : (watchPlatform || null),
       });
+      scheduleDriveBackup();
 
       const statusLabel = watchStatus === 'watched' ? 'Watched' : watchStatus === 'watching' ? 'Watching' : 'Watch Plan';
       setPendingToast(isFirstLog ? {

@@ -11,6 +11,7 @@ import TypePill from '../components/TypePill';
 import RatingSheet from '../components/RatingSheet';
 import { searchTitles } from '../api';
 import { getEntries, addEntry, updateEntry, getTitleLanguagePref } from '../db/storage';
+import { scheduleDriveBackup } from '../services/driveSync';
 import { getPreferredTitle } from '../utils/titleUtils';
 import { highResPosterUrl } from '../utils/posterUtils';
 import { consumePendingToast } from '../utils/toastBridge';
@@ -275,7 +276,7 @@ export default function SearchScreen() {
       return next;
     });
     const entry = entries.find(e => e.id === id);
-    if (entry) updateEntry({ ...entry, bookmark: !entry.bookmark });
+    if (entry) { updateEntry({ ...entry, bookmark: !entry.bookmark }); scheduleDriveBackup(); }
   }
 
   const dt = r => getPreferredTitle(r, titleLang);
@@ -307,6 +308,7 @@ export default function SearchScreen() {
       watch_end_date:  null,
       logged_at:       new Date().toISOString(),
     });
+    scheduleDriveBackup();
     setAddedIds(prev => new Set([...prev, r.id]));
     getEntries().then(data => {
       setEntries(data);
@@ -681,6 +683,7 @@ export default function SearchScreen() {
           onClose={() => setRatingEntry(null)}
           onSave={updated => {
             updateEntry(updated);
+            scheduleDriveBackup();
             setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
             setRatingEntry(null);
           }}

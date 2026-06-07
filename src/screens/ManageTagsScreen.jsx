@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import BackButton from '../components/BackButton';
 import { ConfirmModal } from '../components/BlockingPopup';
 import { getEntries, saveEntries, getCategories, saveCategories, DEFAULT_CATEGORIES } from '../db/storage';
+import { scheduleDriveBackup } from '../services/driveSync';
 import { T } from '../constants/tokens';
 
 export default function ManageTagsScreen() {
@@ -58,6 +59,7 @@ export default function ManageTagsScreen() {
     newCats[idx] = trimmed;
     const updatedEntries = entries.map(e => e.type === oldName ? { ...e, type: trimmed } : e);
     await saveEntries(updatedEntries);
+    scheduleDriveBackup();
     await saveCategories(newCats);
     setEntries(updatedEntries);
     setCategories(newCats);
@@ -105,6 +107,7 @@ export default function ManageTagsScreen() {
       genre: (e.genre || []).filter(g => g !== genre),
     }));
     await saveEntries(updatedEntries);
+    scheduleDriveBackup();
     setEntries(updatedEntries);
     setGenreDeleteTarget(null);
   }

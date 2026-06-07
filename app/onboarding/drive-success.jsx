@@ -7,6 +7,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { T } from '../../src/constants/tokens';
 import { getGoogleAuthErrorMessage, signInWithGoogle, signOutGoogle } from '../../src/hooks/useGoogleAuth';
+import { restoreFromDrive, applyRestore } from '../../src/services/driveSync';
+import { getEntries } from '../../src/db/storage';
+import InfoPopup from '../../src/components/InfoPopup';
 
 function ProgressDots({ current, total }) {
   return (
@@ -35,6 +38,9 @@ export default function OnboardingDriveSuccess() {
   const [email,           setEmail]           = useState(params.email || '');
   const [relinking,       setRelinking]       = useState(false);
   const [relinkError,     setRelinkError]     = useState('');
+  const [continuing,      setContinuing]      = useState(false);
+  const [restorePopup,    setRestorePopup]    = useState(false);
+  const [restoreData,     setRestoreData]     = useState(null); // { entries, count }
 
   async function handleWrongAccount() {
     setRelinkError('');
@@ -61,6 +67,37 @@ export default function OnboardingDriveSuccess() {
   }
 
   async function handleContinue() {
+    setContinuing(true);
+    try {
+      const token = await AsyncStorage.getItem('watchedit_drive_token');
+      if (token) {
+        const backup = await restoreFromDrive(token);
+        if (backup) {
+          const local = await getEntries();
+          if (local.length === 0) {
+            // Empty local — auto-restore silently
+            await applyRestore(backup.entries, 'replace');
+          } else {
+            // Local data exists — ask the user
+            setRestoreData({ entries: backup.entries, count: backup.entries.length });
+            setRestorePopup(true);
+            setContinuing(false);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Backup check failure is non-blocking — proceed to tabs
+    }
+    await AsyncStorage.setItem('watchedit_onboarding_done', 'true');
+    router.replace('/(tabs)');
+  }
+
+  async function handleRestoreChoice(mode) {
+    setRestorePopup(false);
+    if (restoreData) {
+      try { await applyRestore(restoreData.entries, mode); } catch { /* non-blocking */ }
+    }
     await AsyncStorage.setItem('watchedit_onboarding_done', 'true');
     router.replace('/(tabs)');
   }
@@ -121,11 +158,11 @@ export default function OnboardingDriveSuccess() {
         <View style={styles.ctaBlock}>
           <Pressable
             onPress={handleContinue}
-            disabled={relinking}
+            disabled={relinking || continuing}
             style={({ pressed }) => [
               styles.ctaWrap,
-              relinking && { opacity: 0.4 },
-              pressed && !relinking && { opacity: 0.85 },
+              (relinking || continuing) && { opacity: 0.7 },
+              pressed && !relinking && !continuing && { opacity: 0.85 },
             ]}
           >
             <LinearGradient
@@ -134,7 +171,10 @@ export default function OnboardingDriveSuccess() {
               end={{ x: 1, y: 0 }}
               style={styles.cta}
             >
-              <Text style={styles.ctaText}>Let's go →</Text>
+              {continuing
+                ? <ActivityIndicator size="small" color={T.bgPrimary} />
+                : <Text style={styles.ctaText}>Let's go →</Text>
+              }
             </LinearGradient>
           </Pressable>
 
@@ -152,6 +192,17 @@ export default function OnboardingDriveSuccess() {
 
       </View>
     </SafeAreaView>
+
+    <InfoPopup
+      visible={restorePopup}
+      title="Found a Drive backup"
+      message={`Your Drive has a backup with ${restoreData?.count ?? 0} ${restoreData?.count === 1 ? 'entry' : 'entries'}. You also have titles already on this device.\n\nMerge adds Drive entries that aren't already here. Replace discards your local data and loads the Drive backup.`}
+      cta="Merge both"
+      onClose={() => handleRestoreChoice('merge')}
+      secondaryCta="Replace with backup"
+      onSecondary={() => handleRestoreChoice('replace')}
+      secondaryDanger
+    />
   );
 }
 
