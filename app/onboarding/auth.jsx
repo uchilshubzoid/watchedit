@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Animated } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { T } from '../../src/constants/tokens';
 import BackButton from '../../src/components/BackButton';
 import { useFadeBack } from '../../src/hooks/useFadeBack';
+import { getGoogleAuthErrorMessage, signInWithGoogle } from '../../src/hooks/useGoogleAuth';
 
 function ProgressDots({ current, total }) {
   return (
@@ -32,7 +33,9 @@ function ProgressDots({ current, total }) {
 }
 
 export default function OnboardingAuth() {
-  const [watcherName, setWatcherName] = useState('');
+  const [watcherName,    setWatcherName]    = useState('');
+  const [driveLoading,   setDriveLoading]   = useState(false);
+  const [driveError,     setDriveError]     = useState('');
   const { opacity, goBack } = useFadeBack();
 
   useEffect(() => {
@@ -41,13 +44,29 @@ export default function OnboardingAuth() {
     });
   }, []);
 
+  async function handleDrive() {
+    setDriveError('');
+    setDriveLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result) return;
+
+      await AsyncStorage.setItem('watchedit_auth_mode', 'google');
+      await AsyncStorage.setItem('watchedit_drive_account', result.email);
+      await AsyncStorage.setItem('watchedit_drive_token', result.accessToken);
+      await AsyncStorage.setItem('watchedit_last_sync', new Date().toISOString());
+      router.push({ pathname: '/onboarding/drive-success', params: { email: result.email } });
+    } catch (error) {
+      const msg = getGoogleAuthErrorMessage(error);
+      if (msg) setDriveError(msg);
+    } finally {
+      setDriveLoading(false);
+    }
+  }
+
   async function handlePhoneOnly() {
     await AsyncStorage.setItem('watchedit_auth_mode', 'guest');
     router.push('/onboarding/guest');
-  }
-
-  function handleDrive() {
-    router.push('/onboarding/drive-success');
   }
 
   const initial = watcherName ? watcherName[0].toUpperCase() : '?';
@@ -86,29 +105,53 @@ export default function OnboardingAuth() {
           {/* Google Drive */}
           <Pressable
             onPress={handleDrive}
-            style={({ pressed }) => [styles.optionCard, styles.optionCardAmber, pressed && { opacity: 0.85 }]}
+            disabled={driveLoading}
+            style={({ pressed }) => [
+              styles.optionCard,
+              styles.optionCardAmber,
+              driveLoading && { opacity: 0.7 },
+              pressed && !driveLoading && { opacity: 0.85 },
+            ]}
           >
             <View style={styles.optionIconWrap}>
-              <Ionicons name="cloud-outline" size={24} color={T.amber} />
+              {driveLoading
+                ? <ActivityIndicator size="small" color={T.amber} />
+                : <Ionicons name="cloud-outline" size={24} color={T.amber} />
+              }
             </View>
             <View style={styles.optionContent}>
               <View style={styles.optionTitleRow}>
-                <Text style={styles.optionTitle}>Sync to Google Drive</Text>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>Recommended</Text>
-                </View>
+                <Text style={styles.optionTitle}>
+                  {driveLoading ? 'Connecting…' : 'Sync to Google Drive'}
+                </Text>
+                {!driveLoading && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>Recommended</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.optionBody}>
-                Backed up to your personal Google Drive. You own the file.
+                {driveLoading
+                  ? 'Signing in to your Google account'
+                  : 'Backed up to your personal Google Drive. You own the file.'}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={T.amber} style={{ opacity: 0.6 }} />
+            {!driveLoading && (
+              <Ionicons name="chevron-forward" size={18} color={T.amber} style={{ opacity: 0.6 }} />
+            )}
           </Pressable>
+
+          {driveError ? <Text style={styles.errorText}>{driveError}</Text> : null}
 
           {/* Phone only */}
           <Pressable
             onPress={handlePhoneOnly}
-            style={({ pressed }) => [styles.optionCard, pressed && { opacity: 0.85 }]}
+            disabled={driveLoading}
+            style={({ pressed }) => [
+              styles.optionCard,
+              driveLoading && { opacity: 0.4 },
+              pressed && !driveLoading && { opacity: 0.85 },
+            ]}
           >
             <View style={[styles.optionIconWrap, styles.optionIconWrapDim]}>
               <Ionicons name="phone-portrait-outline" size={24} color={T.textMuted} />
@@ -242,5 +285,13 @@ const styles = StyleSheet.create({
     color: T.amber,
     fontFamily: T.fontTitleMedium,
     fontSize: 10,
+  },
+
+  errorText: {
+    color: T.dropped,
+    fontFamily: T.fontFun,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: -4,
   },
 });

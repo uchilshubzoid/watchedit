@@ -31,13 +31,13 @@ const FEATURES = [
   {
     icon: 'add-circle-outline',
     title: 'Log It',
-    body: 'TMDB, AniList, or add manually. Rate, review, and log your watch sessions.',
-    pills: ['TMDB', 'MAL', 'OMDB'],
+    body: 'TMDB, MyAnimeList, or add manually. Rate, review, and log your watch sessions.',
+    pills: ['TMDB', 'MyAnimeList', 'OMDB'],
   },
   {
     icon: 'bar-chart-outline',
     title: 'Review Stats',
-    body: 'See what genres you're obsessed with, runtime totals, and how your taste evolves.',
+    body: "See what genres you're obsessed with, runtime totals, and how your taste evolves.",
     pills: null,
   },
   {
@@ -59,10 +59,11 @@ export default function OnboardingAbout() {
 
         {/* Hero */}
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>THANKS FOR DOWNLOADING —</Text>
+          <Text style={styles.eyebrow}>THANKS FOR DOWNLOADING!</Text>
           <Text style={styles.headline}>Everything you watch,{'\n'}finally tracked.</Text>
           <Text style={styles.sub}>
-            WatchedIt is your personal log for every show, film, and anime you've
+            <Text style={styles.subBrand}>WatchedIt</Text>
+            {' '}is your personal log for every show, film, and anime you've
             watched — or plan to. Yours forever.
           </Text>
         </View>
@@ -153,6 +154,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 280,
+  },
+  subBrand: {
+    color: T.amber,
+    fontFamily: T.fontTitle,
   },
 
   featureList: { gap: 10 },

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { T } from '../../src/constants/tokens';
+import { getGoogleAuthErrorMessage, signInWithGoogle, signOutGoogle } from '../../src/hooks/useGoogleAuth';
 
 function ProgressDots({ current, total }) {
   return (
@@ -30,16 +31,36 @@ function ProgressDots({ current, total }) {
 }
 
 export default function OnboardingDriveSuccess() {
-  const [watcherName, setWatcherName] = useState('');
+  const params = useLocalSearchParams();
+  const [email,           setEmail]           = useState(params.email || '');
+  const [relinking,       setRelinking]       = useState(false);
+  const [relinkError,     setRelinkError]     = useState('');
 
-  useEffect(() => {
-    AsyncStorage.getItem('watchedit_watcher_name').then(n => {
-      if (n) setWatcherName(n);
-    });
-  }, []);
+  async function handleWrongAccount() {
+    setRelinkError('');
+    await AsyncStorage.removeItem('watchedit_auth_mode');
+    await AsyncStorage.removeItem('watchedit_drive_account');
+    await AsyncStorage.removeItem('watchedit_drive_token');
+    setRelinking(true);
+    try {
+      await signOutGoogle();
+      const result = await signInWithGoogle({ forceAccountPicker: true });
+      if (!result) return;
+
+      await AsyncStorage.setItem('watchedit_auth_mode', 'google');
+      await AsyncStorage.setItem('watchedit_drive_account', result.email);
+      await AsyncStorage.setItem('watchedit_drive_token', result.accessToken);
+      await AsyncStorage.setItem('watchedit_last_sync', new Date().toISOString());
+      setEmail(result.email);
+    } catch (error) {
+      const msg = getGoogleAuthErrorMessage(error);
+      if (msg) setRelinkError(msg);
+    } finally {
+      setRelinking(false);
+    }
+  }
 
   async function handleContinue() {
-    await AsyncStorage.setItem('watchedit_auth_mode', 'drive');
     await AsyncStorage.setItem('watchedit_onboarding_done', 'true');
     router.replace('/(tabs)');
   }
@@ -63,19 +84,24 @@ export default function OnboardingDriveSuccess() {
 
         {/* Drive link pill */}
         <View style={styles.drivePill}>
-          <Ionicons name="logo-google" size={18} color={T.textMuted} />
+          {relinking
+            ? <ActivityIndicator size="small" color={T.textMuted} />
+            : <Ionicons name="logo-google" size={18} color={T.textMuted} />
+          }
           <View style={styles.drivePillText}>
             <Text style={styles.drivePillLabel}>CONNECTED AS</Text>
             <Text style={styles.drivePillEmail}>
-              {watcherName ? watcherName.toLowerCase().replace(/\s/g, '') + '@gmail.com' : 'you@gmail.com'}
+              {relinking ? 'Signing in…' : (email || 'your Google account')}
             </Text>
           </View>
-          <View style={styles.connectedBadge}>
-            <Text style={styles.connectedBadgeText}>✓ Linked</Text>
-          </View>
+          {!relinking && (
+            <View style={styles.connectedBadge}>
+              <Text style={styles.connectedBadgeText}>✓ Linked</Text>
+            </View>
+          )}
         </View>
 
-        {/* Info row */}
+        {/* Info rows */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Ionicons name="shield-checkmark-outline" size={18} color={T.textMuted} />
@@ -95,7 +121,12 @@ export default function OnboardingDriveSuccess() {
         <View style={styles.ctaBlock}>
           <Pressable
             onPress={handleContinue}
-            style={({ pressed }) => [styles.ctaWrap, pressed && { opacity: 0.85 }]}
+            disabled={relinking}
+            style={({ pressed }) => [
+              styles.ctaWrap,
+              relinking && { opacity: 0.4 },
+              pressed && !relinking && { opacity: 0.85 },
+            ]}
           >
             <LinearGradient
               colors={[T.amber, T.amberDeep]}
@@ -107,8 +138,15 @@ export default function OnboardingDriveSuccess() {
             </LinearGradient>
           </Pressable>
 
-          <Pressable onPress={() => router.back()} style={styles.wrongLink} hitSlop={10}>
-            <Text style={styles.wrongLinkText}>Wrong account? → go back</Text>
+          {relinkError ? <Text style={styles.errorText}>{relinkError}</Text> : null}
+
+          <Pressable
+            onPress={handleWrongAccount}
+            disabled={relinking}
+            hitSlop={10}
+            style={[styles.wrongLink, relinking && { opacity: 0.4 }]}
+          >
+            <Text style={styles.wrongLinkText}>Wrong account? → try again</Text>
           </Pressable>
         </View>
 
@@ -226,6 +264,14 @@ const styles = StyleSheet.create({
   ctaWrap: { alignSelf: 'stretch', borderRadius: T.radiusButton, overflow: 'hidden' },
   cta: { paddingVertical: 15, alignItems: 'center', borderRadius: T.radiusButton },
   ctaText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 15 },
+
+  errorText: {
+    color: T.dropped,
+    fontFamily: T.fontFun,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: -6,
+  },
 
   wrongLink: { paddingVertical: 4 },
   wrongLinkText: {

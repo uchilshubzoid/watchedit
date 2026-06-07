@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Animated } from 'react-native';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
@@ -12,6 +12,7 @@ import {
   getTitleLanguagePref, setTitleLanguagePref,
 } from '../db/storage';
 import { exportJSON, exportCSV } from '../utils/exportData';
+import { getGoogleAuthErrorMessage, signInWithGoogle, signOutGoogle } from '../hooks/useGoogleAuth';
 import { T } from '../constants/tokens';
 
 function getInitials(name = '') {
@@ -27,8 +28,16 @@ export default function WatcherScreen() {
   const [tempName,    setTempName]    = useState('You');
   const [editMode,    setEditMode]    = useState(false);
   const [titleLang,   setTitleLang]   = useState('en');
-  const [authMode,    setAuthMode]    = useState('guest');
-  const [logoutModal, setLogoutModal] = useState(false);
+  const [authMode,       setAuthMode]       = useState('guest');
+  const [driveAccount,   setDriveAccount]   = useState('');
+  const [lastSync,       setLastSync]       = useState(null); // ISO string or null
+  const [driveConnecting,  setDriveConnecting]  = useState(false);
+  const [syncState,        setSyncState]        = useState('idle'); // 'idle' | 'syncing' | 'done'
+  const [driveInfoPopup,   setDriveInfoPopup]   = useState(false);
+  const [driveUnlinkPopup, setDriveUnlinkPopup] = useState(false);
+  const [logoutModal,      setLogoutModal]      = useState(false);
+  const driveRowAnim  = useRef(new Animated.Value(1)).current;
+  const syncDoneTimer = useRef(null);
 
   // Toast
   const toastAnim   = useRef(new Animated.Value(0)).current;
@@ -48,12 +57,16 @@ export default function WatcherScreen() {
       getTitleLanguagePref(),
       AsyncStorage.getItem('watchedit_watcher_name'),
       AsyncStorage.getItem('watchedit_auth_mode'),
-    ]).then(([data, pref, storedName, storedAuth]) => {
+      AsyncStorage.getItem('watchedit_drive_account'),
+      AsyncStorage.getItem('watchedit_last_sync'),
+    ]).then(([data, pref, storedName, storedAuth, storedAccount, storedSync]) => {
       if (!active) return;
       setEntries(data);
       setTitleLang(pref || 'en');
       if (storedName) { setName(storedName); setTempName(storedName); }
       setAuthMode(storedAuth || 'guest');
+      setDriveAccount(storedAccount || '');
+      setLastSync(storedSync || null);
     });
     return () => { active = false; };
   }, []));
@@ -157,7 +170,66 @@ export default function WatcherScreen() {
     setEditMode(false);
   }
 
-  const isGoogle = authMode === 'google';
+  async function handleLinkDrive() {
+    setDriveConnecting(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result) return;
+
+      await AsyncStorage.setItem('watchedit_auth_mode', 'google');
+      await AsyncStorage.setItem('watchedit_drive_account', result.email);
+      await AsyncStorage.setItem('watchedit_drive_token', result.accessToken);
+      const now = new Date().toISOString();
+      await AsyncStorage.setItem('watchedit_last_sync', now);
+      setAuthMode('google');
+      setDriveAccount(result.email);
+      setLastSync(now);
+      driveRowAnim.setValue(0);
+      Animated.timing(driveRowAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    } catch (error) {
+      const msg = getGoogleAuthErrorMessage(error);
+      if (msg) showToast(msg, true);
+    } finally {
+      setDriveConnecting(false);
+    }
+  }
+
+  async function handleSyncNow() {
+    if (syncState !== 'idle') return;
+    setSyncState('syncing');
+    // Stub: real Drive upload will replace this timeout
+    await new Promise(r => setTimeout(r, 2000));
+    const now = new Date().toISOString();
+    await AsyncStorage.setItem('watchedit_last_sync', now);
+    setLastSync(now);
+    setSyncState('done');
+    if (syncDoneTimer.current) clearTimeout(syncDoneTimer.current);
+    syncDoneTimer.current = setTimeout(() => setSyncState('idle'), 2500);
+  }
+
+  async function handleDriveUnlink() {
+    await signOutGoogle();
+    await AsyncStorage.setItem('watchedit_auth_mode', 'guest');
+    await AsyncStorage.removeItem('watchedit_drive_account');
+    await AsyncStorage.removeItem('watchedit_drive_token');
+    await AsyncStorage.removeItem('watchedit_last_sync');
+    setAuthMode('guest');
+    setDriveAccount('');
+    setLastSync(null);
+    setSyncState('idle');
+    setDriveUnlinkPopup(false);
+  }
+
+  function formatLastSync(iso) {
+    if (!iso) return null;
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    return `${days} days ago`;
+  }
+
+  const isDriveLinked = authMode === 'drive' || authMode === 'google';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -196,8 +268,8 @@ export default function WatcherScreen() {
               </View>
             </View>
           )}
-          <View style={[styles.authBadge, isGoogle && styles.authBadgeGoogle]}>
-            <Text style={styles.authBadgeText}>{isGoogle ? 'Google' : 'Guest'}</Text>
+          <View style={[styles.authBadge, isDriveLinked && styles.authBadgeGoogle]}>
+            <Text style={styles.authBadgeText}>{isDriveLinked ? 'Google Drive' : 'Guest'}</Text>
           </View>
         </View>
 
@@ -277,7 +349,94 @@ export default function WatcherScreen() {
         <View>
           <Text style={styles.sectionLabel}>Data & Connections</Text>
           <View style={styles.manageCard}>
-            <Pressable onPress={handleExportJSON} style={styles.manageRow}>
+
+            {/* Google Drive row */}
+            {!isDriveLinked ? (
+              /* Guest — Link Drive */
+              <View style={styles.driveLinkRow}>
+                <Pressable
+                  onPress={handleLinkDrive}
+                  disabled={driveConnecting}
+                  style={styles.driveRowMain}
+                >
+                  <View style={[styles.manageIconWrapAmber, driveConnecting && { opacity: 0.6 }]}>
+                    {driveConnecting
+                      ? <ActivityIndicator size="small" color={T.amber} />
+                      : <Ionicons name="logo-google" size={18} color={T.amber} />
+                    }
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.manageLabel}>
+                      {driveConnecting ? 'Connecting…' : 'Link Google Drive'}
+                    </Text>
+                    <Text style={styles.manageSub}>
+                      {driveConnecting
+                        ? 'Signing in to your Google account'
+                        : 'Back up your WatchLog to your personal Google Drive'}
+                    </Text>
+                  </View>
+                </Pressable>
+                {!driveConnecting && (
+                  <Pressable onPress={() => setDriveInfoPopup(true)} hitSlop={8} style={{ paddingRight: 14 }}>
+                    <Ionicons name="information-circle-outline" size={20} color={T.textMuted} style={{ opacity: 0.6 }} />
+                  </Pressable>
+                )}
+              </View>
+            ) : (
+              /* Drive connected — fades in on first link */
+              <Animated.View style={[styles.manageRow, styles.manageRowBorder, { opacity: driveRowAnim }]}>
+                <View style={styles.driveIconWrap}>
+                  <Ionicons name="logo-google" size={18} color="#5cb85c" />
+                </View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <View style={styles.driveTitleRow}>
+                    <Text style={styles.manageLabel}>Google Drive</Text>
+                    <View style={styles.syncedBadge}>
+                      <Text style={styles.syncedBadgeText}>✓ Synced</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.manageSub}>
+                    {driveAccount ? `Connected as ${driveAccount}` : 'Connected'}
+                  </Text>
+                  {lastSync && (
+                    <Text style={styles.driveLastSync}>Last synced: {formatLastSync(lastSync)}</Text>
+                  )}
+                  <View style={styles.driveActions}>
+                    <Pressable
+                      onPress={handleSyncNow}
+                      disabled={syncState !== 'idle'}
+                      style={styles.driveActionBtn}
+                    >
+                      {syncState === 'syncing' ? (
+                        <View style={styles.driveActionInner}>
+                          <ActivityIndicator size={11} color={T.textMuted} />
+                          <Text style={styles.driveActionText}>Syncing…</Text>
+                        </View>
+                      ) : syncState === 'done' ? (
+                        <View style={styles.driveActionInner}>
+                          <Ionicons name="checkmark-circle-outline" size={13} color="#5cb85c" />
+                          <Text style={[styles.driveActionText, { color: '#5cb85c' }]}>Synced!</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.driveActionInner}>
+                          <Ionicons name="refresh-outline" size={13} color={T.textMuted} />
+                          <Text style={styles.driveActionText}>Sync now</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                    <Text style={styles.driveActionDivider}>·</Text>
+                    <Pressable onPress={() => setDriveUnlinkPopup(true)} style={styles.driveActionBtn}>
+                      <View style={styles.driveActionInner}>
+                        <Ionicons name="cloud-offline-outline" size={13} color={T.dropped} style={{ opacity: 0.8 }} />
+                        <Text style={[styles.driveActionText, styles.driveActionUnlink]}>Unlink</Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                </View>
+              </Animated.View>
+            )}
+
+            <Pressable onPress={handleExportJSON} style={[styles.manageRow, styles.manageRowBorder]}>
               <View style={styles.manageIconWrapAmber}>
                 <Ionicons name="share-social-outline" size={18} color={T.amber} />
               </View>
@@ -365,6 +524,27 @@ export default function WatcherScreen() {
         onClose={() => handleImportConfirm('merge')}
         secondaryCta="Replace all"
         onSecondary={() => handleImportConfirm('replace')}
+        secondaryDanger
+      />
+
+      {/* Drive info popup */}
+      <InfoPopup
+        visible={driveInfoPopup}
+        title="Why link Google Drive?"
+        message={"Your WatchLog gets backed up to your own Google Drive account. If you ever lose your phone or reinstall the app, everything comes back.\n\nWe never see your data — it goes straight to your Drive."}
+        cta="Got it"
+        onClose={() => setDriveInfoPopup(false)}
+      />
+
+      {/* Drive unlink confirm */}
+      <InfoPopup
+        visible={driveUnlinkPopup}
+        title="Unlink Google Drive?"
+        message="Your WatchLog will stay on this device but will no longer sync to Drive. You can re-link anytime."
+        cta="Keep it linked"
+        onClose={() => setDriveUnlinkPopup(false)}
+        secondaryCta="Unlink"
+        onSecondary={handleDriveUnlink}
         secondaryDanger
       />
     </SafeAreaView>
@@ -468,6 +648,28 @@ const styles = StyleSheet.create({
   langBtnActive: { backgroundColor: T.amber },
   langBtnText: { color: T.textMuted, fontFamily: T.fontTitle, fontSize: 12 },
   langBtnTextActive: { color: T.bgPrimary },
+
+  // Drive rows
+  driveLinkRow: { flexDirection: 'row', alignItems: 'center' },
+  driveRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  driveIconWrap: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: 'rgba(100,180,100,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  driveTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  syncedBadge: {
+    backgroundColor: 'rgba(100,180,100,0.15)',
+    borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2,
+  },
+  syncedBadgeText: { color: '#5cb85c', fontFamily: T.fontTitleMedium, fontSize: 10 },
+  driveLastSync: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 11, opacity: 0.7 },
+  driveActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  driveActionBtn: { paddingVertical: 2 },
+  driveActionInner: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  driveActionText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 12, textDecorationLine: 'underline' },
+  driveActionUnlink: { color: T.dropped, opacity: 0.8 },
+  driveActionDivider: { color: T.textMuted, opacity: 0.4, fontSize: 12 },
 
   replayBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,

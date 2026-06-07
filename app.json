@@ -39,7 +39,8 @@
         }
       ],
       "expo-sharing",
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-web-browser"
     ],
     "scheme": "watchedit",
     "extra": {

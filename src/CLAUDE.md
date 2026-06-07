@@ -165,8 +165,29 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **Tab bar height:** `tabBarH` 56 → 54px; `paddingBottom` fallback 8 → 6px.
 - **expo-document-picker** installed (v55.0.13), added to `app.json` plugins.
 
+### Stage 2.14 — 4-Screen Onboarding Redesign ✅ Complete (as of Jun 2026)
+- **Screen 1 (index.jsx) updates:** Added `"BEFORE WE BEGIN —"` mono eyebrow above headline. Headline font size 26→30px, lineHeight 38. CTA copy "That's me →" → "Yep, that's me →". Routes to `/onboarding/about` (was `/onboarding/auth`). `total={4}` dots everywhere.
+- **Screen 2 (about.jsx) — NEW:** "THANKS FOR DOWNLOADING!" mono eyebrow. Sub copy has `WatchedIt` in amber (`subBrand` style — first mention of the brand). 3 feature cards: Log It (TMDB / MyAnimeList / OMDB source pills), Review Stats, Remember It. CTA "Let's set up my WatchLog →" routes to `/onboarding/auth`.
+- **Screen 3 (auth.jsx) — full rewrite:** Two-option card picker replacing the old Google button + Guest button layout. Google Drive card: amber border + "Recommended" badge. Phone Only card: dimmed. Real OAuth wired via the shared Google auth helper. Loading state shows spinner + "Connecting…". On success: saves `watchedit_auth_mode: 'google'`, `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync`; navigates to `/onboarding/drive-success` with `email` param. On error/cancel: shows inline error text below Drive card. `driveLoading` prevents double-tap.
+- **Screen 4a (guest.jsx) — rewrite:** Name-aware headline. Red warning box (`T.dropped` tint, `warning-outline` Ionicon) — "If you uninstall the app, your WatchLog goes with it." Two Ionicons info rows (`checkmark-circle-outline`, `sync-outline`). Ghost back link "← Actually, let me connect Drive instead" (`router.back()`). No more inline name editing; name comes from AsyncStorage.
+- **Screen 4b (drive-success.jsx) — NEW:** Reads `email` from `useLocalSearchParams()`. Shows Drive link pill with real email. "Wrong account?" clears Drive AsyncStorage keys, signs out the native Google session, and opens the account picker again. Saves `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync` on continue CTA. Sets `watchedit_onboarding_done: 'true'` on final confirm.
+- **`onboarding/_layout.jsx`:** Added `<Stack.Screen name="about" />` and `<Stack.Screen name="drive-success" />`.
+- **WatcherScreen:** Added "Replay onboarding" dev button — clears `watchedit_onboarding_done`, routes to `/onboarding`.
+
+### Stage 2.15 — Google Drive Sync + Real OAuth ✅ Complete (as of Jun 2026)
+- **`src/hooks/useGoogleAuth.js` — shared Google auth helper:** Uses `@react-native-google-signin/google-signin` instead of `expo-auth-session`, requests `email`, `profile`, and `https://www.googleapis.com/auth/drive.appdata`, and exposes `signInWithGoogle()`, `signOutGoogle()`, and `getGoogleAuthErrorMessage()`.
+- **WatcherScreen Drive section (guest state):** "Link Google Drive" row — `cloud-outline` icon, label, Pressable triggers `handleLinkDrive()`. Info icon on right opens `driveInfoPopup`. Row fades in (Animated opacity 0→1) when newly linked.
+- **WatcherScreen Drive section (connected state):** Green `cloud-done-outline` icon, email, amber "✓ Synced" badge. Last synced time via `formatLastSync(iso)` → "Today" / "Yesterday" / "X days ago". Sync Now: 3-state machine `idle → syncing [ActivityIndicator] → done [checkmark-circle-outline green + "Synced!"]`, auto-reverts after 2.5s. Unlink (`cloud-offline-outline`). Two InfoPopups: `driveInfoPopup` ("Why link Google Drive?"), `driveUnlinkPopup` (confirm unlink with `secondaryDanger`). `handleDriveUnlink()` clears all 3 Drive keys from AsyncStorage.
+- **`isDriveLinked` pattern:** `authMode === 'drive' || authMode === 'google'` — covers legacy stub value `'drive'` and real OAuth value `'google'`.
+- **Auth badge:** Shows "Google Drive" when linked (was "Google").
+- **New AsyncStorage keys:** `watchedit_drive_account` (email), `watchedit_drive_token` (access token), `watchedit_last_sync` (ISO string).
+- **Google client setup:** `EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB` must live in `eas.json` for native builds because the app reads it at runtime. The Android OAuth client (package name + SHA-1) must still exist in Google Cloud Console, but its client ID is no longer read from `process.env` inside the app.
+- **Android auth strategy:** Browser-based `expo-auth-session` Google OAuth was removed after Google rejected the Android custom-scheme flow with `Error 400: invalid_request`. WatchedIt now uses the native Google Sign-In SDK path on Android.
+- **Expo Go OAuth limitation:** Google Sign-In **cannot be tested in Expo Go**. `@react-native-google-signin/google-signin` is a native module not bundled with the Expo Go client. Use `npm run android` (emulator/device) or install a preview APK for any OAuth testing.
+
 ### What's NOT built yet (do these next in order)
 1. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
+2. **Google Drive actual sync** — OAuth wired but no actual Drive API calls yet. `handleSyncNow()` is stubbed with a 2s timeout. Real implementation: write/read `watchedit_entries.json` to the app's Drive `appdata` folder.
 
 ---
 
@@ -185,8 +206,10 @@ See spec v2.3 changelog for full detail. Key decisions:
 │   ├── onboarding/
 │   │   ├── _layout.jsx            ← Onboarding stack (slide_from_right, 280ms)
 │   │   ├── index.jsx              ← Screen 1: Watcher Name input
-│   │   ├── auth.jsx               ← Screen 2: Auth choice (Google / Guest)
-│   │   └── guest.jsx              ← Screen 3: Guest mode callout + inline name edit
+│   │   ├── about.jsx              ← Screen 2: About WatchedIt (feature cards)
+│   │   ├── auth.jsx               ← Screen 3: Auth choice (Google Drive / Phone Only)
+│   │   ├── guest.jsx              ← Screen 4a: Guest callout (warning box + back link)
+│   │   └── drive-success.jsx      ← Screen 4b: Drive link confirmation (email + wrong account?)
 │   ├── logit/
 │   │   ├── search.jsx             ← Log It Step 1 (modal)
 │   │   └── details.jsx            ← Log It Step 2
@@ -223,7 +246,8 @@ See spec v2.3 changelog for full detail. Key decisions:
 │   │   ├── InfoPopup.jsx          ← In-app info modal replacing Alert.alert
 │   │   └── GuidedCarousel.jsx     ← 3-slide onboarding carousel modal (swipe-only navigation)
 │   ├── hooks/
-│   │   └── useFadeBack.js         ← Fade-out back transition hook (opacity + router.back)
+│   │   ├── useFadeBack.js         ← Fade-out back transition hook (opacity + router.back)
+│   │   └── useGoogleAuth.js       ← Shared Google auth helper (native Google Sign-In, drive.appdata scope)
 │   ├── api/
 │   │   ├── index.js               ← unified searchTitles() entry point
 │   │   └── mal.js                 ← MAL API (direct fetch, no proxy needed in RN)
@@ -348,8 +372,10 @@ T.fontFun         = 'Fredoka-Regular'      // 400w — subtexts, labels, seconda
 app/_layout.jsx              Root Stack
 ├── onboarding               Onboarding stack (animation: none from root)
 │   ├── index                Screen 1 — Watcher Name
-│   ├── auth                 Screen 2 — Auth choice
-│   └── guest                Screen 3 — Guest callout
+│   ├── about                Screen 2 — About WatchedIt (feature cards)
+│   ├── auth                 Screen 3 — Auth choice (Google Drive / Phone Only)
+│   ├── guest                Screen 4a — Guest callout (warning box, back link)
+│   └── drive-success        Screen 4b — Drive link confirmation
 ├── (tabs)                   Bottom tab navigator (app/(tabs)/_layout.jsx)
 │   ├── index (Watch Tower)
 │   ├── watchlist
@@ -409,8 +435,11 @@ useEffect(() => {
 ```
 AsyncStorage keys used by onboarding:
 - `watchedit_watcher_name` — user's display name (string)
-- `watchedit_auth_mode` — `'guest'` | future: `'google'`
-- `watchedit_onboarding_done` — `'true'` when complete (set in Screen 3)
+- `watchedit_auth_mode` — `'guest'` | `'google'` (set in Screen 3 or Screen 4b)
+- `watchedit_onboarding_done` — `'true'` when complete (set in Screen 4a or 4b)
+- `watchedit_drive_account` — Google account email (string; set when Drive linked)
+- `watchedit_drive_token` — OAuth access token (string; set when Drive linked)
+- `watchedit_last_sync` — ISO string of last sync (set when Drive linked or synced)
 
 **Success toast after Log It submit:**
 ```js
@@ -523,7 +552,7 @@ await setTitleLanguagePref(p)
 - **Poster in Log It Step 2:** Tapping the poster thumbnail opens a full-screen zoom modal. Supports pinch-to-zoom (up to 6×) and drag-to-pan when zoomed. Uses `Gesture.Simultaneous(pinchGesture, panGesture)` inside a `GestureHandlerRootView` within the RN Modal.
 - **Keyboard + search sheet:** Both rise simultaneously — input is focused at the start of the sheet's entrance animation, not after it completes.
 - **Success toast:** Shown on Watch Tower after Log It submit. 10s auto-dismiss, top-right ✕ button, positioned 8px above tab bar. Passed via `toastBridge` singleton (not navigation params). Supports optional `sub` field (third line, fontMono 10px dimmed). `isFirstLog: true` triggers special first-entry copy.
-- **Onboarding flow:** 3-screen stack in `app/onboarding/`. Gated by `watchedit_onboarding_done` AsyncStorage key. Two-phase bootstrap in root layout ensures splash stays visible during the check. Onboarding completion sets the key and `router.replace('/(tabs)')`.
+- **Onboarding flow:** 4-screen stack in `app/onboarding/`. Gated by `watchedit_onboarding_done` AsyncStorage key. Two-phase bootstrap in root layout ensures splash stays visible during the check. Onboarding completion sets the key and `router.replace('/(tabs)')`. Screens: `index` (name) → `about` (feature cards) → `auth` (Drive / Phone Only) → `drive-success` (Drive path) or `guest` (Phone Only path).
 - **WatchTower empty state:** Stats card hidden when `entries.length === 0`. Welcome card shown instead: amber-tinted, 🎬 emoji, two CTAs (Log It + Watch Plan, both emit `openLogIt`), ghost link opens GuidedCarousel.
 - **GuidedCarousel:** `src/components/GuidedCarousel.jsx`. Full-screen RN Modal, 3 slides, mini screen mockups, horizontal ScrollView with `scrollEnabled={false}` (manually controlled via `scrollTo`). Resets to slide 0 on `visible` change. Last slide CTA closes modal and emits `openLogIt`.
 
@@ -656,3 +685,8 @@ npm run build:aab
 - **InfoPopup two-button variant** — `secondaryCta` (string) + `onSecondary` (fn) + optional `secondaryDanger` (bool). Secondary button renders above the primary amber CTA. Use for destructive/alternative actions (e.g. Replace all vs Merge).
 - **WatcherScreen toast** — inline `Animated` toast at screen bottom. `showToast(msg, isErr)` drives it. Uses `useNativeDriver: true` with `translateY` + `opacity`. Do not use `toastBridge` here — that singleton is for WatchTower/SearchScreen cross-navigation toasts only.
 - **exportData.js utilities** — `exportJSON(entries)` and `exportCSV(entries)` in `src/utils/exportData.js`. Both use `new File(Paths.cache, filename)` + `file.write()` + `Sharing.shareAsync(file.uri)`. CSV uses `csvCell()` helper that wraps commas/quotes; dates via `toDDMMYYYY()` which handles ISO strings safely with `+ 'T12:00:00'` to avoid UTC shift.
+- **Google auth helper** — shared helper in `src/hooks/useGoogleAuth.js`. Import `signInWithGoogle()`, `signOutGoogle()`, and `getGoogleAuthErrorMessage()` into screens that need Google auth (`auth.jsx`, `drive-success.jsx`, `WatcherScreen`).
+- **`isDriveLinked` pattern** — `const isDriveLinked = authMode === 'drive' || authMode === 'google'`. Covers both the legacy stub value `'drive'` (never actually set, kept for safety) and the real OAuth value `'google'`. Do not check `authMode === 'google'` alone.
+- **EAS build env vars must be in `eas.json`** — the `.env` file is gitignored and is NEVER uploaded to EAS build servers. Any `EXPO_PUBLIC_` key that a feature depends on at runtime must also be present in the `env` block of the relevant `eas.json` profile (`preview` and/or `production`). For Google auth, the runtime key is the Web client ID.
+- **Expo Go cannot test Google Sign-In** — `@react-native-google-signin/google-signin` is a native module not bundled with the Expo Go client. There is no workaround. Always test OAuth via `npm run android` (emulator/device) or a preview APK build. Do not attempt to diagnose sign-in failures in Expo Go.
+- **Onboarding 4-screen flow** — routing: `index → about → auth → drive-success` (Drive path) or `index → about → auth → guest` (Phone Only path). Back navigation supported on `about`, `auth`, and `guest`. `drive-success` has no back button — only "Wrong account?" re-auth and the final CTA. `watchedit_onboarding_done` is set in `drive-success` (Drive path) or `guest` (Phone Only path). Never set it in `auth.jsx`.

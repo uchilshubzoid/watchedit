@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v2.13
-*Last updated: Jun 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system. EAS build config, final app assets, Play Store account setup. API keys in EAS preview env, eas.json git-ignored, Play Store submission imminent. Fredoka font system (fontFun token), WatchList date bug fix, TypePill on WatchList cards, ongoing shows null fix, WatchTower "View all" CTA on Currently Watching, splash resizeMode contain, WatchList swipe navigation + animation, LogIt sheet bottom padding, FilterSheet font/spacing/toggle polish. Search screen web mode (dual-mode search: WatchLog + web API), nav icon refresh (castle/script/telescope). API timeouts, Episodes card, Log It polish, icon system. WatchList selection mode. Single title share. DetailView hero action icons. Multi-title HTML export. JSON/CSV export. WatchedIt backup import. WatcherScreen Data & Connections live.*
+# WatchedIt — Full Product Spec v2.15
+*Last updated: Jun 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system. EAS build config, final app assets, Play Store account setup. API keys in EAS preview env, eas.json git-ignored, Play Store submission imminent. Fredoka font system (fontFun token), WatchList date bug fix, TypePill on WatchList cards, ongoing shows null fix, WatchTower "View all" CTA on Currently Watching, splash resizeMode contain, WatchList swipe navigation + animation, LogIt sheet bottom padding, FilterSheet font/spacing/toggle polish. Search screen web mode (dual-mode search: WatchLog + web API), nav icon refresh (castle/script/telescope). API timeouts, Episodes card, Log It polish, icon system. WatchList selection mode. Single title share. DetailView hero action icons. Multi-title HTML export. JSON/CSV export. WatchedIt backup import. WatcherScreen Data & Connections live. 4-screen onboarding redesign (about screen, drive-success screen, 4 progress dots). Google Drive sync UI + real Google OAuth wired (native Google Sign-In, drive.appdata scope).*
 
 ---
 
@@ -192,84 +192,133 @@ router.push({
 
 ## 4A. Onboarding Flow
 
-Shown on first launch (when `watchedit_onboarding_done` is not set). A 3-screen stack in `app/onboarding/`. The root layout performs a **two-phase bootstrap**: fonts load → AsyncStorage check → navigate if needed → hide splash. This keeps the splash visible through the redirect so there is no flash of the wrong screen.
+Shown on first launch (when `watchedit_onboarding_done` is not set). A 4-screen stack in `app/onboarding/`. The root layout performs a **two-phase bootstrap**: fonts load → AsyncStorage check → navigate if needed → hide splash. This keeps the splash visible through the redirect so there is no flash of the wrong screen.
 
-Progress dots (3 total) shown at top of each screen.
+Progress dots (4 total) shown at top of each screen.
 
 ### Screen 1 — Watcher Name (`app/onboarding/index.jsx`)
 ```
-🎬
+BEFORE WE BEGIN —
 
-Before we begin —
-Every WatchLog needs a name on it. What's yours?
+        Every WatchLog
+        needs a name.
 
-WATCHER NAME — what you're called in your WatchLog
+WATCHER NAME
 ┌────────────────────────────────────────────────┐
 │  e.g. Alex, Shubh, MovieNerd...               │
 └────────────────────────────────────────────────┘
 
-              [ That's me → ]
+              [ Yep, that's me → ]
 ```
 - TextInput auto-focused on mount (120ms delay)
 - Amber border when focused, amber CTA disabled until at least 1 char
-- On submit: saves `watchedit_watcher_name`, routes to Screen 2
+- On submit: saves `watchedit_watcher_name`, routes to `/onboarding/about`
 
-### Screen 2 — Auth Choice (`app/onboarding/auth.jsx`)
+### Screen 2 — About WatchedIt (`app/onboarding/about.jsx`)
 ```
-← (back)          ● ● ○   (dot 1 done, dot 2 active)
+← (back)     ●  ○  ○  ○   (dot 1 done, dot 2 active)
 
-        [ S  Shubh · Watcher Name set ✓ ]
+THANKS FOR DOWNLOADING!
 
-          Where should your
-          WatchLog live?
-   Sign in to keep it safe across devices.
+  WatchedIt is your personal log for every show, film,
+  and anime you've watched.
 
-   [ G  Sign in with Google ]
+┌─────────────────────────────────────┐
+│  ⊕  Log It                         │
+│     TMDB  MyAnimeList  OMDB         │
+│     Add any title... [pills]        │
+├─────────────────────────────────────┤
+│  ≡  Review Stats                   │
+│     See your genre obsessions...    │
+├─────────────────────────────────────┤
+│  ◇  Remember It                    │
+│     No more "wait, did I watch..."  │
+└─────────────────────────────────────┘
 
-               ── or ──
-
-   [      Continue as guest      ]
-
-   Guest mode: your WatchLog stays on this device only.
-   You can sign in anytime from the Watcher screen.
+   [ Let's set up my WatchLog → ]
 ```
-- Confirmation chip shows avatar initial (LinearGradient) + name + "· Watcher Name set ✓"
-- Google button: saves nothing, shows a custom `InfoPopup` modal ("Coming soon — Google sign-in is coming in Stage 3.") — not `Alert.alert`. Button styled with amber tint border; uses `AntDesign "google"` icon.
-- Guest button: saves `watchedit_auth_mode: 'guest'`, routes to Screen 3
+- 3 feature cards with Ionicons + title + body text + source pills on Log It card
+- `WatchedIt` in sub-copy rendered in amber (`subBrand` style — brand first mention)
+- CTA routes to `/onboarding/auth`
 
-### Screen 3 — Guest Callout (`app/onboarding/guest.jsx`)
+### Screen 3 — Auth Choice (`app/onboarding/auth.jsx`)
 ```
-● ● ●  (all done)
+← (back)     ●  ●  ○  ○
 
-JUST SO YOU KNOW —
+        Where should your WatchLog live?
 
-Hey  [Shubh ✏️],     ← inline name edit
+┌─────────────────────────────────────────────┐
+│ ☁  Google Drive              RECOMMENDED   │  ← amber border
+│    Backed up automatically. Safe across     │
+│    all your devices.                        │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│    Phone only                               │  ← dimmed
+│    Stays on this device. Works offline.     │
+└─────────────────────────────────────────────┘
+```
+- Google Drive card: amber border + "Recommended" amber pill badge
+- Phone Only card: dimmed opacity when Drive auth is in progress
+- Tapping Drive: `driveLoading = true`, calls `signInWithGoogle()` (native Google Sign-In helper)
+- Loading state: spinner replaces Drive icon + "Connecting…" copy inside the card
+- On OAuth success: saves `watchedit_auth_mode: 'google'`, `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync`; navigates to `/onboarding/drive-success` with `email` param
+- On OAuth failure/cancel: `driveLoading = false`, inline error text shown below Drive card
+- Tapping Phone Only: saves `watchedit_auth_mode: 'guest'`, routes to `/onboarding/guest`
+
+### Screen 4a — Guest Callout (`app/onboarding/guest.jsx`)
+```
+← (back)     ●  ●  ●  ●  (dots complete)
+
+Hey Shubh,
 your WatchLog stays on this device.
 
-That's completely fine — everything works. But if you
-uninstall the app, your data goes with it.
+┌─────────────────────────────────────────────┐
+│ ⚠  If you uninstall the app, your WatchLog │
+│    goes with it. There's no recovery.       │  ← T.dropped red tint
+└─────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────┐
-│ ✅  Full app, right now — Log It, WatchList, Stats.  │
-│ ─────────────────────────────────────────────────── │
-│ 📵  Device only — uninstalling clears your WatchLog. │
-│ ─────────────────────────────────────────────────── │
-│ 🔄  Sign in later — Watcher → Sign in with Google.  │
-└─────────────────────────────────────────────────────┘
+✓  Everything works right now.
+↺  You can link Drive later from Watcher.
 
-         [ That's me, let's go → ]
+           [ Got it, let's go → ]
+
+    ← Actually, let me connect Drive instead
 ```
-- Inline name edit: tap pencil icon → TextInput with amber border replaces the name text. `onBlur` / `onSubmitEditing` commits. Empty submit reverts to previous name.
-- Edit hint shown when editing: "↵ or tap outside to save"
-- CTA disabled while editing (opacity 0.3)
-- On CTA tap: sets `watchedit_onboarding_done: 'true'`, `router.replace('/(tabs)')`
+- Name read from AsyncStorage (no inline editing)
+- Red warning box: `T.dropped` tint + `warning-outline` Ionicon
+- Two info rows: `checkmark-circle-outline` and `sync-outline` Ionicons
+- Ghost back link calls `router.back()` (returns to auth screen)
+- CTA sets `watchedit_onboarding_done: 'true'`, `router.replace('/(tabs)')`
+
+### Screen 4b — Drive Success (`app/onboarding/drive-success.jsx`)
+```
+             ●  ●  ●  ●  (no back button)
+
+     ✓ Google Drive linked
+
+     ┌─ ☁ your.email@gmail.com ─┐
+
+     Your WatchLog will back up automatically.
+     You can manage this from the Watcher screen.
+
+     Wrong account?  ← taps to re-auth
+
+            [ Let's go → ]
+```
+- `email` read from `useLocalSearchParams()`; shown in Drive pill
+- "Wrong account?" clears Drive AsyncStorage keys, signs out the native Google session, then opens the account picker again
+- Final CTA saves all Drive keys + sets `watchedit_onboarding_done: 'true'`, `router.replace('/(tabs)')`
 
 ### AsyncStorage keys set by onboarding
 | Key | Value | Set by |
 |---|---|---|
-| `watchedit_watcher_name` | string | Screen 1 on continue, Screen 3 on name edit |
-| `watchedit_auth_mode` | `'guest'` | Screen 2 Guest button |
-| `watchedit_onboarding_done` | `'true'` | Screen 3 CTA |
+| `watchedit_watcher_name` | string | Screen 1 on continue |
+| `watchedit_auth_mode` | `'guest'` or `'google'` | Screen 3 (Guest CTA or Drive OAuth success) |
+| `watchedit_onboarding_done` | `'true'` | Screen 4a (guest) or Screen 4b (drive-success) CTA |
+| `watchedit_drive_account` | email string | Screen 3 on Drive OAuth success + Screen 4b |
+| `watchedit_drive_token` | access token string | Screen 3 on Drive OAuth success + Screen 4b |
+| `watchedit_last_sync` | ISO date string | Screen 3 on Drive OAuth success + Screen 4b |
 
 ---
 
@@ -794,7 +843,7 @@ Avatar (52px amber circle with initials) and name displayed **side by side, cent
 
 Name edit: TextInput replaces the name row. `returnKeyType="done"` + `onSubmitEditing` allows saving via keyboard submit. Save CTA also works directly without dismissing keyboard first. Saved to `watchedit_watcher_name` AsyncStorage key. Name loaded from AsyncStorage on `useFocusEffect`.
 
-Auth badge sourced from `watchedit_auth_mode` AsyncStorage key (`'guest'` → "Guest" pill, `'google'` → "Google" pill with faint green tint).
+Auth badge sourced from `watchedit_auth_mode` AsyncStorage key: `'guest'` → "Guest" pill; `'google'` → "Google Drive" pill with faint green tint. `isDriveLinked = authMode === 'drive' || authMode === 'google'`.
 
 ### Quick stats strip
 Watched · Hours · Avg Rating
@@ -819,10 +868,29 @@ A CTA row (always visible) navigating to the dedicated Recommendations screen (`
 - ~~App Preferences~~ — removed (no alternate styles currently)
 - **Preferred Title Language** — inline in the Manage card: English / Romanised / Japanese pill selector. Stored via `getTitleLanguagePref()` / `setTitleLanguagePref()`. Default: English.
 
+### Google Drive Sync
+Shown in the Data & Connections section. Two states:
+
+**Guest state (not linked):**
+- "Link Google Drive" row — `cloud-outline` icon, label + sub-copy ("Back up your WatchLog automatically"). Tapping triggers inline native Google Sign-In without navigating to onboarding. Info icon on right opens an InfoPopup ("Why link Google Drive?").
+- On OAuth success: saves `watchedit_auth_mode: 'google'`, `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync`; row fades in (Animated opacity 0→1) to the connected state.
+
+**Connected state:**
+- Green `cloud-done-outline` icon + email address + amber "✓ Synced" badge on first line
+- Last synced time: `formatLastSync(iso)` → "Today" / "Yesterday" / "X days ago"
+- **Sync Now** button (3 states):
+  - `idle`: `refresh-outline` icon + "Sync now" label
+  - `syncing`: `ActivityIndicator` + "Syncing…" label
+  - `done`: `checkmark-circle-outline` green icon + "Synced!" label → auto-reverts to `idle` after 2.5s
+- **Unlink** button: `cloud-offline-outline` icon + "Unlink" label → opens confirm InfoPopup (secondary danger style). On confirm: clears `watchedit_auth_mode`, `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync` from AsyncStorage.
+
+*Note: Sync Now is currently a stub (2s simulated delay). Real Drive API (write/read `watchedit_entries.json` to appdata folder) is planned for Stage 3.*
+
 ### Data & Connections
-Two rows, both disabled with "Soon" pill:
-- **Export My Data** — download full WatchLog as JSON (coming soon)
-- **Import from Other Source** — bring in watch history from elsewhere (coming soon)
+Rows for export/import (all functional as of Stage 2.13):
+- **Export as JSON** — full WatchLog entries as `watchedit-export-YYYYMMDD.json`
+- **Export as CSV** — 16-column CSV as `watchedit-export-YYYYMMDD.csv`
+- **Import from WatchedIt backup** — JSON file picker; Merge or Replace all
 
 Removed: Connect MyAnimeList, Import Netflix History, Stage 3 label, Clear All Data button.
 
@@ -1126,9 +1194,12 @@ await saveCategories(cats);     // persists category list
 - `watchedit_entries` — array of persisted entries
 - `watchedit_title_language_pref` — `"en"` | `"ja"` | `"romanised"`; default `"en"`
 - `watchedit_watcher_name` — user's display name (set in onboarding Screen 1)
-- `watchedit_auth_mode` — `"guest"` | future: `"google"` (set in onboarding Screen 2)
-- `watchedit_onboarding_done` — `"true"` when onboarding complete (set in onboarding Screen 3)
+- `watchedit_auth_mode` — `"guest"` | `"google"` (set in onboarding Screen 3 / Screen 4b)
+- `watchedit_onboarding_done` — `"true"` when onboarding complete (set in Screen 4a or 4b)
 - `watchedit_categories` — JSON array of category name strings; default `['Anime', 'TV Show', 'Movie']`; max 5
+- `watchedit_drive_account` — Google account email (string; set when Drive linked via OAuth)
+- `watchedit_drive_token` — OAuth access token (string; set when Drive linked; cleared on Unlink)
+- `watchedit_last_sync` — ISO date string of last successful sync (set on link + each Sync Now)
 
 All storage calls are async. Always `await` them.
 
@@ -1320,7 +1391,9 @@ Success shows an inline toast with count of entries imported/added. Errors show 
 | **2.11** | API timeouts. Episodes card in Log It. Log It UX polish. Icon system. WatchTower spacing fix. | ✅ Complete |
 | **2.12** | WatchList selection mode. Single title share. DetailView hero action icons (icon-only, Share added). Watch Plan → Watching start date fix. | ✅ Complete |
 | **2.13** | Multi-title HTML export (WatchList selection mode, 2+ titles). JSON export. CSV export. WatchedIt backup import. InfoPopup two-button variant. WatcherScreen inline toast. Tab bar height drop. WatcherScreen section label/sub font size increase. | ✅ Complete |
-| **3** | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. Play Store listing live. | 🔲 |
+| **2.14** | 4-screen onboarding redesign. Screen 1 polish (eyebrow, larger headline, new CTA copy). Screen 2 NEW: About WatchedIt (3 feature cards, brand amber). Screen 3 rewrite: two-option card picker (Google Drive / Phone Only). Screen 4a guest rewrite (warning box, Ionicons rows, ghost back link). Screen 4b NEW: Drive-success confirmation (email, wrong account re-auth). Progress dots updated to 4. `about.jsx` + `drive-success.jsx` added. Replay onboarding dev button in WatcherScreen. | ✅ Complete |
+| **2.15** | Google Drive sync UI + real Google OAuth. `useGoogleAuth` shared helper (native Google Sign-In, `drive.appdata` scope). WatcherScreen Drive section: guest Link row + connected state (email, synced badge, last sync time, 3-state Sync Now, Unlink). Real OAuth wired in `auth.jsx`, `drive-success.jsx`, `WatcherScreen`. `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync` AsyncStorage keys. EAS build env vars for Google OAuth. Sync Now stubbed (real Drive API in Stage 3). | ✅ Complete |
+| **3** | Google Drive actual sync (write/read appdata). Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Play Store listing live. | 🔲 |
 | **4** | Social/friends. Share extension. Shareable stats card. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
 
 ---
@@ -1329,6 +1402,8 @@ Success shows an inline toast with count of entries imported/added. Errors show 
 
 | Version | Changes |
 |---|---|
+| 2.15 | **Google Drive sync UI + real Google OAuth.** `src/hooks/useGoogleAuth.js` is now a shared helper built on `@react-native-google-signin/google-signin`. It configures scopes `email`, `profile`, and `drive.appdata`, and exports `signInWithGoogle()`, `signOutGoogle()`, and `getGoogleAuthErrorMessage()`. **WatcherScreen Drive section (guest state):** "Link Google Drive" row with `cloud-outline` icon; info icon opens `driveInfoPopup`; `handleLinkDrive()` calls `signInWithGoogle()` inline (no navigation). On OAuth success: saves `watchedit_auth_mode: 'google'`, `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync`; row fades in via `driveRowAnim` (`Animated.timing` 0→1). **WatcherScreen Drive section (connected state):** green `cloud-done-outline` + email + amber "✓ Synced" badge; `formatLastSync(iso)` → "Today"/"Yesterday"/"X days ago"; Sync Now 3-state (`idle`→`syncing`→`done`, `ActivityIndicator` during sync, green checkmark + "Synced!" on done, 2.5s auto-revert); Unlink (`cloud-offline-outline`) opens confirm InfoPopup with `secondaryDanger`; `handleDriveUnlink()` clears all 3 Drive keys and signs out the native Google session. **`isDriveLinked`:** `authMode === 'drive' || authMode === 'google'`. **Auth badge:** "Google Drive" when linked. **OAuth in `auth.jsx`:** `driveLoading` state prevents double-tap; error text shown inline below Drive card. **OAuth in `drive-success.jsx`:** "Wrong account?" signs out and reopens the native account picker. **New AsyncStorage keys:** `watchedit_drive_account`, `watchedit_drive_token`, `watchedit_last_sync`. **Build/config note:** `EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB` must be present in `eas.json` because the app reads it at runtime. The Android OAuth client (package name + SHA-1) must still exist in Google Cloud Console, but its client ID is no longer consumed as a runtime env var. **Android note:** the previous `expo-auth-session` custom-scheme flow was removed after Google rejected it with `Error 400: invalid_request`. OAuth must be tested via a native Android build / APK install. |
+| 2.14 | **4-screen onboarding redesign.** **Screen 1 (`index.jsx`) updates:** `"BEFORE WE BEGIN —"` mono eyebrow added above headline; headline font 26→30px, lineHeight 38; CTA copy "That's me →" → "Yep, that's me →"; routes to `/onboarding/about` (was `/onboarding/auth`); `total={4}` dots. **Screen 2 (`about.jsx`) NEW:** "THANKS FOR DOWNLOADING!" mono eyebrow; sub copy with `WatchedIt` in amber (`subBrand` style); 3 feature cards — Log It (with TMDB / MyAnimeList / OMDB source pills), Review Stats, Remember It — each with Ionicon + title + body text; CTA "Let's set up my WatchLog →" routes to `/onboarding/auth`. **Screen 3 (`auth.jsx`) full rewrite:** two-option card picker replaces old Google button + Guest button layout; Google Drive card has amber border + "Recommended" pill badge; Phone Only card dims while Drive auth is in progress; real OAuth via the shared Google auth helper; `driveLoading` state shows spinner + "Connecting…" in the Drive card; on success saves auth keys and navigates to `/onboarding/drive-success` with `email` param; on failure shows inline error text below Drive card; Phone Only saves `watchedit_auth_mode: 'guest'` and routes to `/onboarding/guest`. **Screen 4a (`guest.jsx`) rewrite:** name-aware headline (from AsyncStorage, no inline edit); red warning box (`T.dropped` tint + `warning-outline` Ionicon); two Ionicons info rows (`checkmark-circle-outline`, `sync-outline`); ghost back link "← Actually, let me connect Drive instead" calls `router.back()`; CTA sets `watchedit_onboarding_done: 'true'` and `router.replace('/(tabs)')`. **Screen 4b (`drive-success.jsx`) NEW:** `email` from `useLocalSearchParams()`; Drive link pill shows real email; "Wrong account?" clears Drive keys, signs out, and reopens the native account picker; final CTA saves all Drive keys + sets `watchedit_onboarding_done: 'true'` + `router.replace('/(tabs)')`. **`onboarding/_layout.jsx`:** added `<Stack.Screen name="about" />` and `<Stack.Screen name="drive-success" />`. **Progress dots:** `total={4}` across all screens. **WatcherScreen:** "Replay onboarding" dev button clears `watchedit_onboarding_done` and routes to `/onboarding`. |
 | 2.13 | **Multi-title HTML export + JSON/CSV export + WatchedIt import + UI polish.** **Multi-title HTML export:** `exportEntriesHtml()` in `src/utils/exportData.js` [sic — `src/utils/exportHtml.js`]. Uses new `expo-file-system` `File`/`Paths` API (legacy `writeAsStringAsync` is deprecated in v55). Posters fetched in parallel via `File.downloadFileAsync` → `.base64()`, embedded as data URIs; failures silently fall back to amber initials block. Dark-themed HTML with logo pill header, per-entry rows (poster, title, meta, episode line, reaction snippet, status badge, rating), embedded JSON data block, footer. Active filter pills in header. Entry order matches current sort. Filename `watchedit-list-YYYYMMDD-HHmmss.html`. **JSON export:** `exportJSON()` — full entries array, no transformation, shared via `expo-sharing`. Filename `watchedit-export-YYYYMMDD.json`. **CSV export:** `exportCSV()` — 16 columns, dates DD/MM/YYYY, blank for unset, episode columns blank for movies, cells with commas quoted. Filename `watchedit-export-YYYYMMDD.csv`. **Import:** `expo-document-picker` (JSON filter). File read via `fetch(uri).then(r => r.text())`. Validates array with `id` + `title` on every item. Invalid → `InfoPopup` error. Valid → `InfoPopup` confirm with Merge (skips duplicate ids) or Replace all (clears then imports). Success/error shown via inline toast. **InfoPopup two-button variant:** optional `secondaryCta`, `onSecondary`, `secondaryDanger` props — renders a second muted/danger button above the primary amber CTA. **WatcherScreen inline toast:** `Animated` slide-up at screen bottom, 4s auto-dismiss, amber border (error: red tint), `useNativeDriver: true`. **WatcherScreen section/sub font sizes:** `sectionLabel` 10 → 13px; `manageSub` 11 → 13px. **Tab bar height:** `tabBarH` 56 → 54px; `paddingBottom` fallback 8 → 6px. **expo-document-picker** installed and added to `app.json` plugins. | 2.12 | **WatchList selection mode + single title share + DetailView icon refresh + Watch Plan start date fix.** **Selection mode:** Long press any WatchList card (400ms `delayLongPress`) enters selection mode; long-pressed card is first selected. A `justLongPressed` ref on `WatchCard` absorbs the `onPress` fired on finger-lift so the card isn't immediately deselected. In selection mode: search bar, type chips, and filter button dim to `opacity: 0.35` with `pointerEvents: none`; filter badge count unchanged; horizontal swipe-to-tab gesture disabled. Selection action bar appears between count row and list — "X selected" · "Select all" · amber Share button · "Cancel". Selected cards get `rgba(239,159,39,0.18)` amber tint; left status bar stays original type colour. Tapping toggles selection; deselecting last card auto-exits. "Select all" selects all `results` (current filtered/searched view). Cancel exits and clears. **Share:** `src/utils/shareEntry.js` — `shareEntry(entry)` builds formatted text (title, type · year · episode info · platform, rating or "not rated yet", reaction snippet ≤120 chars, blank line, "Thought you'd like this one 👀", "— logged on WatchedIt") and calls `Share.share({ message })`. Android text-only — `url` field is ignored by Android's ShareModule (only `EXTRA_TEXT` is set). Image sharing deferred. **DetailView action row:** `ActionBtn` converted to icon-only (size 18, 40×40 square, no label text). Share (`share-outline`) added between Rewatch and Edit. Rewatch only shown for `isWatched`. Styles `actionBtnText` and `actionBtnTextDanger` removed. **WatchList episode count font:** `progressText` `fontSize` raised from 11 → 13px. **Watch Plan → Watching start date fix:** `watchingStart` (Watching Since display) and `watchingDeetsStartDate` (Watch Deets timeline "Started Watching") now fall back to `firstSesh?.date_display` before `entry.date`. Previously both fell back to `entry.date` — the Watch Plan add date — causing a title transitioned from Watch Plan via Log a Sesh to show the wrong start date. | 2.11 | **API timeouts + Episodes card + Log It polish + icon system + spacing fix.** **API timeouts:** 8s `AbortController` timeout added to `tmdbFetch` (covers all TMDB calls), `omdbFetch`, and `searchMAL`'s fetch — prevents LogIt search hanging indefinitely on slow/blocked networks. **Episodes card (LogItDetails):** New card rendered between Watch Status and Watch Date for all TV/Anime non-plan entries (both Watched and Watching). Shows two rows — "Total episodes" (value + ✎ Edit toggle → inline panel with number input + "Still ongoing?" Switch) and "Episode runtime" (value + ✎ Edit toggle → inline panel with 24min/45min/Custom presets + custom text input). Below a divider: derived watch-time line — Watched reads "estimated watch time ~Xh Ym", Watching reads "watched so far ~Xh Ym" (updates live as fields change). Watching-only: second divider + "Watched Up To" section containing the episode grid selector (≤50 eps, non-ongoing) or manual number input. Episodes and runtime fields removed from the collapsed metadata card (no longer duplicated there); old standalone Episode Progress card removed. Metadata card header line (episode count / runtime / est. time) hidden for TV entries since the new card covers it; movies still show their runtime summary. **Log It UX polish:** "Not finding it?" slim bar added to LogItSearch above results (shows when results are present, not in single-rewatch mode) — muted label on left, amber "Add manually →" CTA on right, triggers same manual-add flow as the zero-results state. Inline edit panels for episode/runtime use a transparent container (no nested elevated box) so height matches the rest of the form; `textInputCompact` style introduced (`paddingVertical: 12, fontSize: 13`) matching the WatchDatePicker trigger height. `placeholderTextColor={T.textMuted}` added to all episode-related inputs. **Icon system:** All remaining emoji icons replaced with Ionicons. Edit buttons (✏️ Edit / Done ✓) in LogItDetails now use `create-outline` / `checkmark` icons alongside the label text; `editBtn` style updated to `flexDirection: row, alignItems: center, gap: 4`. Search bar emoji (🔍) in LogItSearch and WatchList replaced with `Ionicons search-outline size={16} color={T.textMuted}`; dead `searchIcon` styles removed; Ionicons import added to LogItSearch. **WatchTower spacing fix:** `marginBottom: 12` removed from the `sectionTitle` Text style — it was inside a `flexDirection: row` container (`recentHeader`) causing the row height to vary with custom font metrics on Android (Nunito-ExtraBold), making the gap between section titles and cards shift between renders. Gap is now purely controlled by `recentHeader`'s own `marginBottom: 12`. **Tab label:** Watch Tower tab label shortened from "Watch Tower" to "Tower" to fit the narrower medieval castle icon without truncation. **`package.json` scripts:** `android`/`ios` scripts changed from `expo start --android/--ios` to `expo run:android/ios` for direct device/emulator launch. |
 | 2.10 | **Search screen web mode + nav icon refresh.** **Search web mode:** `SearchScreen` now has two modes toggled by an inline CTA below the search bar. WatchLog mode (default): live search across entries — unchanged. Web mode: calls `searchTitles()` (MAL + TMDB + OMDB) on submit; auto-triggers when switching modes with an existing query. Results split into two sections: (1) `IN YOUR WATCHLOG` — matched entries rendered as WatchList cards (left status bar, date line, TypePill, rating, bookmark, Rate it nudge), sorted by Most Recent Activity, tap → DetailView; (2) `WEB RESULTS` / `MORE FROM THE WEB` — unmatched API results rendered as LogIt result cards with `+ Watch Plan`, `WatchedIt →`, and ⓘ preview modal (same `SearchPreviewModal` as LogItSearch). `WatchedIt →` navigates to `/logit/details`; on submit `router.back()` returns to SearchScreen which reads `consumePendingToast()` and shows the toast here. Toast system identical to WatchTower (10s auto-dismiss, ✕ button, amber border). Filter chip ScrollView wrapped in `<View>` (same pattern as LogItSearch) to prevent Android flex-column height expansion. Section labels bumped from mono 11px → `T.fontTitle` 13px. **Search bar icon:** emoji 🔍 replaced with `Ionicons search-outline`. **Nav icon refresh:** Watch Tower `home` → `castle` (MaterialCommunityIcons); WatchList `list` → `script-text` / `script-text-outline` (MaterialCommunityIcons, filled/outline on focus); Search `search` → `telescope` (MaterialCommunityIcons). Watcher unchanged (`person` / `person-outline`, Ionicons). |
 | 2.6 | **Font system expansion + UX bug fixes.** **Fredoka font (`fontFun`):** `@expo-google-fonts/fredoka` installed; `Fredoka_400Regular` registered in `app/_layout.jsx` as `'Fredoka-Regular'`; new token `T.fontFun` added to `tokens.js`. Used for subtexts, hints, labels, and secondary copy across all screens. Nunito retained for titles/numbers/CTAs; Inconsolata retained for dates/mono. Text inputs and date pickers retain Nunito (`fontBody`). **WatchList date fix:** title cards now surface `finishedDate` for watched entries and `lastWatchedDate` for watching/dropped/paused — `e.date` (the log/add date) is never shown on cards. **TypePill on WatchList cards:** content-type display replaced from plain text to `<TypePill>` chip inline with the progress line (`cardSubRow`, `flexDirection: 'row'`, `gap: 6`). **Ongoing shows null fix:** `progressLine()` now renders `"X eps watched"` when `e.total` is falsy (not `"X of null eps watched"`); only shows denominator when both ep and total are set. **WatchTower "View all →" CTA:** Currently Watching section header now has a pressable that navigates to `/(tabs)/watchlist` with `params: { tab: 'watching' }`, consistent with the Recently Watched pattern. **Splash resizeMode fix:** `app.json` `splash.resizeMode` changed from `"cover"` to `"contain"` so the text-only centered image displays without cropping. **WatchList swipe navigation:** `PanResponder` on the FlatList wrapper enables left/right swipe to advance tabs (threshold: `|dx| > 50`, gate: `|dx| > 12 && |dx| > |dy| * 2`); stale closure solved with `tabRef.current = tab` and `animateSwitchRef.current` function refs updated every render. **WatchList swipe animation:** crossfade + slide on tab switch; exit: 140ms slide ±40px + fade to 0; enter: 180ms slide from ∓40px + fade to 1; `useNativeDriver: true`. **LogIt sheet padding:** `sheet.paddingBottom` raised to 15px. **FilterSheet polish:** `navSectionLabel.fontSize` and `paneTitle.fontSize` raised 9→11px; `navItem.marginBottom` raised 2→5px; `navLabelActive` no longer overrides `fontFamily` (was switching to Nunito-SemiBold on select — now color-only); unrated toggle wrapped in `View` with `borderWidth: 1.5` amber outline (`rgba(239,159,39,0.55)`) when toggle is off. |
