@@ -15,6 +15,7 @@ import StarRating from '../components/StarRating';
 import { getEntry, updateEntry, deleteEntry, getEntries } from '../db/storage';
 import { T } from '../constants/tokens';
 import { highResPosterUrl } from '../utils/posterUtils';
+import { shareEntry } from '../utils/shareEntry';
 
 function localISODate() {
   const d = new Date();
@@ -34,11 +35,10 @@ function SectionLabel({ children }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
-function ActionBtn({ iconName, label, onPress, danger }) {
+function ActionBtn({ iconName, onPress, danger }) {
   return (
     <Pressable onPress={onPress} style={[styles.actionBtn, danger && styles.actionBtnDanger]}>
-      <Ionicons name={iconName} size={14} color={danger ? T.dropped : T.textMuted} />
-      <Text style={[styles.actionBtnText, danger && styles.actionBtnTextDanger]}>{label}</Text>
+      <Ionicons name={iconName} size={18} color={danger ? T.dropped : T.textMuted} />
     </Pressable>
   );
 }
@@ -226,8 +226,8 @@ export default function DetailView() {
   const watchedEndDate   = entry.watch_end_date ? isoToDisplay(entry.watch_end_date) : (entry.finishedDate || endDate);
   const watchedHasDateRange = !!(watchedStartDate && watchedEndDate);
 
-  // For currently watching: prefer user-set watch_start_date over the add date
-  const watchingStart   = entry.watch_start_date ? fmtDateShort(entry.watch_start_date) : entry.date;
+  // For currently watching: prefer user-set watch_start_date, then first sesh date, then add date
+  const watchingStart   = entry.watch_start_date ? fmtDateShort(entry.watch_start_date) : (firstSesh?.date_display || entry.date);
   const watchingSameDay = watchingStart === endDate;
 
   // Canonical display dates for the Watch Log timeline
@@ -239,7 +239,7 @@ export default function DetailView() {
     : null;
   const watchingDeetsStartDate = entry.watch_start_date
     ? isoToDisplay(entry.watch_start_date)
-    : entry.date;
+    : (firstSesh?.date_display || entry.date);
 
   const watchSectionLabel = isWatching ? 'Watching Since' : isDropped ? 'Watching Period' : isPlan ? 'Added On' : 'When I Watched It';
 
@@ -354,14 +354,15 @@ export default function DetailView() {
             <BackButton onPress={goBack} />
             <View style={styles.actionBtns}>
               {isWatched && (
-                <ActionBtn iconName="refresh-outline" label="Rewatch" onPress={() =>
+                <ActionBtn iconName="refresh-outline" onPress={() =>
                   router.push({ pathname: '/logit/details', params: { resultJson: JSON.stringify({ title: entry.title, type: entry.type, lang: entry.lang, genre: entry.genre || [], poster_url: entry.poster_url, isRewatch: true }) } })
                 } />
               )}
-              <ActionBtn iconName="create-outline" label="Edit" onPress={() =>
+              <ActionBtn iconName="share-outline" onPress={() => shareEntry(entry)} />
+              <ActionBtn iconName="create-outline" onPress={() =>
                 router.push({ pathname: '/logit/details', params: { entryId: entry.id, isEdit: 'true' } })
               } />
-              <ActionBtn iconName="trash-outline" label={isPlan ? 'Remove' : 'Unwatch'} danger onPress={() => setModal('remove')} />
+              <ActionBtn iconName="trash-outline" danger onPress={() => setModal('remove')} />
             </View>
           </View>
 
@@ -964,10 +965,8 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   backBtn: { padding: 8 },
   actionBtns: { flexDirection: 'row', gap: 8 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: T.elevated, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 },
+  actionBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: T.elevated, borderRadius: 12, width: 40, height: 40 },
   actionBtnDanger: { backgroundColor: 'rgba(196,122,122,0.12)' },
-  actionBtnText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 12 },
-  actionBtnTextDanger: { color: T.dropped },
   card: { backgroundColor: T.surface, borderRadius: T.radiusCard, padding: 16, gap: 14 },
   heroRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   heroInfo: { flex: 1, minWidth: 0, gap: 5 },

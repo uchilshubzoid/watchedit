@@ -148,8 +148,15 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **Tab label:** "Watch Tower" → "Tower" in tab bar label to fit icon.
 - **`package.json` scripts:** `android`/`ios` scripts updated to `expo run:android/ios`.
 
+### Stage 2.12 — WatchList Selection Mode + Single Title Share + DetailView Icon Refresh ✅ Complete (as of Jun 2026)
+- **Watch Plan → Watching start date fix:** `watchingStart` and `watchingDeetsStartDate` in DetailView now fall back to `firstSesh?.date_display` before `entry.date`. Fixes "Watching Since" and Watch Deets "Started Watching" showing the Watch Plan add date instead of the first sesh date when a title was transitioned from Watch Plan via Log a Sesh.
+- **WatchList selection mode:** Long press (400ms) enters selection mode; long-pressed card is first selected. `justLongPressed` ref on `WatchCard` absorbs the `onPress` fired on finger-lift to prevent immediate deselection. In selection mode: search bar, type chips, and filter button all dim to `opacity: 0.35` with `pointerEvents: none`; filter badge count unchanged; swipe-to-tab gesture disabled. Selection action bar between count row and list: "X selected" · "Select all" · amber Share · "Cancel". Selected cards get `rgba(239,159,39,0.18)` amber tint; left status bar stays original colour. Deselecting last card auto-exits. "Select all" selects all `results` (current filtered/searched view). Episode count `progressText` font raised 11 → 13px.
+- **Single title share:** `src/utils/shareEntry.js` — `shareEntry(entry)` builds formatted text and calls `Share.share({ message })`. Text: bold title, type · year · episode info · platform, rating or "not rated yet", reaction snippet ≤120 chars, blank line, "Thought you'd like this one 👀", "— logged on WatchedIt". Android text-only — `url` is ignored by RN's Android `ShareModule` (only `EXTRA_TEXT` is set); image sharing deferred. Wired to: (1) Share icon on DetailView action row, (2) WatchList selection mode Share button with 1 title selected.
+- **DetailView action row icon refresh:** `ActionBtn` is now icon-only — no text labels. Size 18, 40×40 square. Share (`share-outline`) added between Rewatch and Edit. `actionBtnText` / `actionBtnTextDanger` styles removed.
+
 ### What's NOT built yet (do these next in order)
-1. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
+1. **Multi-title HTML export** — WatchList selection mode, 2+ titles selected. `expo-file-system` + `expo-sharing` required. See spec Section 6B (in progress — questions pending).
+2. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
 
 ---
 
@@ -218,7 +225,8 @@ See spec v2.3 changelog for full detail. Key decisions:
 │   │   └── storage.js             ← AsyncStorage CRUD (all functions are async)
 │   └── utils/
 │       ├── titleUtils.js          ← getPreferredTitle(result, pref) — EN/JA/romanised
-│       └── toastBridge.js         ← Module-level singleton: setPendingToast / consumePendingToast
+│       ├── toastBridge.js         ← Module-level singleton: setPendingToast / consumePendingToast
+│       └── shareEntry.js          ← shareEntry(entry) — builds share text + calls Share.share
 ├── assets/                        ← TODO: add icon.png, splash.png, adaptive-icon.png
 ├── app.json                       ← Expo config (package: com.watchedit.app)
 ├── babel.config.js                ← babel-preset-expo + reanimated plugin
@@ -627,3 +635,7 @@ npm run build:aab
 - **`sectionTitle` must not have `marginBottom`** — `sectionTitle` is used inside `recentHeader` (a `flexDirection: row` container). Bottom margin on a Text in a row container expands the row's height by a font-metric-dependent amount, causing the gap below to shift between renders on Android. All vertical spacing for that section is handled by `recentHeader`'s `marginBottom: 12`.
 - **Ionicons for all interactive icons** — no emoji icons anywhere in the app. Edit/done buttons use `create-outline` / `checkmark`. Search inputs use `search-outline`. All Pressable icon buttons use Ionicons or MaterialCommunityIcons.
 - **Nav icons** — `MaterialCommunityIcons` is now imported in `app/(tabs)/_layout.jsx` alongside Ionicons. Watch Tower uses `castle`, WatchList uses `script-text`/`script-text-outline`, Search uses `telescope`. Watcher stays on Ionicons `person`/`person-outline`. The `TabIcon` helper only works with Ionicons (relies on `${name}-outline` pattern); for MaterialCommunityIcons tabs, write inline JSX with explicit `color` and `name` props.
+- **WatchList selection mode** — `selectionMode` bool + `selectedIds` Set state. `WatchCard` receives `selectionMode`, `isSelected`, `onLongPress`, `onSelect` props. A `justLongPressed` ref on each card absorbs the `onPress` that fires on finger-lift after a long press — without it the card is immediately deselected. In selection mode: search bar + chip row get `opacity: 0.35` + `pointerEvents: none`; filter button gets `opacity: 0.35` only (badge stays); swipe panHandlers detached via `{...(selectionMode ? {} : swipeResponder.panHandlers)}`. "Select all" uses `results` (the current `filtered()` output) not raw `entries`.
+- **`shareEntry(entry)`** — `src/utils/shareEntry.js`. Text-only on Android — RN's `ShareModule` for Android only sets `Intent.EXTRA_TEXT`; the `url` field in `Share.share` is iOS-only and silently ignored on Android. Do not attempt image sharing via `Share.share` on Android.
+- **DetailView `ActionBtn`** — icon-only, size 18, 40×40 square. No label text. `actionBtnText` and `actionBtnTextDanger` styles no longer exist — do not recreate them.
+- **Watching Since start date** — `watchingStart` and `watchingDeetsStartDate` fall back to `firstSesh?.date_display` before `entry.date`. This ensures a title transitioned from Watch Plan via Log a Sesh shows the first sesh date as the start, not the Watch Plan add date.

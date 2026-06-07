@@ -1,5 +1,5 @@
-# WatchedIt — Full Product Spec v2.10
-*Last updated: May 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system. EAS build config, final app assets, Play Store account setup. API keys in EAS preview env, eas.json git-ignored, Play Store submission imminent. Fredoka font system (fontFun token), WatchList date bug fix, TypePill on WatchList cards, ongoing shows null fix, WatchTower "View all" CTA on Currently Watching, splash resizeMode contain, WatchList swipe navigation + animation, LogIt sheet bottom padding, FilterSheet font/spacing/toggle polish. Search screen web mode (dual-mode search: WatchLog + web API), nav icon refresh (castle/script/telescope).*
+# WatchedIt — Full Product Spec v2.12
+*Last updated: Jun 2026. Stage 2 Expo native migration complete. Log It UX polish complete. Stats Screen full redesign complete. Onboarding flow complete. WatchTower empty state complete. UX polish pass complete. Stats/WatchTower card polish, InsightsWidget, episode tracker fix, ratingSource fix. Active days, sub-copy readability pass, tap target pass, Recommendations screen, WatcherScreen name persist, LogIt start date for Watched. WatchList filter enhancements (Rating slider, Watch Date, Platform), LogIt platform field, DetailView platform display, Watcher screen overhaul, Manage Tags & Categories screen, custom categories system. EAS build config, final app assets, Play Store account setup. API keys in EAS preview env, eas.json git-ignored, Play Store submission imminent. Fredoka font system (fontFun token), WatchList date bug fix, TypePill on WatchList cards, ongoing shows null fix, WatchTower "View all" CTA on Currently Watching, splash resizeMode contain, WatchList swipe navigation + animation, LogIt sheet bottom padding, FilterSheet font/spacing/toggle polish. Search screen web mode (dual-mode search: WatchLog + web API), nav icon refresh (castle/script/telescope). API timeouts, Episodes card, Log It polish, icon system. WatchList selection mode. Single title share. DetailView hero action icons.*
 
 ---
 
@@ -77,9 +77,10 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 - Deprecated Create React App files are archived in `archive/web-shell/`.
 
 ### Next Product Work
-1. Screen transition polish and UX pass.
-2. Tone audit across empty states, errors, and action labels.
-3. Release polish and Play Store prep.
+1. Multi-title HTML export (WatchList selection mode, 2+ titles selected).
+2. Screen transition polish and UX pass.
+3. Tone audit across empty states, errors, and action labels.
+4. Release polish and Play Store prep.
 
 ### Do Not Use For New Work
 - `src/screens/WatchedItApp.jsx` — migration reference only.
@@ -1189,6 +1190,70 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 
 ---
 
+## 6A. WatchList Selection Mode
+
+Long pressing any title card on WatchList enters selection mode. The long-pressed card becomes the first selected item. If the user deselects it (tap to toggle) and zero cards remain selected, selection mode exits automatically — no manual cancel needed.
+
+### What changes in selection mode
+- Search bar dims (`opacity: 0.35`) and becomes non-interactive (`pointerEvents: none`)
+- Type filter chips dim and become non-interactive
+- Filter & Sort button dims and becomes non-interactive — the amber filter count badge stays visible and unchanged
+- Horizontal swipe-to-tab gesture is disabled
+- A **selection action bar** appears between the count line and the first card: selected count (left) · "Select all" text button · amber Share button · "Cancel" text button
+
+### Card treatment
+Cards do not change layout. Selected cards get an amber background tint (`rgba(239,159,39,0.18)`). Left status bar stays its original type/status colour (unchanged). Unselected cards are visually unchanged. Tapping a card toggles selection. Bookmark button is absorbed — no actions except selection toggle while in selection mode. "Rate it" nudge hidden while in selection mode.
+
+### Long press + tap conflict fix
+A `justLongPressed` ref on `WatchCard` is set to `true` when `onLongPress` fires. The subsequent `onPress` (triggered by finger-lift after long press) checks the ref, skips all action, and resets it. Prevents the card from being immediately deselected on the frame after selection mode is entered.
+
+### Select all
+Selects every card currently visible — respects active tab, filters, and search. Not all entries in storage.
+
+### Share button
+- 1 card selected → single title share flow (`shareEntry`)
+- 2+ cards selected → multi-title HTML export (see Section 6B, in progress)
+- Disabled (opacity 0.4) when 0 cards selected
+
+### Cancel
+Clears all selections and exits selection mode.
+
+---
+
+## 6B. Single Title Share
+
+Triggered from two places:
+1. **Share icon** on the DetailView hero action row
+2. **Selection mode Share button** on WatchList with exactly 1 title selected
+
+### Share utility
+`src/utils/shareEntry.js` exports `shareEntry(entry)`. Calls `Share.share({ message })` with a formatted text string. Image sharing is not implemented — Android's `Share` API ignores the `url` field; image sharing requires `expo-sharing` which is out of scope for now.
+
+### Text format
+```
+*[Title]*
+[Type] · [Year] · [Episode info] · [Platform]
+★ [Rating] / 10   — or —   — not rated yet
+"[First 120 chars of reaction]..."
+
+Thought you'd like this one 👀
+— logged on WatchedIt
+```
+
+**Episode info line logic:**
+- Movie → omit episode line
+- Watched, finite show → `[total] episodes · [rt] min/ep`
+- Watching, known total → `[ep] of [total] episodes · [rt] min/ep`
+- Ongoing + watching → `Ongoing · [ep] eps watched so far`
+- Episode count unknown → omit episode segment
+
+Year, platform, and reaction each omitted when not set. Unrated Watched entries show `— not rated yet` instead of the star line.
+
+### DetailView hero action row
+`ActionBtn` is now icon-only — no text labels. Three icons (four when `isWatched`): Rewatch (`refresh-outline`, only for watched) · Share (`share-outline`) · Edit (`create-outline`) · Unwatch/Remove (`trash-outline`, danger). Icons size 18, buttons 40×40 square.
+
+---
+
 ## 26. Build Stages
 
 | Stage | Scope | Status |
@@ -1199,6 +1264,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 | **2.8** | EAS build config. Final app icons + splash. Play Store developer account created (verification in progress). APK and AAB build profiles configured. | ✅ Complete |
 | **2.10** | Search screen web mode. Dual-mode search: WatchLog (existing) + web API (MAL/TMDB/OMDB). In-log results shown as WatchList cards at top; new results shown as LogIt cards. Toast shown on Search screen after submit. Nav icon refresh: Watch Tower → `castle`, WatchList → `script-text`, Search → `telescope` (all MaterialCommunityIcons). | ✅ Complete |
 | **2.11** | API timeouts. Episodes card in Log It. Log It UX polish. Icon system. WatchTower spacing fix. | ✅ Complete |
+| **2.12** | WatchList selection mode. Single title share. DetailView hero action icons (icon-only, Share added). Watch Plan → Watching start date fix. | ✅ Complete |
 | **3** | Google Auth + Supabase. MAL OAuth import. Netflix CSV import. Review to Log queue. API keys server-side. Export module. Play Store listing live. | 🔲 |
 | **4** | Social/friends. Share extension. Shareable stats card. Home screen widget. WatchedIt channel. Subscription analytics. YouTube Takeout. iOS polish. | 🔲 |
 
@@ -1208,7 +1274,7 @@ Track content consumed per platform vs subscription cost. "Is my Netflix worth i
 
 | Version | Changes |
 |---|---|
-| 2.11 | **API timeouts + Episodes card + Log It polish + icon system + spacing fix.** **API timeouts:** 8s `AbortController` timeout added to `tmdbFetch` (covers all TMDB calls), `omdbFetch`, and `searchMAL`'s fetch — prevents LogIt search hanging indefinitely on slow/blocked networks. **Episodes card (LogItDetails):** New card rendered between Watch Status and Watch Date for all TV/Anime non-plan entries (both Watched and Watching). Shows two rows — "Total episodes" (value + ✎ Edit toggle → inline panel with number input + "Still ongoing?" Switch) and "Episode runtime" (value + ✎ Edit toggle → inline panel with 24min/45min/Custom presets + custom text input). Below a divider: derived watch-time line — Watched reads "estimated watch time ~Xh Ym", Watching reads "watched so far ~Xh Ym" (updates live as fields change). Watching-only: second divider + "Watched Up To" section containing the episode grid selector (≤50 eps, non-ongoing) or manual number input. Episodes and runtime fields removed from the collapsed metadata card (no longer duplicated there); old standalone Episode Progress card removed. Metadata card header line (episode count / runtime / est. time) hidden for TV entries since the new card covers it; movies still show their runtime summary. **Log It UX polish:** "Not finding it?" slim bar added to LogItSearch above results (shows when results are present, not in single-rewatch mode) — muted label on left, amber "Add manually →" CTA on right, triggers same manual-add flow as the zero-results state. Inline edit panels for episode/runtime use a transparent container (no nested elevated box) so height matches the rest of the form; `textInputCompact` style introduced (`paddingVertical: 12, fontSize: 13`) matching the WatchDatePicker trigger height. `placeholderTextColor={T.textMuted}` added to all episode-related inputs. **Icon system:** All remaining emoji icons replaced with Ionicons. Edit buttons (✏️ Edit / Done ✓) in LogItDetails now use `create-outline` / `checkmark` icons alongside the label text; `editBtn` style updated to `flexDirection: row, alignItems: center, gap: 4`. Search bar emoji (🔍) in LogItSearch and WatchList replaced with `Ionicons search-outline size={16} color={T.textMuted}`; dead `searchIcon` styles removed; Ionicons import added to LogItSearch. **WatchTower spacing fix:** `marginBottom: 12` removed from the `sectionTitle` Text style — it was inside a `flexDirection: row` container (`recentHeader`) causing the row height to vary with custom font metrics on Android (Nunito-ExtraBold), making the gap between section titles and cards shift between renders. Gap is now purely controlled by `recentHeader`'s own `marginBottom: 12`. **Tab label:** Watch Tower tab label shortened from "Watch Tower" to "Tower" to fit the narrower medieval castle icon without truncation. **`package.json` scripts:** `android`/`ios` scripts changed from `expo start --android/--ios` to `expo run:android/ios` for direct device/emulator launch. |
+| 2.12 | **WatchList selection mode + single title share + DetailView icon refresh + Watch Plan start date fix.** **Selection mode:** Long press any WatchList card (400ms `delayLongPress`) enters selection mode; long-pressed card is first selected. A `justLongPressed` ref on `WatchCard` absorbs the `onPress` fired on finger-lift so the card isn't immediately deselected. In selection mode: search bar, type chips, and filter button dim to `opacity: 0.35` with `pointerEvents: none`; filter badge count unchanged; horizontal swipe-to-tab gesture disabled. Selection action bar appears between count row and list — "X selected" · "Select all" · amber Share button · "Cancel". Selected cards get `rgba(239,159,39,0.18)` amber tint; left status bar stays original type colour. Tapping toggles selection; deselecting last card auto-exits. "Select all" selects all `results` (current filtered/searched view). Cancel exits and clears. **Share:** `src/utils/shareEntry.js` — `shareEntry(entry)` builds formatted text (title, type · year · episode info · platform, rating or "not rated yet", reaction snippet ≤120 chars, blank line, "Thought you'd like this one 👀", "— logged on WatchedIt") and calls `Share.share({ message })`. Android text-only — `url` field is ignored by Android's ShareModule (only `EXTRA_TEXT` is set). Image sharing deferred. **DetailView action row:** `ActionBtn` converted to icon-only (size 18, 40×40 square, no label text). Share (`share-outline`) added between Rewatch and Edit. Rewatch only shown for `isWatched`. Styles `actionBtnText` and `actionBtnTextDanger` removed. **WatchList episode count font:** `progressText` `fontSize` raised from 11 → 13px. **Watch Plan → Watching start date fix:** `watchingStart` (Watching Since display) and `watchingDeetsStartDate` (Watch Deets timeline "Started Watching") now fall back to `firstSesh?.date_display` before `entry.date`. Previously both fell back to `entry.date` — the Watch Plan add date — causing a title transitioned from Watch Plan via Log a Sesh to show the wrong start date. | 2.11 | **API timeouts + Episodes card + Log It polish + icon system + spacing fix.** **API timeouts:** 8s `AbortController` timeout added to `tmdbFetch` (covers all TMDB calls), `omdbFetch`, and `searchMAL`'s fetch — prevents LogIt search hanging indefinitely on slow/blocked networks. **Episodes card (LogItDetails):** New card rendered between Watch Status and Watch Date for all TV/Anime non-plan entries (both Watched and Watching). Shows two rows — "Total episodes" (value + ✎ Edit toggle → inline panel with number input + "Still ongoing?" Switch) and "Episode runtime" (value + ✎ Edit toggle → inline panel with 24min/45min/Custom presets + custom text input). Below a divider: derived watch-time line — Watched reads "estimated watch time ~Xh Ym", Watching reads "watched so far ~Xh Ym" (updates live as fields change). Watching-only: second divider + "Watched Up To" section containing the episode grid selector (≤50 eps, non-ongoing) or manual number input. Episodes and runtime fields removed from the collapsed metadata card (no longer duplicated there); old standalone Episode Progress card removed. Metadata card header line (episode count / runtime / est. time) hidden for TV entries since the new card covers it; movies still show their runtime summary. **Log It UX polish:** "Not finding it?" slim bar added to LogItSearch above results (shows when results are present, not in single-rewatch mode) — muted label on left, amber "Add manually →" CTA on right, triggers same manual-add flow as the zero-results state. Inline edit panels for episode/runtime use a transparent container (no nested elevated box) so height matches the rest of the form; `textInputCompact` style introduced (`paddingVertical: 12, fontSize: 13`) matching the WatchDatePicker trigger height. `placeholderTextColor={T.textMuted}` added to all episode-related inputs. **Icon system:** All remaining emoji icons replaced with Ionicons. Edit buttons (✏️ Edit / Done ✓) in LogItDetails now use `create-outline` / `checkmark` icons alongside the label text; `editBtn` style updated to `flexDirection: row, alignItems: center, gap: 4`. Search bar emoji (🔍) in LogItSearch and WatchList replaced with `Ionicons search-outline size={16} color={T.textMuted}`; dead `searchIcon` styles removed; Ionicons import added to LogItSearch. **WatchTower spacing fix:** `marginBottom: 12` removed from the `sectionTitle` Text style — it was inside a `flexDirection: row` container (`recentHeader`) causing the row height to vary with custom font metrics on Android (Nunito-ExtraBold), making the gap between section titles and cards shift between renders. Gap is now purely controlled by `recentHeader`'s own `marginBottom: 12`. **Tab label:** Watch Tower tab label shortened from "Watch Tower" to "Tower" to fit the narrower medieval castle icon without truncation. **`package.json` scripts:** `android`/`ios` scripts changed from `expo start --android/--ios` to `expo run:android/ios` for direct device/emulator launch. |
 | 2.10 | **Search screen web mode + nav icon refresh.** **Search web mode:** `SearchScreen` now has two modes toggled by an inline CTA below the search bar. WatchLog mode (default): live search across entries — unchanged. Web mode: calls `searchTitles()` (MAL + TMDB + OMDB) on submit; auto-triggers when switching modes with an existing query. Results split into two sections: (1) `IN YOUR WATCHLOG` — matched entries rendered as WatchList cards (left status bar, date line, TypePill, rating, bookmark, Rate it nudge), sorted by Most Recent Activity, tap → DetailView; (2) `WEB RESULTS` / `MORE FROM THE WEB` — unmatched API results rendered as LogIt result cards with `+ Watch Plan`, `WatchedIt →`, and ⓘ preview modal (same `SearchPreviewModal` as LogItSearch). `WatchedIt →` navigates to `/logit/details`; on submit `router.back()` returns to SearchScreen which reads `consumePendingToast()` and shows the toast here. Toast system identical to WatchTower (10s auto-dismiss, ✕ button, amber border). Filter chip ScrollView wrapped in `<View>` (same pattern as LogItSearch) to prevent Android flex-column height expansion. Section labels bumped from mono 11px → `T.fontTitle` 13px. **Search bar icon:** emoji 🔍 replaced with `Ionicons search-outline`. **Nav icon refresh:** Watch Tower `home` → `castle` (MaterialCommunityIcons); WatchList `list` → `script-text` / `script-text-outline` (MaterialCommunityIcons, filled/outline on focus); Search `search` → `telescope` (MaterialCommunityIcons). Watcher unchanged (`person` / `person-outline`, Ionicons). |
 | 2.6 | **Font system expansion + UX bug fixes.** **Fredoka font (`fontFun`):** `@expo-google-fonts/fredoka` installed; `Fredoka_400Regular` registered in `app/_layout.jsx` as `'Fredoka-Regular'`; new token `T.fontFun` added to `tokens.js`. Used for subtexts, hints, labels, and secondary copy across all screens. Nunito retained for titles/numbers/CTAs; Inconsolata retained for dates/mono. Text inputs and date pickers retain Nunito (`fontBody`). **WatchList date fix:** title cards now surface `finishedDate` for watched entries and `lastWatchedDate` for watching/dropped/paused — `e.date` (the log/add date) is never shown on cards. **TypePill on WatchList cards:** content-type display replaced from plain text to `<TypePill>` chip inline with the progress line (`cardSubRow`, `flexDirection: 'row'`, `gap: 6`). **Ongoing shows null fix:** `progressLine()` now renders `"X eps watched"` when `e.total` is falsy (not `"X of null eps watched"`); only shows denominator when both ep and total are set. **WatchTower "View all →" CTA:** Currently Watching section header now has a pressable that navigates to `/(tabs)/watchlist` with `params: { tab: 'watching' }`, consistent with the Recently Watched pattern. **Splash resizeMode fix:** `app.json` `splash.resizeMode` changed from `"cover"` to `"contain"` so the text-only centered image displays without cropping. **WatchList swipe navigation:** `PanResponder` on the FlatList wrapper enables left/right swipe to advance tabs (threshold: `|dx| > 50`, gate: `|dx| > 12 && |dx| > |dy| * 2`); stale closure solved with `tabRef.current = tab` and `animateSwitchRef.current` function refs updated every render. **WatchList swipe animation:** crossfade + slide on tab switch; exit: 140ms slide ±40px + fade to 0; enter: 180ms slide from ∓40px + fade to 1; `useNativeDriver: true`. **LogIt sheet padding:** `sheet.paddingBottom` raised to 15px. **FilterSheet polish:** `navSectionLabel.fontSize` and `paneTitle.fontSize` raised 9→11px; `navItem.marginBottom` raised 2→5px; `navLabelActive` no longer overrides `fontFamily` (was switching to Nunito-SemiBold on select — now color-only); unrated toggle wrapped in `View` with `borderWidth: 1.5` amber outline (`rgba(239,159,39,0.55)`) when toggle is off. |
 | 2.5 | **Build config hardened.** `eas.json` `preview` profile: `env` block added with `EXPO_PUBLIC_TMDB_TOKEN`, `EXPO_PUBLIC_OMDB_API_KEY`, `EXPO_PUBLIC_MAL_CLIENT_ID` — keys bundled into APK at EAS build time. `eas.json` added to `.gitignore` and untracked from git (`git rm --cached`) — file is local-only, never pushed to GitHub. `app.json` splash `resizeMode` confirmed as `"cover"` (fills full screen). Play Store developer account verification in progress; first AAB submission imminent. |

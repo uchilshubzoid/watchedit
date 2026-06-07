@@ -8,6 +8,7 @@ import TypePill from '../components/TypePill';
 import FilterSheet from '../components/FilterSheet';
 import RatingSheet from '../components/RatingSheet';
 import { getEntries, updateEntry } from '../db/storage';
+import { shareEntry } from '../utils/shareEntry';
 import { T } from '../constants/tokens';
 
 const TABS = [
@@ -58,7 +59,9 @@ function typeAccentColor(e) {
   return T.textMuted;
 }
 
-function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
+function WatchCard({ e, isBookmarked, onBookmark, onRate, selectionMode, isSelected, onLongPress, onSelect }) {
+  const justLongPressed = useRef(false);
+
   const dateLine = (() => {
     if (e.status === 'watchplan') return 'Yet to watch';
     if (e.dropped)  return `Dropped on ${e.lastWatchedDate || ''}`;
@@ -83,7 +86,15 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
   })();
 
   return (
-    <Pressable onPress={() => router.push(`/detail/${e.id}`)} style={styles.card}>
+    <Pressable
+      onPress={() => {
+        if (justLongPressed.current) { justLongPressed.current = false; return; }
+        selectionMode ? onSelect() : router.push(`/detail/${e.id}`);
+      }}
+      onLongPress={() => { justLongPressed.current = true; onLongPress(); }}
+      delayLongPress={400}
+      style={[styles.card, isSelected && styles.cardSelected]}
+    >
       <View style={[styles.statusBar, { backgroundColor: typeAccentColor(e) }]} />
       <View style={styles.cardInner}>
         <Poster title={e.title} size={42} url={e.poster_url} />
@@ -103,7 +114,7 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
               {e.rating ? String(e.rating) : '—'}
             </Text>
             <Pressable
-              onPress={() => onBookmark(e.id)}
+              onPress={selectionMode ? undefined : () => onBookmark(e.id)}
               hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
               style={styles.bookmarkBtn}
             >
@@ -117,7 +128,7 @@ function WatchCard({ e, isBookmarked, onBookmark, onRate }) {
           </View>
         </View>
       </View>
-      {e.status === 'watched' && !e.rating && onRate && (
+      {!selectionMode && e.status === 'watched' && !e.rating && onRate && (
         <Pressable onPress={() => onRate(e)} style={styles.rateNudge}>
           <Text style={styles.rateNudgeText}>Rate it ★</Text>
         </Pressable>
@@ -147,6 +158,8 @@ export default function WatchList() {
   const [platform,       setPlatform]       = useState('');
   const [bookmarkedIds,  setBookmarkedIds]  = useState(new Set());
   const [ratingEntry,    setRatingEntry]    = useState(null);
+  const [selectionMode,  setSelectionMode]  = useState(false);
+  const [selectedIds,    setSelectedIds]    = useState(new Set());
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -303,10 +316,42 @@ export default function WatchList() {
     await updateEntry(updated);
   }
 
+  function enterSelectionMode(id) {
+    setSelectionMode(true);
+    setSelectedIds(new Set([id]));
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.size === 0) setSelectionMode(false);
+      return next;
+    });
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function selectAll() {
+    setSelectedIds(new Set(results.map(e => e.id)));
+  }
+
+  function handleShare() {
+    const selected = results.filter(e => selectedIds.has(e.id));
+    if (selected.length === 1) {
+      shareEntry(selected[0]);
+    } else {
+      // Multi-title HTML export — coming next
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Search bar */}
-      <View style={styles.searchBar}>
+      <View style={[styles.searchBar, selectionMode && styles.dimmed]} pointerEvents={selectionMode ? 'none' : 'auto'}>
         <Ionicons name="search-outline" size={16} color={T.textMuted} />
         <TextInput
           value={search}
@@ -338,7 +383,7 @@ export default function WatchList() {
       </ScrollView>
 
       {/* Quick type chips + filter button */}
-      <View style={styles.chipRow}>
+      <View style={[styles.chipRow, selectionMode && styles.dimmed]} pointerEvents={selectionMode ? 'none' : 'auto'}>
         <FlatList
           data={['Anime', 'Movie', 'TV Show']}
           keyExtractor={c => c}
@@ -362,7 +407,10 @@ export default function WatchList() {
             );
           }}
         />
-        <Pressable onPress={() => setFilterOpen(true)} style={styles.filterBtn}>
+        <Pressable
+          onPress={selectionMode ? undefined : () => setFilterOpen(true)}
+          style={[styles.filterBtn, selectionMode && styles.dimmed]}
+        >
           <Ionicons name="options-outline" size={18} color={activeFilterCount > 0 ? T.amber : T.textMuted} />
           {activeFilterCount > 0 && (
             <View style={styles.filterBadge}>
@@ -372,17 +420,36 @@ export default function WatchList() {
         </Pressable>
       </View>
 
-      {/* Count */}
+      {/* Count row + selection action bar */}
       <View style={styles.countRow}>
         <Text style={styles.countText}>
           {results.length} {results.length === 1 ? 'title' : 'titles'}
         </Text>
       </View>
+      {selectionMode && (
+        <View style={styles.selectionBar}>
+          <Text style={styles.selectionCount}>{selectedIds.size} selected</Text>
+          <Pressable onPress={selectAll} hitSlop={8}>
+            <Text style={styles.selectionAction}>Select all</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleShare}
+            style={[styles.shareBtn, selectedIds.size === 0 && styles.shareBtnDisabled]}
+            disabled={selectedIds.size === 0}
+          >
+            <Ionicons name="share-outline" size={14} color={T.bgPrimary} style={{ marginRight: 4 }} />
+            <Text style={styles.shareBtnText}>Share</Text>
+          </Pressable>
+          <Pressable onPress={exitSelectionMode} hitSlop={8}>
+            <Text style={styles.selectionAction}>Cancel</Text>
+          </Pressable>
+        </View>
+      )}
 
-      {/* List — swipe left/right to change tabs */}
+      {/* List — swipe left/right to change tabs (disabled in selection mode) */}
       <Animated.View
         style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}
-        {...swipeResponder.panHandlers}
+        {...(selectionMode ? {} : swipeResponder.panHandlers)}
       >
         <FlatList
           data={results}
@@ -396,6 +463,10 @@ export default function WatchList() {
               isBookmarked={bookmarkedIds.has(e.id)}
               onBookmark={toggleBookmark}
               onRate={setRatingEntry}
+              selectionMode={selectionMode}
+              isSelected={selectedIds.has(e.id)}
+              onLongPress={() => enterSelectionMode(e.id)}
+              onSelect={() => toggleSelect(e.id)}
             />
           )}
           ListEmptyComponent={
@@ -488,7 +559,7 @@ const styles = StyleSheet.create({
   cardDate: { color: T.textPrimary, fontFamily: T.fontBodyMedium, fontSize: 12 },
   rewatch: { color: T.amberSoft },
   cardSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
-  progressText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 11 },
+  progressText: { color: T.textMuted, fontFamily: T.fontMono, fontSize: 13 },
   cardRight: { alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 },
   ratingNum: { color: T.amber, fontFamily: T.fontMono, fontWeight: '800', fontSize: 15 },
   ratingEmpty: { color: T.textMuted },
@@ -501,4 +572,21 @@ const styles = StyleSheet.create({
   empty: { paddingVertical: 60, alignItems: 'center', paddingHorizontal: 32, gap: 8 },
   emptyTitle:   { color: T.textPrimary, fontFamily: T.fontDisplay, fontSize: 15, textAlign: 'center' },
   emptySubtext: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  // Selection mode
+  dimmed: { opacity: 0.35 },
+  cardSelected: { backgroundColor: 'rgba(239,159,39,0.18)' },
+  selectionBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 8,
+    backgroundColor: T.surface, borderRadius: 12, marginHorizontal: 16, marginBottom: 6,
+  },
+  selectionCount: { color: T.textPrimary, fontFamily: T.fontTitleMedium, fontSize: 13, flex: 1 },
+  selectionAction: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 13 },
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.amber, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 6,
+  },
+  shareBtnDisabled: { opacity: 0.4 },
+  shareBtnText: { color: T.bgPrimary, fontFamily: T.fontTitle, fontSize: 13 },
 });
