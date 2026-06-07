@@ -102,6 +102,7 @@ export default function OnboardingDriveSuccess() {
   }
 
   return (
+    <>
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.inner}>
 
@@ -202,6 +203,7 @@ export default function OnboardingDriveSuccess() {
       onSecondary={() => handleRestoreChoice('replace')}
       secondaryDanger
     />
+    </>
   );
 }
 
