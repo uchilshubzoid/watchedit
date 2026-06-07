@@ -22,7 +22,7 @@
         "backgroundColor": "#292826"
       },
       "package": "com.watchedit.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "android.permission.VIBRATE"
       ],
