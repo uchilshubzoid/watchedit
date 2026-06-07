@@ -2,13 +2,25 @@ import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { T } from '../constants/tokens';
 
-export default function InfoPopup({ visible, title, message, cta = 'Got it', onClose }) {
+// secondaryCta + onSecondary: optional second action rendered as muted button above the amber CTA
+// secondaryDanger: renders the secondary button with a red tint (for destructive actions)
+export default function InfoPopup({ visible, title, message, cta = 'Got it', onClose, secondaryCta, onSecondary, secondaryDanger }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           {title ? <Text style={styles.title}>{title}</Text> : null}
           {message ? <Text style={styles.message}>{message}</Text> : null}
+          {secondaryCta && (
+            <Pressable
+              onPress={onSecondary}
+              style={[styles.secondaryBtn, secondaryDanger && styles.secondaryBtnDanger]}
+            >
+              <Text style={[styles.secondaryText, secondaryDanger && styles.secondaryTextDanger]}>
+                {secondaryCta}
+              </Text>
+            </Pressable>
+          )}
           <Pressable onPress={onClose} style={styles.ctaWrap}>
             <LinearGradient
               colors={[T.amber, T.amberDeep]}
@@ -63,4 +75,11 @@ const styles = StyleSheet.create({
   ctaWrap: { borderRadius: T.radiusButton, overflow: 'hidden', marginTop: 8 },
   cta: { paddingVertical: 13, alignItems: 'center', borderRadius: T.radiusButton },
   ctaText: { color: T.bgPrimary, fontFamily: T.fontDisplay, fontSize: 14 },
+  secondaryBtn: {
+    borderRadius: T.radiusButton, paddingVertical: 13, alignItems: 'center',
+    backgroundColor: T.elevated, marginTop: 8,
+  },
+  secondaryBtnDanger: { backgroundColor: 'rgba(196,122,122,0.15)' },
+  secondaryText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 14 },
+  secondaryTextDanger: { color: T.dropped },
 });

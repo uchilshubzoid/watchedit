@@ -34,7 +34,7 @@ function TabIcon({ name, focused }) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const tabBarH = 56 + insets.bottom;
+  const tabBarH = 54 + insets.bottom;
   const [logitOpen, setLogitOpen] = useState(false);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function TabLayout() {
           tabBarStyle: {
             ...styles.tabBar,
             height: tabBarH,
-            paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
             overflow: 'visible',
           },
           tabBarActiveTintColor: T.amber,

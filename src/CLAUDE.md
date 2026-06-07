@@ -154,9 +154,19 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **Single title share:** `src/utils/shareEntry.js` — `shareEntry(entry)` builds formatted text and calls `Share.share({ message })`. Text: bold title, type · year · episode info · platform, rating or "not rated yet", reaction snippet ≤120 chars, blank line, "Thought you'd like this one 👀", "— logged on WatchedIt". Android text-only — `url` is ignored by RN's Android `ShareModule` (only `EXTRA_TEXT` is set); image sharing deferred. Wired to: (1) Share icon on DetailView action row, (2) WatchList selection mode Share button with 1 title selected.
 - **DetailView action row icon refresh:** `ActionBtn` is now icon-only — no text labels. Size 18, 40×40 square. Share (`share-outline`) added between Rewatch and Edit. `actionBtnText` / `actionBtnTextDanger` styles removed.
 
+### Stage 2.13 — Multi-Title HTML Export + JSON/CSV Export + Import + UI Polish ✅ Complete (as of Jun 2026)
+- **Multi-title HTML export:** `src/utils/exportHtml.js` — `exportEntriesHtml(entries, filterContext)`. Uses the new `expo-file-system` `File`/`Paths` API (`legacy writeAsStringAsync` is deprecated in v55 — use `new File(Paths.cache, filename)` + `file.write(content)` + `file.uri` for sharing; poster downloads use `File.downloadFileAsync(url, dest, { idempotent: true })` + `.base64()`). Posters fetched in parallel via `Promise.allSettled`, embedded as base64 data URIs, fallback to amber initials block. Filename `watchedit-list-YYYYMMDD-HHmmss.html`, written to cache, shared via `expo-sharing`.
+- **JSON export:** `exportJSON(entries)` in `src/utils/exportData.js` — `JSON.stringify(entries, null, 2)`, filename `watchedit-export-YYYYMMDD.json`.
+- **CSV export:** `exportCSV(entries)` — 16 columns, DD/MM/YYYY dates, blank (not "null") for unset fields, episode columns blank for movies, commas within cells wrapped in double quotes. Filename `watchedit-export-YYYYMMDD.csv`.
+- **Import:** `expo-document-picker` (type `application/json`). File read via `fetch(uri).then(r => r.text())` — works for local file:// URIs in RN without the deprecated FileSystem API. Validates array with `id` + `title`. Invalid → InfoPopup error. Valid → InfoPopup confirm with Merge (skips duplicate ids) or Replace all (`saveEntries`). Success/error shown via inline toast.
+- **InfoPopup two-button variant:** optional `secondaryCta`, `onSecondary`, `secondaryDanger` props. Secondary button renders above the primary amber CTA; `secondaryDanger` applies red-tint bg + `T.dropped` text.
+- **WatcherScreen inline toast:** `Animated` `translateY` + `opacity`, 4s auto-dismiss, amber border (error: `rgba(196,122,122,0.4)` border). `useNativeDriver: true`.
+- **WatcherScreen font sizes:** `sectionLabel` 10 → 13px; `manageSub` 11 → 13px.
+- **Tab bar height:** `tabBarH` 56 → 54px; `paddingBottom` fallback 8 → 6px.
+- **expo-document-picker** installed (v55.0.13), added to `app.json` plugins.
+
 ### What's NOT built yet (do these next in order)
-1. **Multi-title HTML export** — WatchList selection mode, 2+ titles selected. `expo-file-system` + `expo-sharing` required. See spec Section 6B (in progress — questions pending).
-2. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
+1. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
 
 ---
 
@@ -226,7 +236,9 @@ See spec v2.3 changelog for full detail. Key decisions:
 │   └── utils/
 │       ├── titleUtils.js          ← getPreferredTitle(result, pref) — EN/JA/romanised
 │       ├── toastBridge.js         ← Module-level singleton: setPendingToast / consumePendingToast
-│       └── shareEntry.js          ← shareEntry(entry) — builds share text + calls Share.share
+│       ├── shareEntry.js          ← shareEntry(entry) — builds share text + calls Share.share
+│       ├── exportHtml.js          ← exportEntriesHtml() — multi-title HTML file export
+│       └��─ exportData.js          ← exportJSON() / exportCSV() — WatcherScreen data exports
 ├── assets/                        ← TODO: add icon.png, splash.png, adaptive-icon.png
 ├── app.json                       ← Expo config (package: com.watchedit.app)
 ├── babel.config.js                ← babel-preset-expo + reanimated plugin
@@ -639,3 +651,8 @@ npm run build:aab
 - **`shareEntry(entry)`** — `src/utils/shareEntry.js`. Text-only on Android — RN's `ShareModule` for Android only sets `Intent.EXTRA_TEXT`; the `url` field in `Share.share` is iOS-only and silently ignored on Android. Do not attempt image sharing via `Share.share` on Android.
 - **DetailView `ActionBtn`** — icon-only, size 18, 40×40 square. No label text. `actionBtnText` and `actionBtnTextDanger` styles no longer exist — do not recreate them.
 - **Watching Since start date** — `watchingStart` and `watchingDeetsStartDate` fall back to `firstSesh?.date_display` before `entry.date`. This ensures a title transitioned from Watch Plan via Log a Sesh shows the first sesh date as the start, not the Watch Plan add date.
+- **`expo-file-system` new API** — `writeAsStringAsync` and `readAsStringAsync` are deprecated in v55. Use `new File(Paths.cache, filename)` + `file.write(string)` for writing; `File.downloadFileAsync(url, destFile, { idempotent: true })` then `.base64()` for downloading + reading as base64. Import as `import { File, Paths } from 'expo-file-system'`.
+- **Reading picked files** — after `expo-document-picker` returns a `uri`, read it with `fetch(uri).then(r => r.text())`. Do not use the deprecated `FileSystem.readAsStringAsync`.
+- **InfoPopup two-button variant** — `secondaryCta` (string) + `onSecondary` (fn) + optional `secondaryDanger` (bool). Secondary button renders above the primary amber CTA. Use for destructive/alternative actions (e.g. Replace all vs Merge).
+- **WatcherScreen toast** — inline `Animated` toast at screen bottom. `showToast(msg, isErr)` drives it. Uses `useNativeDriver: true` with `translateY` + `opacity`. Do not use `toastBridge` here — that singleton is for WatchTower/SearchScreen cross-navigation toasts only.
+- **exportData.js utilities** — `exportJSON(entries)` and `exportCSV(entries)` in `src/utils/exportData.js`. Both use `new File(Paths.cache, filename)` + `file.write()` + `Sharing.shareAsync(file.uri)`. CSV uses `csvCell()` helper that wraps commas/quotes; dates via `toDDMMYYYY()` which handles ISO strings safely with `+ 'T12:00:00'` to avoid UTC shift.

@@ -38,7 +38,8 @@
           "imageWidth": 200
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-document-picker"
     ],
     "scheme": "watchedit",
     "extra": {

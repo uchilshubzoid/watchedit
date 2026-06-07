@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -18,9 +18,9 @@ function w92Url(url) {
 async function posterToBase64(url) {
   if (!url) return null;
   try {
-    const dest = `${FileSystem.cacheDirectory}export_poster_${Date.now()}.jpg`;
-    const { uri } = await FileSystem.downloadAsync(w92Url(url), dest);
-    const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const dest = new File(Paths.cache, `export_poster_${Date.now()}.jpg`);
+    const downloaded = await File.downloadFileAsync(w92Url(url), dest, { idempotent: true });
+    const b64 = await downloaded.base64();
     return `data:image/jpeg;base64,${b64}`;
   } catch {
     return null;
@@ -239,11 +239,10 @@ export async function exportEntriesHtml(entries, { tab, chips, language, selecte
   const pad = n => String(n).padStart(2, '0');
   const datetime = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const filename = `watchedit-list-${datetime}.html`;
-  const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+  const htmlFile = new File(Paths.cache, filename);
+  htmlFile.write(html);
 
-  await FileSystem.writeAsStringAsync(fileUri, html, { encoding: FileSystem.EncodingType.UTF8 });
-
-  await Sharing.shareAsync(fileUri, {
+  await Sharing.shareAsync(htmlFile.uri, {
     mimeType: 'text/html',
     dialogTitle: 'Share your WatchList',
     UTI: 'public.html',
