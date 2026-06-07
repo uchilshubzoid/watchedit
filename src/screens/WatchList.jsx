@@ -7,8 +7,10 @@ import Poster from '../components/Poster';
 import TypePill from '../components/TypePill';
 import FilterSheet from '../components/FilterSheet';
 import RatingSheet from '../components/RatingSheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEntries, updateEntry } from '../db/storage';
 import { shareEntry } from '../utils/shareEntry';
+import { exportEntriesHtml } from '../utils/exportHtml';
 import { T } from '../constants/tokens';
 
 const TABS = [
@@ -339,12 +341,16 @@ export default function WatchList() {
     setSelectedIds(new Set(results.map(e => e.id)));
   }
 
-  function handleShare() {
+  async function handleShare() {
     const selected = results.filter(e => selectedIds.has(e.id));
     if (selected.length === 1) {
       shareEntry(selected[0]);
     } else {
-      // Multi-title HTML export — coming next
+      const watcherName = await AsyncStorage.getItem('watchedit_watcher_name') || '';
+      await exportEntriesHtml(selected, {
+        tab, chips, language, selectedGenres, ratingRange, dateRange,
+        platform, unrated, showPaused, watcherName,
+      });
     }
   }
 
