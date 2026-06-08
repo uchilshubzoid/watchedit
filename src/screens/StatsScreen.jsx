@@ -123,8 +123,57 @@ function filterByPeriod(entries, filter, customStart, customEnd) {
 }
 
 function buildTimePoints(entries, timeFilter, customStart, customEnd) {
+  // Returns hours contributed by entry e on day-string ds (YYYY-MM-DD).
+  // For watching entries with sessions: use only sessions on that day.
+  // For all others: single attribution via parseActivityDate.
+  function dayContrib(e, ds) {
+    if (e.status === 'watching' && e.watch_sessions?.length) {
+      const daySessions = e.watch_sessions.filter(s => {
+        if (!s.date) return false;
+        const t = new Date(s.date + 'T12:00:00').getTime();
+        return !isNaN(t) && localDateStr(t) === ds;
+      });
+      if (!daySessions.length) return null;
+      const eps = daySessions.reduce((sum, s) =>
+        sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+      return e.epRuntime ? (eps * e.epRuntime) / 60 : 0;
+    }
+    const t = parseActivityDate(e);
+    if (!t) return null;
+    return localDateStr(t) === ds ? entryWatchHours(e) : null;
+  }
+
+  // Returns hours contributed by entry e in month m of year y.
+  function monthContrib(e, m, y) {
+    if (e.status === 'watching' && e.watch_sessions?.length) {
+      const monthSessions = e.watch_sessions.filter(s => {
+        if (!s.date) return false;
+        const d = new Date(s.date + 'T12:00:00');
+        return !isNaN(d.getTime()) && d.getMonth() === m && d.getFullYear() === y;
+      });
+      if (!monthSessions.length) return null;
+      const eps = monthSessions.reduce((sum, s) =>
+        sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+      return e.epRuntime ? (eps * e.epRuntime) / 60 : 0;
+    }
+    const t = parseActivityDate(e);
+    if (!t) return null;
+    const d = new Date(t);
+    return d.getMonth() === m && d.getFullYear() === y ? entryWatchHours(e) : null;
+  }
+
   if (timeFilter === 'All Time') {
-    const timestamps = entries.map(e => parseActivityDate(e)).filter(t => t > 0);
+    // For watching entries with sessions, include all session dates to find true earliest activity
+    const timestamps = [];
+    entries.forEach(e => {
+      if (e.status === 'watching' && e.watch_sessions?.length) {
+        e.watch_sessions.forEach(s => {
+          if (s.date) { const t = new Date(s.date + 'T12:00:00').getTime(); if (t > 0 && !isNaN(t)) timestamps.push(t); }
+        });
+      } else {
+        const t = parseActivityDate(e); if (t > 0) timestamps.push(t);
+      }
+    });
     if (timestamps.length === 0) return [];
     const curYear  = new Date().getFullYear();
     const curMonth = new Date().getMonth();
@@ -134,14 +183,10 @@ function buildTimePoints(entries, timeFilter, customStart, customEnd) {
     const end = new Date(curYear, curMonth + 1, 1);
     while (cur < end) {
       const m = cur.getMonth(), y = cur.getFullYear();
-      const es = entries.filter(e => {
-        const t = parseActivityDate(e);
-        if (!t) return false;
-        const d = new Date(t);
-        return d.getMonth() === m && d.getFullYear() === y;
-      });
+      let titles = 0, hours = 0;
+      entries.forEach(e => { const c = monthContrib(e, m, y); if (c !== null) { titles++; hours += c; } });
       const label = y === curYear ? MONTHS_SHORT[m] : `${MONTHS_SHORT[m]}'${String(y).slice(2)}`;
-      months.push({ label, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) });
+      months.push({ label, titles, hours: Math.round(hours) });
       cur.setMonth(cur.getMonth() + 1);
     }
     return months;
@@ -155,21 +200,18 @@ function buildTimePoints(entries, timeFilter, customStart, customEnd) {
         const d  = new Date(startD);
         d.setDate(d.getDate() + i);
         const ds = localDateStr(d.getTime());
-        const es = entries.filter(e => { const t = parseActivityDate(e); return t ? localDateStr(t) === ds : false; });
-        return { label: `${d.getMonth()+1}/${d.getDate()}`, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) };
+        let titles = 0, hours = 0;
+        entries.forEach(e => { const c = dayContrib(e, ds); if (c !== null) { titles++; hours += c; } });
+        return { label: `${d.getMonth()+1}/${d.getDate()}`, titles, hours: Math.round(hours) };
       });
     }
     const months = [];
     const d = new Date(startD); d.setDate(1);
     while (d <= endD) {
       const m = d.getMonth(), y = d.getFullYear();
-      const es = entries.filter(e => {
-        const t = parseActivityDate(e);
-        if (!t) return false;
-        const ed = new Date(t);
-        return ed.getMonth() === m && ed.getFullYear() === y;
-      });
-      months.push({ label: MONTHS_SHORT[m], titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) });
+      let titles = 0, hours = 0;
+      entries.forEach(e => { const c = monthContrib(e, m, y); if (c !== null) { titles++; hours += c; } });
+      months.push({ label: MONTHS_SHORT[m], titles, hours: Math.round(hours) });
       d.setMonth(d.getMonth() + 1);
     }
     return months;
@@ -179,8 +221,9 @@ function buildTimePoints(entries, timeFilter, customStart, customEnd) {
     const d  = new Date();
     d.setDate(d.getDate() - (chartDays - 1 - i));
     const ds = localDateStr(d.getTime());
-    const es = entries.filter(e => { const t = parseActivityDate(e); return t ? localDateStr(t) === ds : false; });
-    return { label: `${d.getMonth()+1}/${d.getDate()}`, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) };
+    let titles = 0, hours = 0;
+    entries.forEach(e => { const c = dayContrib(e, ds); if (c !== null) { titles++; hours += c; } });
+    return { label: `${d.getMonth()+1}/${d.getDate()}`, titles, hours: Math.round(hours) };
   });
 }
 
