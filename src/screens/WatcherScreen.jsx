@@ -98,18 +98,21 @@ export default function WatcherScreen() {
     return () => { active = false; };
   }, []));
 
-  const watched = entries.filter(e => e.status === 'watched');
+  const statsPool = entries.filter(e => e.status === 'watched' || e.status === 'watching');
 
   let totalMins = 0;
-  watched.forEach(e => {
-    if (e.watchTime) {
+  statsPool.forEach(e => {
+    if (e.status === 'watching') {
+      // Only count episodes actually watched, using stored per-episode runtime
+      if (e.ep && e.epRuntime) totalMins += e.ep * e.epRuntime;
+    } else if (e.watchTime) {
       const h = e.watchTime.match(/(\d+)h/);
       const m = e.watchTime.match(/(\d+)m/);
       totalMins += (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
     }
   });
   const totalHours = Math.round(totalMins / 60);
-  const rated = watched.filter(e => e.rating);
+  const rated = statsPool.filter(e => e.rating);
   const avgRating = rated.length
     ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1)
     : '—';
@@ -357,7 +360,7 @@ export default function WatcherScreen() {
         {/* Quick stats */}
         <View style={styles.statsRow}>
           {[
-            { label: 'Watched',    val: String(watched.length) },
+            { label: 'Titles',     val: String(statsPool.length) },
             { label: 'Hours',      val: totalHours > 0 ? `${totalHours}h` : '—' },
             { label: 'Avg Rating', val: avgRating },
           ].map(s => (

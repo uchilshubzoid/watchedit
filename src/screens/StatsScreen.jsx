@@ -27,8 +27,15 @@ function localDateStr(ts) {
 
 function parseActivityDate(entry) {
   if (entry.watch_end_date) return new Date(entry.watch_end_date + 'T12:00:00').getTime();
+  // For watching entries with sessions, use the most recent session date (mirrors WatchTower fix)
+  if (entry.status === 'watching' && entry.watch_sessions?.length) {
+    const sessionTs = entry.watch_sessions
+      .map(s => s.date ? new Date(s.date + 'T12:00:00').getTime() : 0)
+      .filter(t => t > 0 && !isNaN(t));
+    if (sessionTs.length) return Math.max(...sessionTs);
+  }
   // Watching entry with no sessions yet: attribute to user-set start date
-  if (entry.status === 'watching' && !(entry.watch_sessions?.length) && entry.watch_start_date) {
+  if (entry.status === 'watching' && entry.watch_start_date) {
     return new Date(entry.watch_start_date + 'T12:00:00').getTime();
   }
   const dateStr = (entry.status === 'watched' ? entry.finishedDate : entry.lastWatchedDate) || entry.date || '';
@@ -47,25 +54,126 @@ function entryWatchHours(e) {
   return ((h ? parseInt(h[1]) : 0) * 60 + (m ? parseInt(m[1]) : 0)) / 60;
 }
 
+// For watching entries: only count hours from sessions within the period window.
+// For watched/dropped: attribute full watchTime to completion date (by design).
+// Falls back to entryWatchHours when session data is unavailable.
+function watchHoursInPeriod(e, pStart, pEnd) {
+  if (!pStart || e.status !== 'watching') return entryWatchHours(e);
+  if (!e.watch_sessions?.length) return entryWatchHours(e);
+  const sessions = e.watch_sessions.filter(s => {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= pStart && t <= pEnd;
+  });
+  if (!sessions.length) return 0;
+  const epsInPeriod = sessions.reduce((sum, s) =>
+    sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+  // Use stored epRuntime (mins/ep); fall back to deriving from watchTime÷ep for older entries
+  const perEpMins = e.epRuntime || (e.ep ? (entryWatchHours(e) * 60) / e.ep : 0);
+  return perEpMins ? (epsInPeriod * perEpMins) / 60 : 0;
+}
+
+// Episode count for summary: for watching entries in a period, count only sessions in the window.
+function epsWatchedInPeriod(e, pStart, pEnd) {
+  if (e.status === 'watched') return e.ep || e.total || 0;
+  if (!pStart || !e.watch_sessions?.length) return e.ep || 0;
+  const sessions = e.watch_sessions.filter(s => {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= pStart && t <= pEnd;
+  });
+  return sessions.reduce((sum, s) =>
+    sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+}
+
+function sessionDateInRange(e, start, end) {
+  return (e.watch_sessions || []).some(s => {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= start && t <= end;
+  });
+}
+
 function filterByPeriod(entries, filter, customStart, customEnd) {
   if (filter === 'All Time') return entries;
   if (filter === 'Custom') {
     if (!customStart || !customEnd) return entries;
     const start = new Date(customStart + 'T00:00:00').getTime();
     const end   = new Date(customEnd   + 'T23:59:59').getTime();
-    return entries.filter(e => { const t = parseActivityDate(e); return t >= start && t <= end; });
+    return entries.filter(e => {
+      const t = parseActivityDate(e);
+      if (t >= start && t <= end) return true;
+      // Include watching entries that have any session logged within the period
+      return e.status === 'watching' && sessionDateInRange(e, start, end);
+    });
   }
   const days = filter === '7 Days' ? 7 : 30;
   // Start-of-day on (today - days + 1) aligns exactly with the day buckets buildTimePoints generates
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - (days - 1));
   cutoffDate.setHours(0, 0, 0, 0);
-  return entries.filter(e => parseActivityDate(e) >= cutoffDate.getTime());
+  const start = cutoffDate.getTime();
+  const end   = Date.now();
+  return entries.filter(e => {
+    const t = parseActivityDate(e);
+    if (t >= start && t <= end) return true;
+    // Include watching entries that have any session logged within the period
+    return e.status === 'watching' && sessionDateInRange(e, start, end);
+  });
 }
 
 function buildTimePoints(entries, timeFilter, customStart, customEnd) {
+  // Returns hours contributed by entry e on day-string ds (YYYY-MM-DD).
+  // For watching entries with sessions: use only sessions on that day.
+  // For all others: single attribution via parseActivityDate.
+  function dayContrib(e, ds) {
+    if (e.status === 'watching' && e.watch_sessions?.length) {
+      const daySessions = e.watch_sessions.filter(s => {
+        if (!s.date) return false;
+        const t = new Date(s.date + 'T12:00:00').getTime();
+        return !isNaN(t) && localDateStr(t) === ds;
+      });
+      if (!daySessions.length) return null;
+      const eps = daySessions.reduce((sum, s) =>
+        sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+      return e.epRuntime ? (eps * e.epRuntime) / 60 : 0;
+    }
+    const t = parseActivityDate(e);
+    if (!t) return null;
+    return localDateStr(t) === ds ? entryWatchHours(e) : null;
+  }
+
+  // Returns hours contributed by entry e in month m of year y.
+  function monthContrib(e, m, y) {
+    if (e.status === 'watching' && e.watch_sessions?.length) {
+      const monthSessions = e.watch_sessions.filter(s => {
+        if (!s.date) return false;
+        const d = new Date(s.date + 'T12:00:00');
+        return !isNaN(d.getTime()) && d.getMonth() === m && d.getFullYear() === y;
+      });
+      if (!monthSessions.length) return null;
+      const eps = monthSessions.reduce((sum, s) =>
+        sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+      return e.epRuntime ? (eps * e.epRuntime) / 60 : 0;
+    }
+    const t = parseActivityDate(e);
+    if (!t) return null;
+    const d = new Date(t);
+    return d.getMonth() === m && d.getFullYear() === y ? entryWatchHours(e) : null;
+  }
+
   if (timeFilter === 'All Time') {
-    const timestamps = entries.map(e => parseActivityDate(e)).filter(t => t > 0);
+    // For watching entries with sessions, include all session dates to find true earliest activity
+    const timestamps = [];
+    entries.forEach(e => {
+      if (e.status === 'watching' && e.watch_sessions?.length) {
+        e.watch_sessions.forEach(s => {
+          if (s.date) { const t = new Date(s.date + 'T12:00:00').getTime(); if (t > 0 && !isNaN(t)) timestamps.push(t); }
+        });
+      } else {
+        const t = parseActivityDate(e); if (t > 0) timestamps.push(t);
+      }
+    });
     if (timestamps.length === 0) return [];
     const curYear  = new Date().getFullYear();
     const curMonth = new Date().getMonth();
@@ -75,14 +183,10 @@ function buildTimePoints(entries, timeFilter, customStart, customEnd) {
     const end = new Date(curYear, curMonth + 1, 1);
     while (cur < end) {
       const m = cur.getMonth(), y = cur.getFullYear();
-      const es = entries.filter(e => {
-        const t = parseActivityDate(e);
-        if (!t) return false;
-        const d = new Date(t);
-        return d.getMonth() === m && d.getFullYear() === y;
-      });
+      let titles = 0, hours = 0;
+      entries.forEach(e => { const c = monthContrib(e, m, y); if (c !== null) { titles++; hours += c; } });
       const label = y === curYear ? MONTHS_SHORT[m] : `${MONTHS_SHORT[m]}'${String(y).slice(2)}`;
-      months.push({ label, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) });
+      months.push({ label, titles, hours: Math.round(hours) });
       cur.setMonth(cur.getMonth() + 1);
     }
     return months;
@@ -96,21 +200,18 @@ function buildTimePoints(entries, timeFilter, customStart, customEnd) {
         const d  = new Date(startD);
         d.setDate(d.getDate() + i);
         const ds = localDateStr(d.getTime());
-        const es = entries.filter(e => { const t = parseActivityDate(e); return t ? localDateStr(t) === ds : false; });
-        return { label: `${d.getMonth()+1}/${d.getDate()}`, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) };
+        let titles = 0, hours = 0;
+        entries.forEach(e => { const c = dayContrib(e, ds); if (c !== null) { titles++; hours += c; } });
+        return { label: `${d.getMonth()+1}/${d.getDate()}`, titles, hours: Math.round(hours) };
       });
     }
     const months = [];
     const d = new Date(startD); d.setDate(1);
     while (d <= endD) {
       const m = d.getMonth(), y = d.getFullYear();
-      const es = entries.filter(e => {
-        const t = parseActivityDate(e);
-        if (!t) return false;
-        const ed = new Date(t);
-        return ed.getMonth() === m && ed.getFullYear() === y;
-      });
-      months.push({ label: MONTHS_SHORT[m], titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) });
+      let titles = 0, hours = 0;
+      entries.forEach(e => { const c = monthContrib(e, m, y); if (c !== null) { titles++; hours += c; } });
+      months.push({ label: MONTHS_SHORT[m], titles, hours: Math.round(hours) });
       d.setMonth(d.getMonth() + 1);
     }
     return months;
@@ -120,8 +221,9 @@ function buildTimePoints(entries, timeFilter, customStart, customEnd) {
     const d  = new Date();
     d.setDate(d.getDate() - (chartDays - 1 - i));
     const ds = localDateStr(d.getTime());
-    const es = entries.filter(e => { const t = parseActivityDate(e); return t ? localDateStr(t) === ds : false; });
-    return { label: `${d.getMonth()+1}/${d.getDate()}`, titles: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0)) };
+    let titles = 0, hours = 0;
+    entries.forEach(e => { const c = dayContrib(e, ds); if (c !== null) { titles++; hours += c; } });
+    return { label: `${d.getMonth()+1}/${d.getDate()}`, titles, hours: Math.round(hours) };
   });
 }
 
@@ -689,15 +791,7 @@ export default function StatsScreen() {
   const filtered        = filterByPeriod(entries, timeFilter, customStart, customEnd);
   const filteredForType = (type) => filtered.filter(e => e.type === type);
 
-  const totalHrs  = Math.round(filtered.reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10;
-  const totalDays = Math.round(totalHrs / 24 * 10) / 10;
-  const rated     = filtered.filter(e => e.rating);
-  const avgRating = rated.length
-    ? Math.round(rated.reduce((s, e) => s + e.rating, 0) / rated.length * 10) / 10
-    : null;
-  const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
-
-  // Compute period bounds once so session dates can be checked against the same window
+  // Compute period bounds first — used for session-aware hour/episode calculations below
   const periodStart = (() => {
     if (timeFilter === 'All Time') return 0;
     if (timeFilter === 'Custom' && customStart) return new Date(customStart + 'T00:00:00').getTime();
@@ -707,6 +801,14 @@ export default function StatsScreen() {
   const periodEnd = timeFilter === 'Custom' && customEnd
     ? new Date(customEnd + 'T23:59:59').getTime()
     : Date.now();
+
+  const totalHrs  = Math.round(filtered.reduce((s, e) => s + watchHoursInPeriod(e, periodStart, periodEnd), 0) * 10) / 10;
+  const totalDays = Math.round(totalHrs / 24 * 10) / 10;
+  const rated     = filtered.filter(e => e.rating);
+  const avgRating = rated.length
+    ? Math.round(rated.reduce((s, e) => s + e.rating, 0) / rated.length * 10) / 10
+    : null;
+  const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
 
   function sessionInPeriod(s) {
     if (!s.date) return false;
@@ -734,13 +836,13 @@ export default function StatsScreen() {
     const avg     = ratedEs.length
       ? Math.round(ratedEs.reduce((s, e) => s + e.rating, 0) / ratedEs.length * 10) / 10
       : null;
-    // For watched entries: ep is episodes watched (fall back to total if ep missing).
-    // For watching entries: only ep (episodes watched so far) — never use total.
-    const totalEps = type !== 'Movie' ? es.reduce((sum, e) => {
-      const eps = e.status === 'watched' ? (e.ep || e.total || 0) : (e.ep || 0);
-      return sum + eps;
-    }, 0) : 0;
-    return { type, count: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10, avg, totalEps };
+    // Episode count: for watching entries, only count episodes from sessions within the period
+    const totalEps = type !== 'Movie'
+      ? es.reduce((sum, e) => sum + epsWatchedInPeriod(e, periodStart, periodEnd), 0)
+      : 0;
+    // Hours: for watching entries, only count hours from sessions within the period
+    const hours = Math.round(es.reduce((s, e) => s + watchHoursInPeriod(e, periodStart, periodEnd), 0) * 10) / 10;
+    return { type, count: es.length, hours, avg, totalEps };
   }).filter(c => c.count > 0);
 
   const radarCounts = GENRE_LIST.map(g => ({
@@ -801,7 +903,7 @@ export default function StatsScreen() {
     type,
     value: metric === 'titles'
       ? filteredForType(type).length
-      : Math.round(filteredForType(type).reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10,
+      : Math.round(filteredForType(type).reduce((s, e) => s + watchHoursInPeriod(e, periodStart, periodEnd), 0) * 10) / 10,
   })).filter(tc => tc.value > 0);
 
   return (
@@ -884,7 +986,7 @@ export default function StatsScreen() {
                 <View style={{ gap: 10 }}>
                   {catStats.map(c => (
                     <CategoryBreakdownRow key={c.type} c={c}
-                      entries={filteredForType(c.type).map(e => ({ ...e, hours: entryWatchHours(e) }))}
+                      entries={filteredForType(c.type).map(e => ({ ...e, hours: watchHoursInPeriod(e, periodStart, periodEnd) }))}
                     />
                   ))}
                 </View>
@@ -1089,7 +1191,7 @@ export default function StatsScreen() {
                 <View style={{ gap: 10 }}>
                   {catStats.map(c => (
                     <CategoryBreakdownRow key={c.type} c={c}
-                      entries={filteredForType(c.type).map(e => ({ ...e, hours: entryWatchHours(e) }))}
+                      entries={filteredForType(c.type).map(e => ({ ...e, hours: watchHoursInPeriod(e, periodStart, periodEnd) }))}
                     />
                   ))}
                 </View>
