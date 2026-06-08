@@ -27,8 +27,15 @@ function localDateStr(ts) {
 
 function parseActivityDate(entry) {
   if (entry.watch_end_date) return new Date(entry.watch_end_date + 'T12:00:00').getTime();
+  // For watching entries with sessions, use the most recent session date (mirrors WatchTower fix)
+  if (entry.status === 'watching' && entry.watch_sessions?.length) {
+    const sessionTs = entry.watch_sessions
+      .map(s => s.date ? new Date(s.date + 'T12:00:00').getTime() : 0)
+      .filter(t => t > 0 && !isNaN(t));
+    if (sessionTs.length) return Math.max(...sessionTs);
+  }
   // Watching entry with no sessions yet: attribute to user-set start date
-  if (entry.status === 'watching' && !(entry.watch_sessions?.length) && entry.watch_start_date) {
+  if (entry.status === 'watching' && entry.watch_start_date) {
     return new Date(entry.watch_start_date + 'T12:00:00').getTime();
   }
   const dateStr = (entry.status === 'watched' ? entry.finishedDate : entry.lastWatchedDate) || entry.date || '';
@@ -47,20 +54,40 @@ function entryWatchHours(e) {
   return ((h ? parseInt(h[1]) : 0) * 60 + (m ? parseInt(m[1]) : 0)) / 60;
 }
 
+function sessionDateInRange(e, start, end) {
+  return (e.watch_sessions || []).some(s => {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= start && t <= end;
+  });
+}
+
 function filterByPeriod(entries, filter, customStart, customEnd) {
   if (filter === 'All Time') return entries;
   if (filter === 'Custom') {
     if (!customStart || !customEnd) return entries;
     const start = new Date(customStart + 'T00:00:00').getTime();
     const end   = new Date(customEnd   + 'T23:59:59').getTime();
-    return entries.filter(e => { const t = parseActivityDate(e); return t >= start && t <= end; });
+    return entries.filter(e => {
+      const t = parseActivityDate(e);
+      if (t >= start && t <= end) return true;
+      // Include watching entries that have any session logged within the period
+      return e.status === 'watching' && sessionDateInRange(e, start, end);
+    });
   }
   const days = filter === '7 Days' ? 7 : 30;
   // Start-of-day on (today - days + 1) aligns exactly with the day buckets buildTimePoints generates
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - (days - 1));
   cutoffDate.setHours(0, 0, 0, 0);
-  return entries.filter(e => parseActivityDate(e) >= cutoffDate.getTime());
+  const start = cutoffDate.getTime();
+  const end   = Date.now();
+  return entries.filter(e => {
+    const t = parseActivityDate(e);
+    if (t >= start && t <= end) return true;
+    // Include watching entries that have any session logged within the period
+    return e.status === 'watching' && sessionDateInRange(e, start, end);
+  });
 }
 
 function buildTimePoints(entries, timeFilter, customStart, customEnd) {
