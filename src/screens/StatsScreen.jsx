@@ -59,7 +59,7 @@ function entryWatchHours(e) {
 // Falls back to entryWatchHours when session data is unavailable.
 function watchHoursInPeriod(e, pStart, pEnd) {
   if (!pStart || e.status !== 'watching') return entryWatchHours(e);
-  if (!e.watch_sessions?.length || !e.ep) return entryWatchHours(e);
+  if (!e.watch_sessions?.length) return entryWatchHours(e);
   const sessions = e.watch_sessions.filter(s => {
     if (!s.date) return false;
     const t = new Date(s.date + 'T12:00:00').getTime();
@@ -68,7 +68,9 @@ function watchHoursInPeriod(e, pStart, pEnd) {
   if (!sessions.length) return 0;
   const epsInPeriod = sessions.reduce((sum, s) =>
     sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
-  return (entryWatchHours(e) / e.ep) * epsInPeriod;
+  // Use stored epRuntime (mins/ep); fall back to deriving from watchTime÷ep for older entries
+  const perEpMins = e.epRuntime || (e.ep ? (entryWatchHours(e) * 60) / e.ep : 0);
+  return perEpMins ? (epsInPeriod * perEpMins) / 60 : 0;
 }
 
 // Episode count for summary: for watching entries in a period, count only sessions in the window.
