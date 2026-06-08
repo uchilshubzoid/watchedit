@@ -54,6 +54,36 @@ function entryWatchHours(e) {
   return ((h ? parseInt(h[1]) : 0) * 60 + (m ? parseInt(m[1]) : 0)) / 60;
 }
 
+// For watching entries: only count hours from sessions within the period window.
+// For watched/dropped: attribute full watchTime to completion date (by design).
+// Falls back to entryWatchHours when session data is unavailable.
+function watchHoursInPeriod(e, pStart, pEnd) {
+  if (!pStart || e.status !== 'watching') return entryWatchHours(e);
+  if (!e.watch_sessions?.length || !e.ep) return entryWatchHours(e);
+  const sessions = e.watch_sessions.filter(s => {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= pStart && t <= pEnd;
+  });
+  if (!sessions.length) return 0;
+  const epsInPeriod = sessions.reduce((sum, s) =>
+    sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+  return (entryWatchHours(e) / e.ep) * epsInPeriod;
+}
+
+// Episode count for summary: for watching entries in a period, count only sessions in the window.
+function epsWatchedInPeriod(e, pStart, pEnd) {
+  if (e.status === 'watched') return e.ep || e.total || 0;
+  if (!pStart || !e.watch_sessions?.length) return e.ep || 0;
+  const sessions = e.watch_sessions.filter(s => {
+    if (!s.date) return false;
+    const t = new Date(s.date + 'T12:00:00').getTime();
+    return !isNaN(t) && t >= pStart && t <= pEnd;
+  });
+  return sessions.reduce((sum, s) =>
+    sum + ((s.ep_to && s.ep_from) ? Math.max(0, s.ep_to - s.ep_from + 1) : 1), 0);
+}
+
 function sessionDateInRange(e, start, end) {
   return (e.watch_sessions || []).some(s => {
     if (!s.date) return false;
@@ -716,15 +746,7 @@ export default function StatsScreen() {
   const filtered        = filterByPeriod(entries, timeFilter, customStart, customEnd);
   const filteredForType = (type) => filtered.filter(e => e.type === type);
 
-  const totalHrs  = Math.round(filtered.reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10;
-  const totalDays = Math.round(totalHrs / 24 * 10) / 10;
-  const rated     = filtered.filter(e => e.rating);
-  const avgRating = rated.length
-    ? Math.round(rated.reduce((s, e) => s + e.rating, 0) / rated.length * 10) / 10
-    : null;
-  const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
-
-  // Compute period bounds once so session dates can be checked against the same window
+  // Compute period bounds first — used for session-aware hour/episode calculations below
   const periodStart = (() => {
     if (timeFilter === 'All Time') return 0;
     if (timeFilter === 'Custom' && customStart) return new Date(customStart + 'T00:00:00').getTime();
@@ -734,6 +756,14 @@ export default function StatsScreen() {
   const periodEnd = timeFilter === 'Custom' && customEnd
     ? new Date(customEnd + 'T23:59:59').getTime()
     : Date.now();
+
+  const totalHrs  = Math.round(filtered.reduce((s, e) => s + watchHoursInPeriod(e, periodStart, periodEnd), 0) * 10) / 10;
+  const totalDays = Math.round(totalHrs / 24 * 10) / 10;
+  const rated     = filtered.filter(e => e.rating);
+  const avgRating = rated.length
+    ? Math.round(rated.reduce((s, e) => s + e.rating, 0) / rated.length * 10) / 10
+    : null;
+  const flaggedCount = entries.filter(e => e.status === 'watched' && !e.rating).length;
 
   function sessionInPeriod(s) {
     if (!s.date) return false;
@@ -761,13 +791,13 @@ export default function StatsScreen() {
     const avg     = ratedEs.length
       ? Math.round(ratedEs.reduce((s, e) => s + e.rating, 0) / ratedEs.length * 10) / 10
       : null;
-    // For watched entries: ep is episodes watched (fall back to total if ep missing).
-    // For watching entries: only ep (episodes watched so far) — never use total.
-    const totalEps = type !== 'Movie' ? es.reduce((sum, e) => {
-      const eps = e.status === 'watched' ? (e.ep || e.total || 0) : (e.ep || 0);
-      return sum + eps;
-    }, 0) : 0;
-    return { type, count: es.length, hours: Math.round(es.reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10, avg, totalEps };
+    // Episode count: for watching entries, only count episodes from sessions within the period
+    const totalEps = type !== 'Movie'
+      ? es.reduce((sum, e) => sum + epsWatchedInPeriod(e, periodStart, periodEnd), 0)
+      : 0;
+    // Hours: for watching entries, only count hours from sessions within the period
+    const hours = Math.round(es.reduce((s, e) => s + watchHoursInPeriod(e, periodStart, periodEnd), 0) * 10) / 10;
+    return { type, count: es.length, hours, avg, totalEps };
   }).filter(c => c.count > 0);
 
   const radarCounts = GENRE_LIST.map(g => ({
@@ -828,7 +858,7 @@ export default function StatsScreen() {
     type,
     value: metric === 'titles'
       ? filteredForType(type).length
-      : Math.round(filteredForType(type).reduce((s, e) => s + entryWatchHours(e), 0) * 10) / 10,
+      : Math.round(filteredForType(type).reduce((s, e) => s + watchHoursInPeriod(e, periodStart, periodEnd), 0) * 10) / 10,
   })).filter(tc => tc.value > 0);
 
   return (
@@ -911,7 +941,7 @@ export default function StatsScreen() {
                 <View style={{ gap: 10 }}>
                   {catStats.map(c => (
                     <CategoryBreakdownRow key={c.type} c={c}
-                      entries={filteredForType(c.type).map(e => ({ ...e, hours: entryWatchHours(e) }))}
+                      entries={filteredForType(c.type).map(e => ({ ...e, hours: watchHoursInPeriod(e, periodStart, periodEnd) }))}
                     />
                   ))}
                 </View>
@@ -1116,7 +1146,7 @@ export default function StatsScreen() {
                 <View style={{ gap: 10 }}>
                   {catStats.map(c => (
                     <CategoryBreakdownRow key={c.type} c={c}
-                      entries={filteredForType(c.type).map(e => ({ ...e, hours: entryWatchHours(e) }))}
+                      entries={filteredForType(c.type).map(e => ({ ...e, hours: watchHoursInPeriod(e, periodStart, periodEnd) }))}
                     />
                   ))}
                 </View>
