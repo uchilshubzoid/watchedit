@@ -514,6 +514,9 @@ export default function LogItDetails() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const watchEndDisplay = watchEndDate
+      ? new Date(watchEndDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : today;
     let epWatchedRuntime = null;
     if (isTV && isCurrent && epWatched > 0 && resolvedRuntime) {
       const mins = resolvedRuntime * epWatched;
@@ -536,7 +539,7 @@ export default function LogItDetails() {
           ? (isTV ? (estimatedTotalMins ? `~${Math.floor(estimatedTotalMins/60)}h ${estimatedTotalMins%60}m` : null) : movieWatchTimeStr)
           : epWatchedRuntime,
         estimated: isTV,
-        finishedDate: watchStatus === 'watched' ? (existing.finishedDate || today) : existing.finishedDate,
+        finishedDate: watchStatus === 'watched' ? watchEndDisplay : existing.finishedDate,
         watch_start_date: watchStartDate || existing.watch_start_date,
         watch_end_date: watchStatus === 'watched' ? watchEndDate : existing.watch_end_date,
         watch_platform: watchPlatform === 'Others' ? (customPlatform.trim() || null) : (watchPlatform || null),
@@ -557,7 +560,7 @@ export default function LogItDetails() {
         total: totalEpisodes, ongoing,
         rewatch: isRewatch, paused: false, dropped: false,
         date: today,
-        finishedDate: watchStatus === 'watched' ? today : null,
+        finishedDate: watchStatus === 'watched' ? watchEndDisplay : null,
         lastWatchedDate: isCurrent ? today : null,
         watchTime: watchStatus === 'watched'
           ? (isTV ? (estimatedTotalMins ? `~${Math.floor(estimatedTotalMins/60)}h ${estimatedTotalMins%60}m` : null) : movieWatchTimeStr)

@@ -37,10 +37,16 @@ function daysAgoStr(e) {
 function getActivityDate(e) {
   if (e.watch_end_date) return new Date(e.watch_end_date + 'T12:00:00').getTime();
   if (e.status === 'watching') {
-    // Use most recent session's ISO date — always reliably parseable on Android/Hermes
+    // Use the most recent session ISO date (max, not last-by-position — handles backdated sessions)
     if (e.watch_sessions?.length) {
-      const last = e.watch_sessions[e.watch_sessions.length - 1];
-      if (last?.date) return new Date(last.date + 'T12:00:00').getTime();
+      let maxMs = 0;
+      for (const s of e.watch_sessions) {
+        if (s.date) {
+          const ms = new Date(s.date + 'T12:00:00').getTime();
+          if (ms > maxMs) maxMs = ms;
+        }
+      }
+      if (maxMs > 0) return maxMs;
     }
     if (e.watch_start_date) return new Date(e.watch_start_date + 'T12:00:00').getTime();
   }
