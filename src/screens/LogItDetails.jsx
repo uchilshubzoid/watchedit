@@ -569,7 +569,10 @@ export default function LogItDetails() {
         poster_url: highResPosterUrl(show?.poster_url),
         malRating: show?.global_rating || null,
         ratingSource: show?.source || null,
-        watch_sessions: [], episode_notes: {},
+        watch_sessions: (isCurrent && epWatched > 0)
+          ? [{ ep_from: 1, ep_to: epWatched, date: todayISO, date_display: today }]
+          : [],
+        episode_notes: {},
         watch_start_date: isCurrent ? (watchStartDate || todayISO) : (watchStartDate || null),
         watch_end_date: watchStatus === 'watched' ? watchEndDate : null,
         logged_at: new Date().toISOString(),
