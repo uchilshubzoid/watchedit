@@ -229,6 +229,8 @@ export default function DetailView() {
 
   // For currently watching: prefer user-set watch_start_date, then first sesh date, then add date
   const watchingStart   = entry.watch_start_date ? fmtDateShort(entry.watch_start_date) : (firstSesh?.date_display || entry.date);
+  // Real last-activity date for watching entries — no fallback to entry.date (log date)
+  const watchingRealEnd = lastSesh?.date_display || entry.lastWatchedDate || null;
   const watchingSameDay = watchingStart === endDate;
 
   // Canonical display dates for the Watch Log timeline
@@ -465,7 +467,12 @@ export default function DetailView() {
                 ? <Text style={styles.dateRange}>{watchedStartDate} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{watchedEndDate}</Text></Text>
                 : <Text style={styles.dateText}>{watchedEndDate}</Text>
             )}
-            {(isWatching || isDropped) && (
+            {isWatching && (
+              watchingRealEnd && watchingRealEnd !== watchingStart
+                ? <Text style={styles.dateRange}>{watchingStart} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{watchingRealEnd}</Text></Text>
+                : <Text style={styles.dateText}>{watchingStart}</Text>
+            )}
+            {isDropped && (
               !watchingSameDay
                 ? <Text style={styles.dateRange}>{watchingStart} <Text style={styles.dateArrow}>→</Text> <Text style={styles.dateEnd}>{endDate}</Text></Text>
                 : <Text style={styles.dateText}>{watchingStart}</Text>
