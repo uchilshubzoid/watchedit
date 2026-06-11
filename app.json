@@ -35,7 +35,7 @@
         {
           "backgroundColor": "#292826",
           "image": "./assets/splash.png",
-          "imageWidth": 200
+          "imageWidth": 400
         }
       ],
       "expo-sharing",
