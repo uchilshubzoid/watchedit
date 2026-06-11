@@ -77,12 +77,11 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 - Tone audit complete: empty states, errors, action labels, and toast copy across all screens.
 - WatchList: filter sheet (rating slider, watch date, platform, genre, language), selection mode, swipe tab navigation, HTML/JSON/CSV export, JSON import.
 - Stats screen: full redesign with time filters, type breakdown, per-session timeline chart, active days, insights widget, all period-accurate.
-- Google Drive sync UI fully wired: real Google OAuth (native Google Sign-In, `drive.appdata` scope) through `useGoogleAuth` helper. WatcherScreen shows guest Link row and connected state (email, last sync, 3-state Sync Now, Unlink). Actual Drive API file read/write is stubbed — planned for Stage 3.
+- Google Drive sync fully complete: real Google OAuth (native Google Sign-In, `drive.appdata` scope) through `useGoogleAuth` helper. Real Drive API calls in `src/services/driveSync.js` — backup (multipart upload to `appDataFolder`), restore (download + merge/replace), token refresh on 401, debounced auto-backup via `scheduleDriveBackup`. WatcherScreen shows guest Link row and connected state (email, last sync, 3-state Sync Now, Unlink).
 - Play Store: app live in closed testing on Google Play (Jun 2026). Package `com.watchedit.app`. EAS build pipeline in place (preview APK + production AAB profiles).
 - App assets finalised: icon, adaptive icon, splash screen.
 
 ### In Progress / Next
-- **Google Drive actual sync** — OAuth wired but `handleSyncNow()` is a 2s stub. Real implementation: write/read `watchedit_entries.json` to app's Drive `appdata` folder.
 - **Splash screen size on device** — `imageWidth` bumped to 400dp in plugin config; requires a fresh EAS build to take effect.
 - **Play Store** — promote from closed testing to open testing or production track once feedback is stable.
 

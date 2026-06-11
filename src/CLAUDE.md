@@ -187,6 +187,7 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **Google client setup:** `EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB` must live in `eas.json` for native builds because the app reads it at runtime. The Android OAuth client (package name + SHA-1) must still exist in Google Cloud Console, but its client ID is no longer read from `process.env` inside the app.
 - **Android auth strategy:** Browser-based `expo-auth-session` Google OAuth was removed after Google rejected the Android custom-scheme flow with `Error 400: invalid_request`. WatchedIt now uses the native Google Sign-In SDK path on Android.
 - **Expo Go OAuth limitation:** Google Sign-In **cannot be tested in Expo Go**. `@react-native-google-signin/google-signin` is a native module not bundled with the Expo Go client. Use `npm run android` (emulator/device) or install a preview APK for any OAuth testing.
+- **`src/services/driveSync.js`** — real Drive API sync implementation. Exports: `backupToDrive(token)` (multipart upload to `appDataFolder`, PATCH if file exists), `restoreFromDrive(token)` (download + parse), `applyRestore(entries, mode)` (merge or replace), `scheduleDriveBackup()` (debounced 5s auto-backup after any write). Token refresh on 401 via `GoogleSignin.getTokens()`. Concurrency guard (`isBackingUp`) throws `BACKUP_IN_PROGRESS` — caller catches silently. `AUTH_EXPIRED` error triggers UI unlink flow. `watchedit_backup_pending` key set before backup, cleared on success.
 
 ### Stage 2.16 — Stats Data Accuracy Fixes ✅ Complete (as of Jun 2026)
 - **`sessionDateInRange(e, start, end)`** — new helper in StatsScreen. Returns `true` if any `watch_sessions` entry has a `date` that falls within `[start, end]`. Used by `filterByPeriod` to include watching entries even when `parseActivityDate` (MAX session date) falls outside the selected window.
@@ -209,7 +210,7 @@ See spec v2.3 changelog for full detail. Key decisions:
 
 ### What's NOT built yet (do these next in order)
 1. **Play Store — closed testing live** ✅ App is live on Google Play in closed testing with real users (as of Jun 2026). Next: promote to open testing or production track once feedback is stable.
-2. **Google Drive actual sync** — OAuth wired but no actual Drive API calls yet. `handleSyncNow()` is stubbed with a 2s timeout. Real implementation: write/read `watchedit_entries.json` to the app's Drive `appdata` folder.
+2. **Google Drive sync** ✅ Fully implemented in `src/services/driveSync.js` — real Drive API backup/restore, token refresh, debounced auto-backup, merge/replace on restore.
 3. **Splash screen size** — `imageWidth` bumped 200 → 400dp in `expo-splash-screen` plugin config. Requires a fresh EAS build to take effect on device.
 
 ---
