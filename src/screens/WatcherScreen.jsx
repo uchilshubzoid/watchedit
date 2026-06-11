@@ -40,6 +40,22 @@ export default function WatcherScreen() {
   const driveRowAnim  = useRef(new Animated.Value(1)).current;
   const syncDoneTimer = useRef(null);
 
+  // Easter egg: 5 rapid taps on avatar launches onboarding replay
+  const avatarTapCount = useRef(0);
+  const avatarTapTimer = useRef(null);
+
+  function handleAvatarTap() {
+    avatarTapCount.current += 1;
+    if (avatarTapTimer.current) clearTimeout(avatarTapTimer.current);
+    if (avatarTapCount.current >= 5) {
+      avatarTapCount.current = 0;
+      AsyncStorage.removeItem('watchedit_onboarding_done');
+      router.replace('/onboarding');
+      return;
+    }
+    avatarTapTimer.current = setTimeout(() => { avatarTapCount.current = 0; }, 1500);
+  }
+
   // Toast
   const toastAnim   = useRef(new Animated.Value(0)).current;
   const toastTimer  = useRef(null);
@@ -323,9 +339,9 @@ export default function WatcherScreen() {
         <View style={styles.profileSection}>
           {!editMode ? (
             <View style={styles.profileIdentity}>
-              <View style={styles.avatar}>
+              <Pressable onPress={handleAvatarTap} style={styles.avatar}>
                 <Text style={styles.avatarText}>{getInitials(name)}</Text>
-              </View>
+              </Pressable>
               <Text style={styles.profileName}>{name}</Text>
               <Pressable
                 onPress={() => { setTempName(name); setEditMode(true); }}
@@ -555,18 +571,6 @@ export default function WatcherScreen() {
           </View>
         </View>
 
-        {/* Dev — replay onboarding */}
-        <Pressable
-          onPress={async () => {
-            await AsyncStorage.removeItem('watchedit_onboarding_done');
-            router.replace('/onboarding');
-          }}
-          style={styles.replayBtn}
-        >
-          <Ionicons name="refresh-outline" size={14} color={T.textMuted} style={{ opacity: 0.5 }} />
-          <Text style={styles.replayText}>Replay onboarding</Text>
-        </Pressable>
-
         {/* Log out */}
         <Pressable onPress={() => setLogoutModal(true)} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Log Out</Text>
@@ -775,12 +779,6 @@ const styles = StyleSheet.create({
   driveActionText: { color: T.textMuted, fontFamily: T.fontTitleMedium, fontSize: 12, textDecorationLine: 'underline' },
   driveActionUnlink: { color: T.dropped, opacity: 0.8 },
   driveActionDivider: { color: T.textMuted, opacity: 0.4, fontSize: 12 },
-
-  replayBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10, opacity: 0.5,
-  },
-  replayText: { color: T.textMuted, fontFamily: T.fontFun, fontSize: 12 },
 
   logoutBtn: { backgroundColor: T.surface, borderRadius: 18, paddingVertical: 14, alignItems: 'center' },
   logoutText: { color: T.dropped, fontFamily: T.fontTitle, fontSize: 14 },

@@ -242,7 +242,7 @@ export default function WatchTower() {
                 )}
               </View>
               <Text style={styles.titlesRow}>
-                <Text style={styles.titlesLabel}>titles watched</Text>
+                <Text style={styles.titlesLabel}>Titles watched</Text>
                 <Text style={styles.titlesSubLabel}> · {isRecent ? 'last 30 days' : 'all time'}</Text>
               </Text>
             </Pressable>

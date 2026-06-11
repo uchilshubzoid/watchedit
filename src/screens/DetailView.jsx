@@ -31,6 +31,18 @@ function fmtDateShort(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+// Short date strings like "Jun 11" don't carry a year. Infer it from a known ISO timestamp
+// (usually logged_at) so the "When I Watched It" section always shows a full date.
+function dateWithYear(shortStr, fallbackIso) {
+  if (!shortStr) return '';
+  if (/\d{4}/.test(shortStr)) return shortStr;
+  const year = fallbackIso ? new Date(fallbackIso).getFullYear() : new Date().getFullYear();
+  try {
+    const d = new Date(`${shortStr}, ${year} 12:00:00`);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {}
+  return shortStr;
+}
 
 function SectionLabel({ children }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
@@ -170,6 +182,40 @@ export default function DetailView() {
     .sort((a, b) => new Date(b.logged_at || 0) - new Date(a.logged_at || 0))
     .map(r => ({ icon: 'refresh-outline', label: 'Rewatched', date: r.finishedDate || r.date }));
 
+  // ── Date computations — must be defined BEFORE the DEETS arrays that reference them ──
+
+  // For watched/dropped: start = first session date (accurate sesh-level tracking)
+  const startDate = firstSesh?.date_display || null;
+  const endDate   = isWatched
+    ? (entry.finishedDate || lastSesh?.date_display || entry.date)
+    : (lastSesh?.date_display || entry.lastWatchedDate || entry.date);
+  const watchedStartDate = entry.watch_start_date
+    ? isoToDisplay(entry.watch_start_date)
+    : (startDate ? dateWithYear(startDate, entry.logged_at) : null);
+  const watchedEndDate = entry.watch_end_date
+    ? isoToDisplay(entry.watch_end_date)
+    : dateWithYear(entry.finishedDate || endDate, entry.logged_at);
+  const watchedHasDateRange = !!(watchedStartDate && watchedEndDate);
+
+  // For currently watching: prefer user-set watch_start_date, then first sesh date, then add date
+  const watchingStart   = entry.watch_start_date ? fmtDateShort(entry.watch_start_date) : (firstSesh?.date_display || entry.date);
+  // Real last-activity date for watching entries — no fallback to entry.date (log date)
+  const watchingRealEnd = lastSesh?.date_display || entry.lastWatchedDate || null;
+  const watchingSameDay = watchingStart === endDate;
+
+  // Canonical display dates for the Watch Log timeline
+  const finishedDisplayDate   = entry.watch_end_date
+    ? isoToDisplay(entry.watch_end_date)
+    : dateWithYear(entry.finishedDate || entry.date, entry.logged_at);
+  const watchStartDisplayDate = entry.watch_start_date
+    ? isoToDisplay(entry.watch_start_date)
+    : null;
+  const watchingDeetsStartDate = entry.watch_start_date
+    ? isoToDisplay(entry.watch_start_date)
+    : (firstSesh?.date_display || entry.date);
+
+  // ── Watch Log timeline item arrays ──
+
   const DEETS_WATCHED = hasSessions
     ? [
         { icon: 'checkmark-circle-outline', label: 'Finished', date: finishedDisplayDate },
@@ -218,31 +264,6 @@ export default function DetailView() {
   const logWillComplete = !entry.ongoing && epTotal > 0 && logEpTo >= epTotal;
   const posterModalUrl = highResPosterUrl(entry.poster_url);
 
-  // For watched/dropped: start = first session date (accurate sesh-level tracking)
-  const startDate = firstSesh?.date_display || null;
-  const endDate   = isWatched
-    ? (entry.finishedDate || lastSesh?.date_display || entry.date)
-    : (lastSesh?.date_display || entry.lastWatchedDate || entry.date);
-  const watchedStartDate = entry.watch_start_date ? isoToDisplay(entry.watch_start_date) : startDate;
-  const watchedEndDate   = entry.watch_end_date ? isoToDisplay(entry.watch_end_date) : (entry.finishedDate || endDate);
-  const watchedHasDateRange = !!(watchedStartDate && watchedEndDate);
-
-  // For currently watching: prefer user-set watch_start_date, then first sesh date, then add date
-  const watchingStart   = entry.watch_start_date ? fmtDateShort(entry.watch_start_date) : (firstSesh?.date_display || entry.date);
-  // Real last-activity date for watching entries — no fallback to entry.date (log date)
-  const watchingRealEnd = lastSesh?.date_display || entry.lastWatchedDate || null;
-  const watchingSameDay = watchingStart === endDate;
-
-  // Canonical display dates for the Watch Log timeline
-  const finishedDisplayDate    = entry.watch_end_date
-    ? isoToDisplay(entry.watch_end_date)
-    : (entry.finishedDate || entry.date);
-  const watchStartDisplayDate  = entry.watch_start_date
-    ? isoToDisplay(entry.watch_start_date)
-    : null;
-  const watchingDeetsStartDate = entry.watch_start_date
-    ? isoToDisplay(entry.watch_start_date)
-    : (firstSesh?.date_display || entry.date);
 
   const watchSectionLabel = isWatching ? 'Watching Since' : isDropped ? 'Watching Period' : isPlan ? 'Added On' : 'When I Watched It';
 
