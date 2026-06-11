@@ -208,8 +208,9 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **DetailView "When I Watched It" year inference:** `finishedDate`, `lastWatchedDate`, and session `date_display` are stored as short strings like "Jun 11" (via `fmtDateShort`) — no year. When `watch_end_date` (ISO) is absent, these fell back to short strings, causing the "When I Watched It" section to show without a year for older entries. Fix: added `dateWithYear(shortStr, fallbackIso)` helper that checks if the string already contains a 4-digit year; if not, infers the year from `entry.logged_at` (always an ISO timestamp) and re-formats with `toLocaleDateString` including year. Applied to `watchedEndDate`, `watchedStartDate` (session path), and `finishedDisplayDate` fallbacks. Entries with `watch_end_date` (ISO) continue to use `isoToDisplay` directly and are unaffected.
 
 ### What's NOT built yet (do these next in order)
-1. **Play Store submission** — account verified; add env keys to `production` profile in `eas.json`, then submit AAB + store listing
+1. **Play Store — closed testing live** ✅ App is live on Google Play in closed testing with real users (as of Jun 2026). Next: promote to open testing or production track once feedback is stable.
 2. **Google Drive actual sync** — OAuth wired but no actual Drive API calls yet. `handleSyncNow()` is stubbed with a 2s timeout. Real implementation: write/read `watchedit_entries.json` to the app's Drive `appdata` folder.
+3. **Splash screen size** — `imageWidth` bumped 200 → 400dp in `expo-splash-screen` plugin config. Requires a fresh EAS build to take effect on device.
 
 ---
 
