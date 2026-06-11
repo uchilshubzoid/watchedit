@@ -65,21 +65,26 @@ Every title you've watched, rated, and remembered — searchable, analysable, an
 
 ## 1A. Current Build Status
 
-### Complete
+### Complete (as of Jun 2026)
 - Stage 1 React web shell is complete and kept only as reference.
-- Stage 2 Expo native migration is complete.
-- Expo Router route structure is in place.
-- Core screens have native implementations in `src/screens/`.
-- Shared UI components have native implementations in `src/components/`.
-- MAL, TMDB, and OMDB search are wired through the unified search entry point.
-- Local persistence is AsyncStorage-based.
-- App assets are present in `assets/icon.png`, `assets/splash.png`, and `assets/adaptive-icon.png`.
-- Deprecated Create React App files are archived in `archive/web-shell/`.
+- Stage 2 Expo native migration is complete — all screens and components built in React Native + Expo Router.
+- All core screens live: Watch Tower, WatchList, Log It (search + details), Detail View, Stats, Search, Watcher (profile), Manage Tags & Categories, Recommendations.
+- MAL, TMDB, and OMDB search wired through unified search entry point with 8s API timeouts.
+- Local persistence is AsyncStorage-based (all entry CRUD, categories, preferences).
+- 4-screen onboarding flow complete: name input → about WatchedIt → auth choice → Drive success / guest callout.
+- Screen transition polish complete: fade-back hook, slide-from-bottom for Log It, slide-from-right for onboarding.
+- UX pass complete: tap targets, sub-copy readability, font system (Nunito + Inconsolata + Fredoka), all emoji icons replaced with Ionicons/MaterialCommunityIcons.
+- Tone audit complete: empty states, errors, action labels, and toast copy across all screens.
+- WatchList: filter sheet (rating slider, watch date, platform, genre, language), selection mode, swipe tab navigation, HTML/JSON/CSV export, JSON import.
+- Stats screen: full redesign with time filters, type breakdown, per-session timeline chart, active days, insights widget, all period-accurate.
+- Google Drive sync UI fully wired: real Google OAuth (native Google Sign-In, `drive.appdata` scope) through `useGoogleAuth` helper. WatcherScreen shows guest Link row and connected state (email, last sync, 3-state Sync Now, Unlink). Actual Drive API file read/write is stubbed — planned for Stage 3.
+- Play Store: app live in closed testing on Google Play (Jun 2026). Package `com.watchedit.app`. EAS build pipeline in place (preview APK + production AAB profiles).
+- App assets finalised: icon, adaptive icon, splash screen.
 
-### Next Product Work
-1. Screen transition polish and UX pass.
-2. Tone audit across empty states, errors, and action labels.
-3. Release polish and Play Store prep.
+### In Progress / Next
+- **Google Drive actual sync** — OAuth wired but `handleSyncNow()` is a 2s stub. Real implementation: write/read `watchedit_entries.json` to app's Drive `appdata` folder.
+- **Splash screen size on device** — `imageWidth` bumped to 400dp in plugin config; requires a fresh EAS build to take effect.
+- **Play Store** — promote from closed testing to open testing or production track once feedback is stable.
 
 ### Do Not Use For New Work
 - `src/screens/WatchedItApp.jsx` — migration reference only.

@@ -115,7 +115,7 @@ See spec v2.3 changelog for full detail. Key decisions:
 - **Build commands:**
   - APK (sideload / device testing): `eas build --platform android --profile preview`
   - AAB (Play Store submission): `eas build --platform android --profile production`
-- **Play Store:** Developer account created; verification in progress. Package name: `com.watchedit.app`. First submission pending account approval.
+- **Play Store:** App live on Google Play in closed testing with real users (as of Jun 2026). Package name: `com.watchedit.app`. Next: promote to open testing or production track once feedback is stable.
 
 ### Stage 2.9 — Font System Expansion + UX Bug Fixes ✅ Complete (as of May 2026)
 - **Fredoka font system:** Added `Fredoka_400Regular` from `@expo-google-fonts/fredoka`. Registered as `'Fredoka-Regular'` in `app/_layout.jsx`. New design token `T.fontFun = 'Fredoka-Regular'` added to `src/constants/tokens.js`. Used for subtexts, labels, and secondary copy across all screens (not titles, CTAs, or numbers — those stay Nunito; not dates/mono — those stay Inconsolata). Varela Round was trialled for numbers then rolled back; all number styles remain Nunito.
